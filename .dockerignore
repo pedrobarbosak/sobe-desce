@@ -1,0 +1,13 @@
+# Keep the image build honest: it must see what a fresh clone sees, not this machine's
+# generated output. These are all gitignored.
+node_modules
+dist
+.git
+.env
+.env.*
+src/routeTree.gen.ts
+backups
+cloudflared
+docs
+tests
+.claude
