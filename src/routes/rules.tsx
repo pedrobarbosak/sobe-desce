@@ -1,0 +1,51 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+import { Panel } from "@/components/ui/Panel";
+
+export const Route = createFileRoute("/rules")({ component: RulesPage });
+
+const PT = {
+  sections: [
+    { h: "Objetivo", p: ["Aqui joga cada um por si. Todos começam com os mesmos pontos e o objetivo é chegar a 0. Os pontos são contados no fim de cada ronda; se desceres abaixo de 0, ficas em 0.", "Se vários jogadores chegarem a 0 na mesma ronda, ganha quem ficaria com menos pontos antes desse ajuste. Em caso de empate, ganha quem vier primeiro na ordem de jogo, a partir da esquerda de quem deu as cartas."] },
+    { h: "Cartas", p: ["Baralho de 40: A, 7, K, J, Q, 6, 5, 4, 3, 2 (do mais alto ao mais baixo).", "Baralho de 52: A, 7, K, J, Q, 10, 9, 8, 6, 5, 4, 3, 2."] },
+    { h: "Ronda", p: ["1. Dão-se 3 cartas a cada um, a começar à esquerda de quem dá.", "2. O jogador à esquerda de quem dá escolhe o trunfo, ou vira a carta seguinte do baralho e o naipe dela manda. A carta virada fica à vista de todos e vai para a mão de quem virou.", "2b. Copas no escuro: nos primeiros segundos da ronda, antes de lhe mostrarem uma única carta, esse jogador pode chamar copas às cegas. Recebe logo as 5 cartas e a ronda conta a quádruplo, a ganhar e a perder. Se deixar passar o tempo, vê as cartas e escolhe como sempre.", "3. Dão-se mais 2 cartas a cada um, ficando todos com 5.", "4. Na sua vez, cada jogador escolhe se quer trocar cartas, jogar com as que tem ou passar a ronda. As trocas têm um limite e nem sempre é permitido passar.", "5. Jogam-se 5 vazas. Começa o primeiro jogador que vai jogar a ronda, a contar da esquerda de quem deu as cartas.", "6. Fazem-se as contas e passa a vez de dar as cartas ao jogador seguinte."] },
+    { h: "Passar a ronda", p: ["Não podes passar mais de 2 rondas seguidas, nem quando tens menos pontos do que o limite definido na mesa, nem quando o trunfo é paus. Se escolheres jogar, com ou sem troca de cartas, já não podes passar essa ronda.", "Quem escolhe o naipe do trunfo fica logo comprometido e tem de jogar a ronda. Quem prefere virar a carta não fica: pode na mesma passar."] },
+    { h: "Vazas", p: ["Uma vaza é uma volta à mesa em que cada jogador em jogo lança uma carta. Tens de assistir: jogar uma carta do mesmo naipe da primeira carta da vaza. Se não tiveres esse naipe, só és obrigado a trunfar se algum dos teus trunfos bater a carta que está a ganhar, e nesse caso tens de jogar um que bata. Se nenhum bater, jogas o que quiseres.", "Sobe: ao assistir ou trunfar, se puderes bater a carta que está a ganhar, tens de o fazer.", "Se fores o primeiro a jogar numa vaza e tiveres o ás de trunfo, tens de sair com ele. Ganha o trunfo mais alto; se ninguém trunfar, ganha a carta mais alta do naipe de saída. Quem ganha a vaza começa a seguinte."] },
+    { h: "Pontos", p: ["Cada vaza tira-te 1 ponto. Se jogares e não fizeres nenhuma, somas 5 pontos, a menos que a mesa tenha outra penalização definida. Se passares a ronda, os teus pontos não mudam.", "Com copas como trunfo, conta tudo a dobrar: tiras 2 pontos por vaza e a penalização por não fazer nenhuma também duplica. Se as copas foram chamadas no escuro, conta tudo a quádruplo. Com paus, ninguém pode passar a ronda."] },
+    { h: "Limite de troca", p: ["O número de cartas que podes trocar depende do baralho e de quantos jogadores estão à mesa. O limite fica entre 1 e 5 cartas.", "Com 40 cartas: 4 jogadores podem trocar até 5 cartas cada; 5 jogadores, até 3; 6 jogadores, apenas 1.", "Com 52 cartas: 4 ou 5 jogadores podem trocar até 5 cartas cada; 6 jogadores, até 3; 7 jogadores, até 2; 8 jogadores, apenas 1."] },
+    { h: "Campanha", p: ["Podes juntar até 16 inscritos, mesmo que não caibam todos à mesa ao mesmo tempo. Em cada sessão, joga quem aparece. Quando a sessão começa, o grupo fica definido e o limite de troca é ajustado ao número de jogadores. Quem não joga mantém os seus pontos. A campanha termina quando alguém chega a 0 no fim de uma ronda."] },
+  ],
+};
+
+const EN = {
+  sections: [
+    { h: "Goal", p: ["A trick-taking game with no partnerships. Everyone starts on the same score and races down to exactly 0. First to 0 wins immediately. Going below 0 lands on 0 and wins."] },
+    { h: "Cards", p: ["40-card deck: A, 7, K, J, Q, 6, 5, 4, 3, 2 (high to low).", "52-card deck: A, 7, K, J, Q, 10, 9, 8, 6, 5, 4, 3, 2."] },
+    { h: "Round", p: ["1. Deal 3 cards each, starting left of the dealer.", "2. The player left of the dealer names trump, or flips the next card off the stock and takes its suit. The flipped card is shown to the table and goes into the flipper\u2019s hand.", "2b. Hearts in the dark: for the first seconds of the round, before being shown a single card, that player may call hearts blind. They get all 5 cards at once and the round counts fourfold, winning and losing alike. Let the window lapse and they see their cards and choose as usual.", "3. Deal 2 more (5 total).", "4. In order, each player discards 0 up to the cap and draws, or sits the round out.", "5. Play 5 tricks, led by the player left of the dealer.", "6. Score, then the deal rotates."] },
+    { h: "Sitting out", p: ["You may not sit out more than 2 rounds in a row, nor below the forced-play threshold, nor when Clubs are trump. Once you discard you are committed.", "Naming the suit commits you to the round. Flipping for it does not: a flipper may still sit out."] },
+    { h: "Tricks", p: ["Follow the led suit if you can. If void, you only have to trump when one of your trumps actually beats the winning card, and then you must play a beating one. If none of them beats it, play anything.", "Sobe: when following suit or trumping, if you can beat the winning card you must.", "If you hold the Ace of trumps and it is your lead, you must lead it. Highest trump wins, else highest of the led suit. The winner leads next."] },
+    { h: "Scoring", p: ["-1 per trick. +5 if you played and won none. Sitting out changes nothing.", "Hearts: everything doubles (-2 per trick, +10 for a blank). Hearts called in the dark: everything quadruples. Clubs: nobody may sit out."] },
+    { h: "Discard cap", p: ["Derived from deck and seated players: floor(cards / players) - 5, clamped to 1..5. 40 cards: 4→5, 5→3, 6→1. 52 cards: 4→5, 5→5, 6→3, 7→2, 8→1."] },
+    { h: "Campaign", p: ["Up to 16 enrolled, more than the seats. Each sitting, whoever shows up plays; the seat count locks and the discard cap is recomputed. Absent players are frozen. The game ends the moment anyone reaches 0."] },
+  ],
+};
+
+function RulesPage() {
+  const { t, i18n } = useTranslation();
+  const rules = i18n.language.startsWith("en") ? EN : PT;
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <h1 className="font-display text-4xl font-extrabold text-cream-50">{t("nav.rules")}</h1>
+      {rules.sections.map((s) => (
+        <Panel key={s.h}>
+          <h2 className="font-display text-xl font-bold text-gold-400">{s.h}</h2>
+          <div className="mt-2 space-y-1.5 text-sm text-cream-100/90">
+            {s.p.map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
+        </Panel>
+      ))}
+    </div>
+  );
+}
