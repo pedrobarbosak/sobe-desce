@@ -1,0 +1,20 @@
+node_modules
+dist
+.env
+.env.local
+.env.local.*
+.env.*.local
+# convex/_generated is deliberately committed: the Convex CLI generates it from the
+# contents of convex/, and without it nothing typechecks. See docs/DEPLOY.md.
+src/routeTree.gen.ts
+.convex
+*.log
+
+# Deployment secrets, tunnel credentials and local backups. cloudflared/config.yml is
+# generated per host and names that host's tunnel, so it is not shared either.
+.env.deploy
+.env.deploy.tmp
+cloudflared/*.json
+cloudflared/config.yml
+cloudflared/cert.pem
+backups/
