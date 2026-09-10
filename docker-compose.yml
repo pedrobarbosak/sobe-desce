@@ -1,0 +1,93 @@
+# Self-hosted Sobe e Desce: Convex backend, the static frontend, and the Cloudflare
+# tunnel that puts both on the internet.
+#
+# Every port binds to 127.0.0.1 on purpose. Nothing here is reachable from the network
+# except through the tunnel, which terminates TLS at Cloudflare's edge.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  backend:
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_REV:-latest}
+    container_name: sobe-desce-convex
+    logging: *logging
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3210}:3210"
+      - "127.0.0.1:${SITE_PORT:-3211}:3211"
+    volumes:
+      - data:/convex/data
+    environment:
+      # These must be the URLs a browser uses, not the internal ones. If they disagree
+      # the client connects and then fails auth in a way that is painful to debug.
+      - CONVEX_CLOUD_ORIGIN=${CONVEX_CLOUD_ORIGIN:?set it in .env.deploy}
+      - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:?set it in .env.deploy}
+      - INSTANCE_NAME=${INSTANCE_NAME:-sobe-desce}
+      - INSTANCE_SECRET=${INSTANCE_SECRET:?run scripts/bootstrap.sh}
+      - DISABLE_BEACON=${DISABLE_BEACON:-true}
+      - DISABLE_METRICS_ENDPOINT=${DISABLE_METRICS_ENDPOINT:-true}
+      - RUST_LOG=${RUST_LOG:-info}
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      args:
+        # Baked into the bundle at build time; a change here needs a rebuild.
+        VITE_CONVEX_URL: ${CONVEX_CLOUD_ORIGIN:?}
+        VITE_CONVEX_SITE_URL: ${CONVEX_SITE_ORIGIN:?}
+    image: sobe-desce-web:${WEB_TAG:-latest}
+    container_name: sobe-desce-web
+    logging: *logging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
+
+  # Kept off the tunnel deliberately: it is an unauthenticated admin console. Reach it
+  # over SSH with `ssh -L 6791:127.0.0.1:6791 user@vps`.
+  dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_REV:-latest}
+    container_name: sobe-desce-dashboard
+    logging: *logging
+    restart: unless-stopped
+    profiles: ["dashboard"]
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-6791}:6791"
+    environment:
+      # Deliberately the local address, not the public one: this console is reached over
+      # an SSH forward, and is most needed when the tunnel is the thing that is broken.
+      - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:${BACKEND_PORT:-3210}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: sobe-desce-tunnel
+    logging: *logging
+    restart: unless-stopped
+    # The image runs as uid 65532, which cannot read a 0600 credentials file owned by the
+    # host user. Run as that user instead of loosening the file. scripts/tunnel.sh writes
+    # TUNNEL_USER; the fallback is the image's own default.
+    user: "${TUNNEL_USER:-65532:65532}"
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+volumes:
+  data:
