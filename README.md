@@ -1,0 +1,57 @@
+# Sobe e Desce
+
+Online, real-time multiplayer version of the Portuguese trick-taking game **Sobe e Desce**.
+
+- **Backend**: [Convex](https://convex.dev) (server-authoritative, realtime subscriptions)
+- **Auth**: Better Auth via `@convex-dev/better-auth` (anonymous by default; link Discord, Microsoft Entra ID or an email magic link)
+- **Frontend**: Vite + React + TypeScript + TanStack Router + Tailwind v4 + Motion
+- **Rules engine**: pure TypeScript in `src/engine`, shared by server validation and client card-greying
+
+## Run locally
+
+```bash
+npm install
+npx convex dev          # first run: pick "Start without an account" for a local backend, or log in
+npm run dev             # Vite on http://localhost:5173
+```
+
+`npx convex dev` writes `.env.local` with `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL`.
+Then set the auth secrets on the deployment:
+
+```bash
+npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+npx convex env set SITE_URL http://localhost:5173
+# optional providers
+npx convex env set DISCORD_CLIENT_ID ...      && npx convex env set DISCORD_CLIENT_SECRET ...
+npx convex env set MICROSOFT_CLIENT_ID ...    && npx convex env set MICROSOFT_CLIENT_SECRET ...
+npx convex env set MICROSOFT_TENANT_ID common
+npx convex env set RESEND_API_KEY ...         # magic-link emails; without it the link is printed in the Convex logs
+```
+
+OAuth redirect URIs point at the Convex site URL: `https://<deployment>.convex.site/api/auth/callback/discord`
+and `.../api/auth/oauth2/callback/microsoft-entra-id`.
+
+## Deploying
+
+Self-hosted on a VPS: Convex backend, static frontend and a Cloudflare tunnel, all in
+Docker. See [docs/DEPLOY.md](docs/DEPLOY.md). Local development stays on localhost and
+needs none of this.
+
+```bash
+./scripts/bootstrap.sh && ./scripts/tunnel.sh && ./scripts/deploy.sh
+```
+
+## Tests
+
+```bash
+npm test                # engine rules + Convex game loop (convex-test)
+npm run typecheck
+```
+
+## Layout
+
+```
+src/engine/     pure rules: cards, legal plays (sobe), scoring, round reducer, bots
+convex/         schema, auth, games/sessions/presence, game loop (actions, timers, bots), history
+src/routes/     landing, new game, join, lobby, live table, standings, history, manual entry, account
+```
