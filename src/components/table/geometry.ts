@@ -1,0 +1,49 @@
+/** Seat placement around an ellipse. The viewer always sits at the bottom (6 o'clock). */
+export type Ellipse = { cx: number; cy: number; rx: number; ry: number };
+
+export const DEFAULT_ELLIPSE: Ellipse = { cx: 50, cy: 47, rx: 43, ry: 38 };
+
+export function seatAngle(rel: number, n: number): number {
+  return Math.PI / 2 + (rel * 2 * Math.PI) / n;
+}
+
+export function seatPosition(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPSE) {
+  const a = seatAngle(rel, n);
+  return { x: e.cx + e.rx * Math.cos(a), y: e.cy + e.ry * Math.sin(a), angle: a };
+}
+
+/** Where a played card lands: between the centre and the seat. */
+export function trickSlot(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPSE) {
+  const a = seatAngle(rel, n);
+  return {
+    x: e.cx + e.rx * 0.36 * Math.cos(a),
+    y: e.cy + e.ry * 0.4 * Math.sin(a),
+    rotate: ((a - Math.PI / 2) * 180) / Math.PI,
+  };
+}
+
+/**
+ * Which seats occupy the ring and in what order. Once the tricks start, players who sat
+ * out leave the ring so the rest spread out evenly. Returns the ordered seat list.
+ */
+export function ringLayout(seatCount: number, inRing: (seat: number) => boolean): number[] {
+  const out: number[] = [];
+  for (let s = 0; s < seatCount; s++) if (inRing(s)) out.push(s);
+  return out;
+}
+
+/** Position lookup for a seat within a ring layout; the viewer (or seat 0) anchors the bottom. */
+export function ringPlacer(layout: number[], mySeat: number, e: Ellipse = DEFAULT_ELLIPSE) {
+  const n = Math.max(1, layout.length);
+  const anchorIdx = Math.max(0, layout.indexOf(mySeat));
+  const rel = (seat: number) => {
+    const idx = layout.indexOf(seat);
+    return ((idx < 0 ? 0 : idx) - anchorIdx + n) % n;
+  };
+  return {
+    n,
+    rel,
+    seat: (seat: number) => seatPosition(rel(seat), n, e),
+    slot: (seat: number) => trickSlot(rel(seat), n, e),
+  };
+}

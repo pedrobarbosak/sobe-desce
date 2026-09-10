@@ -1,0 +1,57 @@
+import { forwardRef } from "react";
+import { type Card as CardT, SUIT_SYMBOLS, rankOf, suitOf } from "@/engine";
+
+const SUIT_COLOR = { H: "#d1213a", D: "#f2701d", C: "#1c1c1c", S: "#1c2b4a" } as const;
+
+type Props = {
+  card: CardT;
+  width?: number;
+  dimmed?: boolean;
+  selected?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+  title?: string;
+};
+
+export const CardFace = forwardRef<HTMLDivElement, Props>(function CardFace(
+  { card, width = 72, dimmed, selected, className = "", style, onClick, title },
+  ref,
+) {
+  const suit = suitOf(card);
+  const rank = rankOf(card);
+  const color = SUIT_COLOR[suit];
+  const height = width * 1.42;
+  return (
+    <div
+      ref={ref}
+      title={title}
+      onClick={onClick}
+      className={`card-face relative select-none ${onClick ? "cursor-pointer" : ""} ${dimmed ? "opacity-45 saturate-50" : ""} ${selected ? "card-selected" : ""} ${className}`}
+      style={{ width, height, fontSize: width * 0.3, ...style }}
+      role={onClick ? "button" : undefined}
+      aria-label={`${rank}${SUIT_SYMBOLS[suit]}`}
+    >
+      <div className="absolute left-1.5 top-1 flex flex-col items-center leading-none" style={{ color }}>
+        <span className="font-display font-extrabold">{rank}</span>
+        <span style={{ fontSize: "0.8em" }}>{SUIT_SYMBOLS[suit]}</span>
+      </div>
+      <div className="absolute bottom-1 right-1.5 flex rotate-180 flex-col items-center leading-none" style={{ color }}>
+        <span className="font-display font-extrabold">{rank}</span>
+        <span style={{ fontSize: "0.8em" }}>{SUIT_SYMBOLS[suit]}</span>
+      </div>
+      <div className="absolute inset-0 flex items-center justify-center" style={{ color, fontSize: width * 0.62 }}>
+        {SUIT_SYMBOLS[suit]}
+      </div>
+      {selected && (
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gold-400 px-2 text-[11px] font-bold text-ink-900 shadow" style={{ fontSize: Math.max(11, width * 0.16) }}>
+          ✓
+        </div>
+      )}
+    </div>
+  );
+});
+
+export function CardBack({ width = 72, className = "", style }: { width?: number; className?: string; style?: React.CSSProperties }) {
+  return <div className={`card-back ${className}`} style={{ width, height: width * 1.42, ...style }} aria-hidden />;
+}
