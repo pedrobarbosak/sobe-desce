@@ -180,6 +180,10 @@ A server checkout never has this problem, since the file is gitignored.
   different host. A tunnel's credentials are written only where it was created. Either copy
   that file across, or delete the tunnel and let `tunnel.sh` make a fresh one. The script
   refuses before touching DNS, so nothing is half-applied.
+- **`Failed to dial a quic connection … sendmsg: network is unreachable`**, with an IPv6
+  address in brackets: the container has no IPv6 route but cloudflared chose an IPv6 edge
+  address. Compose pins `--edge-ip-version 4` for this reason; override it with
+  `TUNNEL_EDGE_IP_VERSION` only on a host with working IPv6.
 - **530 from Cloudflare**: DNS points at a tunnel with no connector attached. Check
   `cloudflared tunnel list` for a non-zero connection count, then the tunnel container's
   logs.

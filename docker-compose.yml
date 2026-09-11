@@ -80,7 +80,14 @@ services:
     # host user. Run as that user instead of loosening the file. scripts/tunnel.sh writes
     # TUNNEL_USER; the fallback is the image's own default.
     user: "${TUNNEL_USER:-65532:65532}"
-    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    # Docker networks are IPv4 only unless you go out of your way, but cloudflared's default
+    # is to take whatever address the edge resolves to, which is often IPv6. It then dies on
+    # "sendmsg: network is unreachable". Pin the address family; set this to 6 or auto only
+    # if the host really does have IPv6 out.
+    command: >-
+      tunnel --no-autoupdate
+      --edge-ip-version ${TUNNEL_EDGE_IP_VERSION:-4}
+      --config /etc/cloudflared/config.yml run
     volumes:
       - ./cloudflared:/etc/cloudflared:ro
     depends_on:
