@@ -325,4 +325,49 @@ describe("campaign", () => {
     await as(t, "carla").mutation(api.games.joinByCode, { code });
     expect((await as(t, "ana").query(api.games.get, { gameId }))!.players).toHaveLength(2);
   });
+
+  it("the organizer can delete a sitting, with or without giving the points back", async () => {
+    const t = setup();
+    await seedUsers(t, ["ana", "bruno"]);
+    const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+      config: configFromPreset("liga", { startingPoints: 12, forcedPlayThreshold: 3 }),
+    });
+    await as(t, "bruno").mutation(api.games.joinByCode, { code });
+    const view = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    const [ana, bruno] = view.players.map((p) => p._id);
+    const record = (deltas: [number, number]) =>
+      as(t, "ana").mutation(api.sessions.recordManual, {
+        gameId,
+        playerIds: [ana!, bruno!],
+        deltas: [{ playerId: ana!, delta: deltas[0] }, { playerId: bruno!, delta: deltas[1] }],
+      });
+    await record([-2, -3]);
+    await record([-1, +4]);
+    await record([-3, -13]); // bruno hits 0: game over
+    expect((await as(t, "ana").query(api.games.get, { gameId }))!.game.status).toBe("finished");
+    let sessions = await as(t, "ana").query(api.history.sessions, { gameId });
+    expect(sessions.map((s) => s.index)).toEqual([2, 1, 0]);
+    const first = sessions[2]!._id;
+    const last = sessions[0]!._id;
+
+    await expect(as(t, "bruno").mutation(api.sessions.remove, { gameId, sessionId: first, revertScores: true })).rejects.toThrow(/notOwner/);
+
+    // Undo the deciding night: the win goes with it and the numbers step back.
+    await as(t, "ana").mutation(api.sessions.remove, { gameId, sessionId: last, revertScores: true });
+    let after = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(after.game.status).toBe("active");
+    expect(after.game.winnerPlayerId).toBeUndefined();
+    expect(after.players.find((p) => p._id === bruno)!.score).toBe(12 - 3 + 4);
+    expect(after.players.find((p) => p._id === ana)!.sessionsPlayed).toBe(2);
+    expect(after.players.find((p) => p._id === ana)!.roundsPlayed).toBe(2);
+
+    // Drop the first night's record only: the points stay where they are.
+    await as(t, "ana").mutation(api.sessions.remove, { gameId, sessionId: first, revertScores: false });
+    after = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(after.players.find((p) => p._id === bruno)!.score).toBe(12 - 3 + 4);
+    sessions = await as(t, "ana").query(api.history.sessions, { gameId });
+    expect(sessions.map((s) => s.index)).toEqual([0]);
+    const leftovers = await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length);
+    expect(leftovers).toBe(1);
+  });
 });

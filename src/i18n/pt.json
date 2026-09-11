@@ -453,7 +453,12 @@
       "bot": "bot",
       "timeout": "tempo esgotado",
       "organizer": "organizador"
-    }
+    },
+    "delete": "Apagar sessão",
+    "deleteTitle": "Apagar a sessão {{n}}?",
+    "deleteHint": "Podes devolver os pontos que esta sessão moveu, ou apagar só o registo e deixar a classificação como está.",
+    "deleteRevert": "Apagar e devolver os pontos",
+    "deleteKeep": "Apagar só o registo"
   },
   "manual": {
     "title": "Registar sessão presencial",

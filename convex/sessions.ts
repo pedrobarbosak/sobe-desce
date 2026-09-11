@@ -258,3 +258,73 @@ export const recordManual = mutation({
     return { sessionId, winnerPlayerId: winnerSeat !== undefined ? unique[winnerSeat] : null };
   },
 });
+
+/**
+ * Host only: strike a sitting from the record. With `revertScores` every point it moved
+ * is given back and the counters step back with it, as if the night had never happened;
+ * without it only the record goes and the standings stay where they are.
+ */
+export const remove = mutation({
+  args: { gameId: v.id("games"), sessionId: v.id("sessions"), revertScores: v.boolean() },
+  handler: async (ctx, { gameId, sessionId, revertScores }) => {
+    const user = await requireUser(ctx);
+    const game = await loadGame(ctx, gameId);
+    assertOwner(game, user._id);
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.gameId !== gameId) throw new ConvexError({ code: "notFound" });
+    if (session.status === "active") throw new ConvexError({ code: "sessionActive" });
+
+    const rounds = await ctx.db
+      .query("rounds")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+    if (revertScores) {
+      const undo = new Map<string, { score: number; rounds: number }>();
+      for (const r of rounds) {
+        if (r.phase !== "scored") continue;
+        for (const p of r.participants) {
+          const acc = undo.get(p.gamePlayerId) ?? { score: 0, rounds: 0 };
+          acc.score += p.delta ?? 0;
+          acc.rounds += p.decision === "in" && p.delta !== undefined ? 1 : 0;
+          undo.set(p.gamePlayerId, acc);
+        }
+      }
+      for (const id of session.seats) {
+        const player = await ctx.db.get(id);
+        if (!player) continue;
+        const acc = undo.get(id) ?? { score: 0, rounds: 0 };
+        await ctx.db.patch(id, {
+          score: player.score - acc.score,
+          roundsPlayed: Math.max(0, player.roundsPlayed - acc.rounds),
+          sessionsPlayed: Math.max(0, player.sessionsPlayed - 1),
+          lastDelta: 0,
+        });
+      }
+      // A win decided in this sitting is undone with it.
+      if (game.status === "finished" && game.winnerPlayerId && session.seats.includes(game.winnerPlayerId)) {
+        await ctx.db.patch(gameId, { status: "active", winnerPlayerId: undefined, finishedAt: undefined });
+      }
+    }
+    for (const round of rounds) {
+      for (const hand of await ctx.db.query("hands").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
+        await ctx.db.delete(hand._id);
+      }
+      for (const secret of await ctx.db.query("roundSecrets").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
+        await ctx.db.delete(secret._id);
+      }
+      for (const action of await ctx.db.query("actions").withIndex("by_round_seq", (q) => q.eq("roundId", round._id)).collect()) {
+        await ctx.db.delete(action._id);
+      }
+      await ctx.db.delete(round._id);
+    }
+    await ctx.db.delete(sessionId);
+    // Later sittings close the gap so the numbering stays continuous.
+    const later = await ctx.db
+      .query("sessions")
+      .withIndex("by_game", (q) => q.eq("gameId", gameId))
+      .collect();
+    for (const s of later) {
+      if (s.index > session.index) await ctx.db.patch(s._id, { index: s.index - 1 });
+    }
+  },
+});

@@ -1,17 +1,30 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
+import { errorCode } from "@/lib/errors";
 import { Loading } from "@/routes/__root";
 
 export function HistoryView({ gameId }: { gameId: Id<"games"> }) {
   const { t, i18n } = useTranslation();
   const sessions = useQuery(api.history.sessions, { gameId });
+  const view = useQuery(api.games.get, { gameId });
+  const removeSession = useMutation(api.sessions.remove);
   const [open, setOpen] = useState<Id<"sessions"> | null>(null);
+  const [deleting, setDeleting] = useState<Id<"sessions"> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const isOwner = view?.isOwner ?? false;
+  const erase = (sessionId: Id<"sessions">, revertScores: boolean) => {
+    setError(null);
+    removeSession({ gameId, sessionId, revertScores })
+      .then(() => setDeleting(null))
+      .catch((err) => setError(errorCode(err)));
+  };
   if (sessions === undefined) return <Loading />;
   if (sessions.length === 0) return <Panel className="text-sm text-cream-100/60">{t("history.empty")}</Panel>;
   return (
@@ -37,6 +50,32 @@ export function HistoryView({ gameId }: { gameId: Id<"games"> }) {
             </div>
           </button>
           {open === s._id && <SessionRounds sessionId={s._id} players={s.players} />}
+          {isOwner && s.status !== "active" && (
+            <div className="border-t border-white/10 px-4 py-2">
+              {deleting === s._id ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-cream-50">{t("history.deleteTitle", { n: s.index + 1 })}</p>
+                  <p className="text-xs text-cream-100/60">{t("history.deleteHint")}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="danger" className="px-3 py-1.5 text-xs" onClick={() => erase(s._id, true)}>
+                      {t("history.deleteRevert")}
+                    </Button>
+                    <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => erase(s._id, false)}>
+                      {t("history.deleteKeep")}
+                    </Button>
+                    <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => setDeleting(null)}>
+                      {t("common.cancel")}
+                    </Button>
+                  </div>
+                  {error && <p className="text-xs text-heart">{t(`errors.${error}`, { defaultValue: error })}</p>}
+                </div>
+              ) : (
+                <button type="button" className="text-xs text-cream-100/40 hover:text-heart" onClick={() => setDeleting(s._id)}>
+                  {t("history.delete")}
+                </button>
+              )}
+            </div>
+          )}
         </Panel>
       ))}
     </div>

@@ -445,7 +445,12 @@
       "bot": "bot",
       "timeout": "timed out",
       "organizer": "organizer"
-    }
+    },
+    "delete": "Delete sitting",
+    "deleteTitle": "Delete sitting {{n}}?",
+    "deleteHint": "Give back the points this sitting moved, or delete just the record and leave the standings as they are.",
+    "deleteRevert": "Delete and give the points back",
+    "deleteKeep": "Delete the record only"
   },
   "manual": {
     "title": "Record an in-person sitting",
