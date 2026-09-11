@@ -76,6 +76,8 @@ export default defineSchema({
     /** Who opened this sitting. Not always the table owner: campaigns run without them. */
     hostPlayerId: v.optional(v.id("gamePlayers")),
     seats: v.array(v.id("gamePlayers")),
+    /** Campaign: seated players who have left; they drop out of `seats` at the next deal. */
+    leaving: v.optional(v.array(v.id("gamePlayers"))),
     seatCount: v.number(),
     maxDiscard: v.number(),
     dealerSeat: v.number(),

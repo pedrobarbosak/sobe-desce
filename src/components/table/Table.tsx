@@ -341,8 +341,9 @@ export function Table({ data }: { data: TableData }) {
     });
   };
 
+  const isCampaign = game.mode === "campaign";
   const goAbandon = () => {
-    if (!window.confirm(t("table.abandonConfirm"))) return;
+    if (!window.confirm(t(isCampaign ? "table.abandonConfirmCampaign" : "table.abandonConfirm"))) return;
     void run(async () => {
       await abandonSeat({ gameId: game._id });
       await navigate({ to: "/g/$gameId", params: { gameId: game._id } });
@@ -411,7 +412,7 @@ export function Table({ data }: { data: TableData }) {
                 disabled={busy}
                 className="hidden rounded-md px-2 py-1 text-cream-100/60 hover:bg-white/10 hover:text-heart lg:inline"
               >
-                {t("table.abandon")}
+                {t(isCampaign ? "table.abandonCampaign" : "table.abandon")}
               </button>
             )}
             <button

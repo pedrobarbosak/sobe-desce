@@ -86,7 +86,7 @@ export const get = query({
         isBot: p?.isBot ?? true,
         botControlled: p?.botControlled === true,
         botReason: p?.botReason ?? null,
-        left: p?.status !== "active",
+        left: p?.status !== "active" || (session.leaving?.includes(session.seats[seat]!) ?? false),
         score: p?.score ?? 0,
         online: (p?.isBot ?? false) || (p?.userId !== undefined && online.has(p.userId)),
         isMe: seat === mySeat,

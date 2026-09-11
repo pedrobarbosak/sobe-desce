@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../../convex/_generated/api";
+import { api, internal } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { configFromPreset } from "../../src/engine";
 import { as, seedUsers, setup } from "./setup";
 
@@ -387,5 +388,106 @@ describe("campaign", () => {
     expect(sessions.map((s) => s.index)).toEqual([0]);
     const leftovers = await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length);
     expect(leftovers).toBe(1);
+  });
+
+  describe("leaving a sitting", () => {
+    const NAMES = ["ana", "bruno", "carla", "duarte", "eva"];
+    async function sitting(t: ReturnType<typeof setup>) {
+      await seedUsers(t, NAMES);
+      const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+        config: configFromPreset("liga", { startingPoints: 40, forcedPlayThreshold: 10, turnSeconds: 30 }),
+      });
+      for (const n of NAMES.slice(1)) await as(t, n).mutation(api.games.joinByCode, { code });
+      for (const n of NAMES) await as(t, n).mutation(api.games.setCheckedIn, { gameId, checkedIn: true });
+      await as(t, "ana").mutation(api.sessions.start, { gameId });
+      return gameId;
+    }
+    const tableFor = (t: ReturnType<typeof setup>, name: string, gameId: Id<"games">) =>
+      as(t, name).query(api.game.table.get, { gameId }).then((v) => v!);
+
+    it("before committing to the round: the round is dealt again without them, no bot", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      const before = await tableFor(t, "ana", gameId);
+      const firstRound = before.round!._id;
+      const leaver = before.seats.find((s) => s.name !== before.seats[before.round!.turnSeat!]!.name && s.name !== "ana")!.name;
+
+      await as(t, leaver).mutation(api.games.abandonSeat, { gameId });
+
+      const after = await tableFor(t, "ana", gameId);
+      expect(after.session!.seatCount).toBe(4);
+      expect(after.seats.map((s) => s.name)).not.toContain(leaver);
+      expect(after.seats.every((s) => !s.botControlled)).toBe(true);
+      expect(after.round!._id).not.toBe(firstRound);
+      expect(after.round!.index).toBe(0);
+      expect(after.session!.maxDiscard).toBe(5); // 40 cards, 4 seated
+      expect(after.round!.phase).toBe("trump");
+      expect((await as(t, leaver).query(api.games.get, { gameId }))!.me!.checkedIn).toBe(false);
+      // The thrown-away round left nothing behind.
+      const rounds = await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length);
+      expect(rounds).toBe(1);
+    });
+
+    it("already in the round: the hand is played out once, then the seat drops at the next deal", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      let table = await tableFor(t, "ana", gameId);
+      const roundId = table.round!._id as Id<"rounds">;
+      const namer = table.seats[table.round!.turnSeat!]!.name;
+      await as(t, namer).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+      table = await tableFor(t, "ana", gameId);
+      // The namer is committed to the round and discards nothing.
+      await as(t, namer).mutation(api.game.actions.discard, { roundId, cards: [] });
+
+      await as(t, namer).mutation(api.games.abandonSeat, { gameId });
+      table = await tableFor(t, "ana", gameId);
+      expect(table.round!._id).toBe(roundId); // the round goes on
+      expect(table.session!.seatCount).toBe(5);
+      const seat = table.seats.find((s) => s.name === namer)!;
+      expect(seat.left).toBe(true);
+      expect(seat.botControlled).toBe(false);
+      await expect(as(t, namer).mutation(api.game.actions.sitOut, { roundId })).rejects.toThrow(/leftSitting/);
+      expect(await as(t, namer).query(api.games.ongoing)).toBeNull();
+
+      // Everyone else passes, so the namer plays the tricks alone; the server plays them.
+      for (let i = 0; i < 10 && table.round!.phase === "discard"; i++) {
+        const turn = table.seats[table.round!.turnSeat!]!;
+        if (turn.name !== namer) await as(t, turn.name).mutation(api.game.actions.sitOut, { roundId });
+        table = await tableFor(t, "ana", gameId);
+      }
+      for (let i = 0; i < 20 && table.round!.phase !== "scored"; i++) {
+        vi.advanceTimersByTime(1_000);
+        await t.finishInProgressScheduledFunctions();
+        table = await tableFor(t, "ana", gameId);
+      }
+      expect(table.round!.phase).toBe("scored");
+      const log = await as(t, "ana").query(api.history.actions, { roundId });
+      expect(log.filter((a) => a.type === "play").every((a) => a.actor === "bot")).toBe(true);
+      // Next deal: four at the table, the leaver gone, nobody replaced.
+      vi.advanceTimersByTime(7_000);
+      await t.finishInProgressScheduledFunctions();
+      table = await tableFor(t, "ana", gameId);
+      expect(table.round!.index).toBe(1);
+      expect(table.session!.seatCount).toBe(4);
+      expect(table.seats.map((s) => s.name)).not.toContain(namer);
+      expect(table.seats.every((s) => !s.botControlled && !s.left)).toBe(true);
+    });
+
+    it("a tab that goes quiet leaves the sitting instead of turning into a bot, and too few seats end it", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      const sessionId = (await tableFor(t, "ana", gameId)).session!._id;
+      vi.setSystemTime(Date.now() + 200_000);
+      for (const n of NAMES.slice(1)) await as(t, n).mutation(api.presence.heartbeat, { gameId });
+      await t.mutation(internal.presence.sweep, { sessionId });
+      let table = await tableFor(t, "bruno", gameId);
+      expect(table.session!.seatCount).toBe(4);
+      expect(table.seats.map((s) => s.name)).not.toContain("ana");
+      expect(table.seats.every((s) => !s.botControlled)).toBe(true);
+
+      // Four left: one more gone and it is not a table any more.
+      await as(t, "ana").mutation(api.games.kickToBot, { gameId, playerId: table.seats.find((s) => s.name === "eva")!.playerId });
+      expect((await as(t, "ana").query(api.games.get, { gameId }))!.session).toBeNull();
+    });
   });
 });

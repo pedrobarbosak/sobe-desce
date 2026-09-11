@@ -3,7 +3,8 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { type MutationCtx, type QueryCtx, internalMutation, mutation } from "./_generated/server";
 import { setTurn } from "./game/advance";
-import { handSeatToBot } from "./game/seat";
+import { handSeatToBot, leaveSitting } from "./game/seat";
+import { isLeaving } from "./game/session";
 import { requireUser } from "./lib/auth";
 
 export const PRESENCE_TTL_MS = 40_000;
@@ -80,6 +81,7 @@ export const sweep = internalMutation({
     if (!game || game.status !== "active") return;
     const now = Date.now();
     for (const playerId of session.seats) {
+      if (isLeaving(session, playerId)) continue;
       const player = await ctx.db.get(playerId);
       if (!player || player.isBot || player.botControlled === true) continue;
       if (player.status !== "active" || player.userId === undefined) continue;
@@ -89,7 +91,9 @@ export const sweep = internalMutation({
         .unique();
       const lastSeenAt = seen?.lastSeenAt ?? session.startedAt;
       if (now - lastSeenAt < SEAT_TAKEOVER_MS) continue;
-      await handSeatToBot(ctx, game, player, "disconnected");
+      // A league table is people; nobody plays on in an absent member's name.
+      if (game.mode === "campaign") await leaveSitting(ctx, game, player);
+      else await handSeatToBot(ctx, game, player, "disconnected");
     }
     await ctx.scheduler.runAfter(SWEEP_INTERVAL_MS, internal.presence.sweep, { sessionId });
   },

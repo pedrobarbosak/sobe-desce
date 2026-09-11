@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, internalMutation } from "../_generated/server";
 import { DARK_WINDOW_MS } from "./dark";
+import { applyLeaving, isLeaving } from "./session";
 import type { LoadedRound } from "./state";
 import type { RoundState } from "../../src/engine";
 
@@ -43,17 +44,18 @@ export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">): Promise<
   await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: Date.now() + ms, timerId });
   const playerId = session.seats[round.turnSeat];
   const player = playerId ? await ctx.db.get(playerId) : null;
-  if (isServerDriven(player)) {
+  if (isServerDriven(player) || (playerId !== undefined && isLeaving(session, playerId))) {
     await ctx.scheduler.runAfter(BOT_DELAY_MS, internal.game.bots.act, { roundId, nonce });
   }
 }
 
 /** Deal a new round for the session (rotating the dealer after the first). */
 export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): Promise<Id<"rounds">> {
-  const session = await ctx.db.get(sessionId);
-  if (!session || session.status !== "active") throw new Error("Session is not active");
-  const game = await ctx.db.get(session.gameId);
+  const before = await ctx.db.get(sessionId);
+  if (!before || before.status !== "active") throw new Error("Session is not active");
+  const game = await ctx.db.get(before.gameId);
   if (!game) throw new Error("Game missing");
+  const session = await applyLeaving(ctx, before, game);
   const index = session.roundsPlayed;
   const dealerSeat = index === 0 ? session.dealerSeat : (session.dealerSeat + 1) % session.seatCount;
   const seed = randomSeed();

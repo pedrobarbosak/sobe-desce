@@ -5,6 +5,7 @@ import { type MutationCtx, mutation } from "../_generated/server";
 import { requireUser } from "../lib/auth";
 import { suit } from "../lib/validators";
 import { finalizeRound, setTurn } from "./advance";
+import { isLeaving } from "./session";
 import { type LoadedRound, loadRound, persistRound } from "./state";
 
 type Actor = Doc<"actions">["actor"];
@@ -88,6 +89,9 @@ async function mySeat(ctx: MutationCtx, roundId: Id<"rounds">): Promise<number> 
   if (player && (player.botControlled === true || player.status !== "active")) {
     throw new ConvexError({ code: "seatHandedToBot" });
   }
+  const round = await ctx.db.get(roundId);
+  const session = round ? await ctx.db.get(round.sessionId) : null;
+  if (session && isLeaving(session, hand.gamePlayerId)) throw new ConvexError({ code: "leftSitting" });
   return hand.seat;
 }
 

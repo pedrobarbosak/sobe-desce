@@ -7,8 +7,7 @@ import { type MutationCtx, type QueryCtx, mutation, query } from "./_generated/s
 import { BOT_DELAY_MS } from "./game/advance";
 import { currentUser, requireUser } from "./lib/auth";
 import { generateCode, normalizeCode } from "./lib/code";
-import { handSeatToBot } from "./game/seat";
-import { closeSession, humanSeatCount } from "./game/session";
+import { handSeatToBot, leaveSitting } from "./game/seat";
 import { gameConfig } from "./lib/validators";
 import { PRESENCE_TTL_MS } from "./presence";
 
@@ -288,7 +287,7 @@ export const ongoing = query({
       if (!game || game.status !== "active" || !game.currentSessionId) continue;
       const session = await ctx.db.get(game.currentSessionId);
       if (!session || session.status !== "active") continue;
-      if (!session.seats.includes(m._id)) continue;
+      if (!session.seats.includes(m._id) || session.leaving?.includes(m._id)) continue;
       const round = session.currentRoundId ? await ctx.db.get(session.currentRoundId) : null;
       const seat = session.seats.indexOf(m._id);
       return {
@@ -347,15 +346,16 @@ export const leave = mutation({
       await deleteGameCascade(ctx, gameId);
       return;
     }
-    // Leaving mid-sitting hands the seat to the server; if it is their turn, act now.
+    // Leaving a campaign mid-sitting leaves the sitting; leaving a one-off game hands the
+    // seat to the server, and if it is their turn, it acts now.
+    if (game.mode === "campaign") {
+      await leaveSitting(ctx, game, { ...me, status: "left", checkedIn: false });
+      return;
+    }
     if (game.status === "active" && game.currentSessionId) {
       const session = await ctx.db.get(game.currentSessionId);
       const seat = session?.seats.indexOf(me._id) ?? -1;
       if (session?.status === "active" && seat >= 0) {
-        if (game.mode === "campaign" && (await humanSeatCount(ctx, session)) < MIN_SEATS) {
-          await closeSession(ctx, session);
-          return;
-        }
         if (session.currentRoundId) {
           const round = await ctx.db.get(session.currentRoundId);
           if (round && round.turnSeat === seat && round.phase !== "scored") {
@@ -367,7 +367,10 @@ export const leave = mutation({
   },
 });
 
-/** Give up your own seat mid-sitting; a bot finishes the sitting for you. */
+/**
+ * Give up your own seat mid-sitting. In a one-off game a bot finishes the sitting for you;
+ * in a campaign you simply leave tonight's table and the others carry on without you.
+ */
 export const abandonSeat = mutation({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => {
@@ -375,11 +378,15 @@ export const abandonSeat = mutation({
     const game = await loadGame(ctx, gameId);
     const me = await myMembership(ctx, gameId, user._id);
     if (!me) throw new ConvexError({ code: "notInGame" });
-    await handSeatToBot(ctx, game, me, "abandoned");
+    if (game.mode === "campaign") await leaveSitting(ctx, game, me);
+    else await handSeatToBot(ctx, game, me, "abandoned");
   },
 });
 
-/** Host only: replace a seated player with a bot that keeps their points. */
+/**
+ * Host only: take a seated player off the table. In a one-off game a bot keeps their
+ * points and plays on; in a campaign they are out of tonight's sitting.
+ */
 export const kickToBot = mutation({
   args: { gameId: v.id("games"), playerId: v.id("gamePlayers") },
   handler: async (ctx, { gameId, playerId }) => {
@@ -389,6 +396,10 @@ export const kickToBot = mutation({
     const player = await ctx.db.get(playerId);
     if (!player || player.gameId !== gameId) throw new ConvexError({ code: "notFound" });
     if (player.userId === user._id) throw new ConvexError({ code: "cannotRemoveSelf" });
+    if (game.mode === "campaign") {
+      await leaveSitting(ctx, game, player);
+      return;
+    }
     if (player.isBot) throw new ConvexError({ code: "alreadyBot" });
     await handSeatToBot(ctx, game, player, "kicked");
   },

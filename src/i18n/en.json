@@ -293,7 +293,8 @@
     "darkWindowClosed": "The blind window has already closed.",
     "ownerPresent": "The host is here: only they can open the sitting.",
     "invalidOrder": "Invalid order.",
-    "cannotRemoveSelf": "You cannot remove yourself."
+    "cannotRemoveSelf": "You cannot remove yourself.",
+    "leftSitting": "You have left this sitting."
   },
   "table": {
     "round": "Round {{n}}",
@@ -409,7 +410,12 @@
     "darkCalledBy": "{{name}} called hearts in the dark",
     "darkBadge": "in the dark",
     "logDark": "hearts in the dark",
-    "reclaimed": "You are back: the seat is yours again."
+    "reclaimed": "You are back: the seat is yours again.",
+    "abandonCampaign": "Leave the sitting",
+    "abandonConfirmCampaign": "You leave tonight's sitting and nobody plays for you. If you had not yet joined the round it is dealt again without you; if you had, your cards are played out for this round only. Continue?",
+    "kickCampaign": "Remove from the sitting",
+    "kickConfirmCampaign": "{{name}} leaves tonight's sitting. Nobody plays for them; if they had already joined the round, their cards are played out for this round only. Continue?",
+    "leaving": "leaving"
   },
   "standings": {
     "title": "Standings",

@@ -212,17 +212,17 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                     {p.checkedIn ? t("lobby.checkOut") : t("lobby.checkIn")}
                   </Button>
                 )}
-                {isOwner && !p.isMe && !p.isBot && !p.botControlled && sittingActive && game.status !== "finished" && (
+                {isOwner && !p.isMe && (isCampaign || (!p.isBot && !p.botControlled)) && seatedNow.has(p._id) && game.status !== "finished" && (
                   <Button
                     variant="ghost"
                     className="px-3 py-1.5 text-xs"
                     disabled={busy}
                     onClick={() => {
-                      if (!window.confirm(t("table.kickConfirm", { name: p.name }))) return;
+                      if (!window.confirm(t(isCampaign ? "table.kickConfirmCampaign" : "table.kickConfirm", { name: p.name }))) return;
                       void run(() => kickToBot({ gameId, playerId: p._id }));
                     }}
                   >
-                    {t("table.kick")}
+                    {t(isCampaign ? "table.kickCampaign" : "table.kick")}
                   </Button>
                 )}
                 {isOwner && isCampaign && rosterOpen && !seatedNow.has(p._id) && (

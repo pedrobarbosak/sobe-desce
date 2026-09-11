@@ -295,7 +295,8 @@
     "darkWindowClosed": "A janela para chamar no escuro já fechou.",
     "ownerPresent": "O anfitrião está presente: só ele pode começar a sessão.",
     "invalidOrder": "Ordem inválida.",
-    "cannotRemoveSelf": "Não te podes remover a ti próprio."
+    "cannotRemoveSelf": "Não te podes remover a ti próprio.",
+    "leftSitting": "Saíste desta sessão."
   },
   "table": {
     "round": "Ronda {{n}}",
@@ -413,7 +414,12 @@
     "darkCalledBy": "{{name}} chamou copas no escuro",
     "darkBadge": "no escuro",
     "logDark": "copas no escuro",
-    "reclaimed": "Voltaste: o lugar é outra vez teu."
+    "reclaimed": "Voltaste: o lugar é outra vez teu.",
+    "abandonCampaign": "Sair da sessão",
+    "abandonConfirmCampaign": "Sais da sessão de hoje e ninguém joga por ti. Se ainda não tinhas entrado na ronda, ela é dada de novo sem ti; se já tinhas entrado, as tuas cartas são jogadas até ao fim desta ronda. Continuar?",
+    "kickCampaign": "Tirar da sessão",
+    "kickConfirmCampaign": "{{name}} sai da sessão de hoje. Ninguém joga por ele; se já tinha entrado na ronda, as cartas são jogadas até ao fim desta ronda. Continuar?",
+    "leaving": "a sair"
   },
   "standings": {
     "title": "Classificação",
