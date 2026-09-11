@@ -69,9 +69,32 @@ The scripts all do this for you. A bare `docker compose` will fail on missing va
 git pull && ./scripts/deploy.sh
 ```
 
-It pushes the schema, indexes and functions, syncs the deployment's settings from
-`.env.deploy`, rebuilds the site, and recreates the tunnel so a changed ingress takes
-effect. Re-running is safe.
+That is the whole process. Re-running is safe, and the script works out what actually
+needs doing:
+
+- Reinstalls dependencies only when `package-lock.json` moved.
+- Pushes the schema, indexes and functions, and refreshes `convex/_generated`.
+- Syncs the deployment's settings from `.env.deploy`, skipping the blank ones.
+- Rebuilds the site image and replaces the web container. Docker caches the install layer,
+  so an ordinary change rebuilds in seconds.
+- Leaves the backend container alone unless its compose settings changed, so the database
+  is not restarted and games in progress survive.
+- Touches the tunnel only when `cloudflared/config.yml` is newer than the running
+  container. Recreating it drops every live websocket for a few seconds.
+
+Players reconnect automatically when the web container swaps, since the page holds its
+websocket to the backend rather than to nginx.
+
+**Before a schema change, take a backup.** Convex refuses a push that would leave existing
+documents invalid, but a migration you meant to be safe is worth being able to undo.
+
+```bash
+./scripts/backup.sh && git pull && ./scripts/deploy.sh
+```
+
+Changing a hostname or the Discord credentials in `.env.deploy` needs no extra step: the
+next deploy pushes the settings and rebuilds the bundle. Changing a hostname also means
+re-running `./scripts/tunnel.sh` first, so the ingress and DNS follow.
 
 ## Ports
 

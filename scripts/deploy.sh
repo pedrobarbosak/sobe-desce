@@ -98,10 +98,18 @@ echo "==> site"
 dc build web
 dc up -d web
 
-# cloudflared does not reload its ingress, and `up -d` is a no-op when the container spec
-# is unchanged, so a re-run of tunnel.sh would otherwise never take effect.
+# cloudflared does not reload its ingress, and `up -d` is a no-op when the container spec is
+# unchanged, so a re-run of tunnel.sh would otherwise never take effect. Recreating it drops
+# every live websocket for a few seconds, so only do it when the ingress actually changed.
 if [ -f cloudflared/config.yml ]; then
-  dc up -d --force-recreate tunnel
+  started=$(docker inspect -f '{{.State.StartedAt}}' sobe-desce-tunnel 2>/dev/null || true)
+  started_at=$([ -n "$started" ] && date -d "$started" +%s 2>/dev/null || echo 0)
+  if [ "$started_at" -lt "$(stat -c %Y cloudflared/config.yml)" ]; then
+    echo "  ingress changed since the tunnel started; recreating it"
+    dc up -d --force-recreate tunnel
+  else
+    dc up -d tunnel
+  fi
 else
   echo "  no cloudflared/config.yml yet; run ./scripts/tunnel.sh to create the tunnel"
 fi
