@@ -65,6 +65,9 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
     sittingActive && me !== null && (isOwner || session!.hostPlayerId === me._id || session!.seats.includes(me._id));
   // A campaign sitting does not wait for the organizer, unless they are in the room.
   const canOpenSitting = isCampaign && !sittingActive && game.status !== "finished" && me !== null && canStart && !ownerOnline;
+  // The campaign's one question for everybody: are you playing tonight?
+  const askToPlay =
+    isCampaign && me !== null && !sittingActive && game.status !== "finished" && !seatedNow.has(me._id);
   const endSitting = async () => {
     if (!window.confirm(t("table.endSessionConfirm"))) return;
     await run(() => closeSitting({ gameId }));
@@ -97,6 +100,29 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   return (
     <div className={embedded ? "grid gap-4" : "grid gap-4 lg:grid-cols-[1fr_20rem]"}>
       <div className="space-y-4">
+        {askToPlay && !me.checkedIn && (
+          <Panel className="flex flex-wrap items-center justify-between gap-4 border-2 border-gold-400 bg-gold-400/15 shadow-[0_0_40px_rgba(232,184,74,0.25)]">
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-2xl font-extrabold text-cream-50">{t("lobby.wantToPlayTitle")}</p>
+              <p className="mt-1 text-sm text-cream-100/80">{t("lobby.wantToPlayHint")}</p>
+            </div>
+            <Button
+              className="want-to-play px-8 py-4 text-lg"
+              disabled={busy}
+              onClick={() => void run(() => setCheckedIn({ gameId, checkedIn: true }))}
+            >
+              ✋ {t("lobby.checkIn")}
+            </Button>
+          </Panel>
+        )}
+        {askToPlay && me.checkedIn && (
+          <Panel className="flex flex-wrap items-center justify-between gap-3 border-emerald-400/50 bg-emerald-400/10">
+            <p className="text-sm font-semibold text-emerald-200">✓ {t("lobby.wantToPlayDone")}</p>
+            <Button variant="ghost" className="px-3 py-1.5 text-xs" disabled={busy} onClick={() => void run(() => setCheckedIn({ gameId, checkedIn: false }))}>
+              {t("lobby.checkOut")}
+            </Button>
+          </Panel>
+        )}
         {game.status === "finished" && winner && (
           <Panel className="border-gold-400/60 bg-gold-400/10 text-center">
             <p className="font-display text-base italic text-gold-400">{t("lobby.finished")}</p>
@@ -204,8 +230,8 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 </div>
                 {isCampaign && rosterOpen && !seatedNow.has(p._id) && (p.isMe || (isOwner && !p.userId)) && (
                   <Button
-                    variant={p.checkedIn ? "ghost" : "secondary"}
-                    className="px-3 py-1.5 text-xs"
+                    variant={p.checkedIn ? "ghost" : p.isMe ? "primary" : "secondary"}
+                    className={`px-3 py-1.5 text-xs ${p.isMe && !p.checkedIn ? "want-to-play" : ""}`}
                     disabled={busy}
                     onClick={() => void run(() => setCheckedIn({ gameId, playerId: p._id, checkedIn: !p.checkedIn }))}
                   >

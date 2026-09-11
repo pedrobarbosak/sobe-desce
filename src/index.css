@@ -145,3 +145,9 @@ button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
 .turn-bar { transform-origin: left; animation: turn-drain linear forwards; background: linear-gradient(90deg, #e2432f, #e8b84a 40%, #e8b84a); }
 @keyframes turn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 .turn-pulse { animation: turn-pulse 1.1s ease-in-out infinite; }
+/* The one button a campaign lobby wants pressed: a slow glow until it is. */
+@keyframes want-to-play {
+  0%, 100% { box-shadow: 0 3px 0 0 var(--color-brass-700), 0 0 0 0 rgb(232 184 74 / 0.7); }
+  50% { box-shadow: 0 3px 0 0 var(--color-brass-700), 0 0 0 10px rgb(232 184 74 / 0); }
+}
+.want-to-play { animation: want-to-play 1.6s ease-out infinite; }
