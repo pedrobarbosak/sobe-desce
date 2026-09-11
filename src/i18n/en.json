@@ -302,7 +302,7 @@
     "yourDiscard": "Discard up to {{cap}} cards or sit the round out",
     "discardN": "Discard {{count}}",
     "keepAll": "Play without discarding",
-    "sitOut": "Sit out",
+    "sitOut": "Stay out",
     "sitOutBlocked": {
       "belowThreshold": "Below {{threshold}} you cannot sit out",
       "maxConsecutive": "You already sat out 2 rounds in a row",
@@ -360,7 +360,7 @@
     "readyDiscardN_one": "Swapping {{count}} card",
     "readyDiscardN_other": "Swapping {{count}} cards",
     "readyKeepAll": "Playing without swapping",
-    "readySitOut": "Sitting this round out",
+    "readySitOut": "Staying out this round",
     "watchingHands": "You sat out, so you can see everyone's cards.",
     "abandon": "Leave the table",
     "abandonConfirm": "A bot takes your seat for the rest of this sitting. Continue?",
