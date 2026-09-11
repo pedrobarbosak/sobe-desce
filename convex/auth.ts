@@ -25,6 +25,18 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
     user: {
       onCreate: async (ctx, doc) => {
         const isAnonymous = Boolean((doc as { isAnonymous?: boolean }).isAnonymous);
+        // linkAnonymous may already have promoted the guest row to this auth id; a second
+        // row under the same id would make every by_authId lookup throw from then on.
+        const existing = await ctx.db
+          .query("users")
+          .withIndex("by_authId", (q) => q.eq("authId", doc._id))
+          .unique();
+        if (existing) {
+          if (!isAnonymous && (existing.isAnonymous || existing.email !== doc.email)) {
+            await ctx.db.patch(existing._id, { isAnonymous: false, email: doc.email });
+          }
+          return;
+        }
         const displayName = doc.name || randomName();
         await ctx.db.insert("users", {
           authId: doc._id,

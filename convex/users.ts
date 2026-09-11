@@ -90,13 +90,35 @@ export const linkAnonymous = internalMutation({
     if (toMemberships.length === 0) {
       await ctx.db.patch(to._id, { displayName: from.displayName, avatarSeed: from.avatarSeed });
     }
-    const toGameIds = new Set(toMemberships.map((m) => m.gameId));
+    const toByGame = new Map(toMemberships.map((m) => [m.gameId, m]));
     for (const m of fromMemberships) {
-      if (toGameIds.has(m.gameId)) {
-        // Both identities are in the same game: keep the real one's seat, detach the other.
-        await ctx.db.patch(m._id, { userId: undefined, status: "left" });
-      } else {
+      const other = toByGame.get(m.gameId);
+      if (!other) {
         await ctx.db.patch(m._id, { userId: to._id });
+        continue;
+      }
+      // Both identities are in the same game. The person is one player, so the row that
+      // carries their history is the one that survives; a still-empty duplicate goes away.
+      // A seat in a live sitting is never pulled out from under the round, though.
+      const game = await ctx.db.get(m.gameId);
+      const live = game?.currentSessionId ? await ctx.db.get(game.currentSessionId) : null;
+      const seated = (row: typeof m) => live?.status === "active" && live.seats.includes(row._id);
+      const guestWins = m.roundsPlayed > other.roundsPlayed && !seated(other) && (seated(m) || other.roundsPlayed === 0);
+      if (guestWins) {
+        if (other.roundsPlayed === 0) await ctx.db.delete(other._id);
+        else await ctx.db.patch(other._id, { userId: undefined, status: "left", checkedIn: false });
+        await ctx.db.patch(m._id, { userId: to._id, name: to.displayName, avatarSeed: to.avatarSeed });
+        if (live?.currentRoundId && seated(m)) {
+          const hand = await ctx.db
+            .query("hands")
+            .withIndex("by_round_player", (q) => q.eq("roundId", live.currentRoundId!).eq("gamePlayerId", m._id))
+            .unique();
+          if (hand) await ctx.db.patch(hand._id, { userId: to._id });
+        }
+      } else if (m.roundsPlayed === 0 && !seated(m)) {
+        await ctx.db.delete(m._id);
+      } else {
+        await ctx.db.patch(m._id, { userId: undefined, status: "left", checkedIn: false });
       }
     }
     for await (const p of ctx.db
