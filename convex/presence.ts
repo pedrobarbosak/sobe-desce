@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalMutation, mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { type MutationCtx, type QueryCtx, internalMutation, mutation } from "./_generated/server";
 import { handSeatToBot } from "./game/seat";
 import { requireUser } from "./lib/auth";
 
@@ -8,6 +9,15 @@ export const PRESENCE_TTL_MS = 40_000;
 /** No heartbeat for this long while seated and a bot finishes the sitting for you. */
 export const SEAT_TAKEOVER_MS = 60_000;
 export const SWEEP_INTERVAL_MS = 15_000;
+
+/** Whether a tab of theirs has checked in on this game recently. */
+export async function isOnline(ctx: QueryCtx | MutationCtx, gameId: Id<"games">, userId: Id<"users">): Promise<boolean> {
+  const seen = await ctx.db
+    .query("presence")
+    .withIndex("by_game_user", (q) => q.eq("gameId", gameId).eq("userId", userId))
+    .unique();
+  return seen !== null && Date.now() - seen.lastSeenAt < PRESENCE_TTL_MS;
+}
 
 export const heartbeat = mutation({
   args: { gameId: v.id("games") },

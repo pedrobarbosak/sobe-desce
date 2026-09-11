@@ -37,7 +37,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
 
   if (data === undefined) return <Loading />;
   if (data === null) return null;
-  const { game, players, me, isOwner, session } = data;
+  const { game, players, me, isOwner, session, ownerOnline } = data;
   const isCampaign = game.mode === "campaign";
   const sittingActive = session?.status === "active";
   const seatedCount = isCampaign ? players.filter((p) => p.checkedIn).length : players.length;
@@ -63,8 +63,8 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   // Anyone at the table can call time, plus the opener and the table owner.
   const canCloseSitting =
     sittingActive && me !== null && (isOwner || session!.hostPlayerId === me._id || session!.seats.includes(me._id));
-  // A campaign sitting does not wait for the organizer.
-  const canOpenSitting = isCampaign && !sittingActive && game.status !== "finished" && me !== null && canStart;
+  // A campaign sitting does not wait for the organizer, unless they are in the room.
+  const canOpenSitting = isCampaign && !sittingActive && game.status !== "finished" && me !== null && canStart && !ownerOnline;
   const endSitting = async () => {
     if (!window.confirm(t("table.endSessionConfirm"))) return;
     await run(() => closeSitting({ gameId }));
@@ -434,7 +434,9 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 </Button>
               </>
             ) : (
-              <p className="text-sm text-cream-100/70">{isCampaign ? t("lobby.startAnyoneHint", { min: MIN_SEATS }) : t("lobby.onlyHost")}</p>
+              <p className="text-sm text-cream-100/70">
+                {!isCampaign ? t("lobby.onlyHost") : ownerOnline ? t("lobby.onlyHostPresent") : t("lobby.startAnyoneHint", { min: MIN_SEATS })}
+              </p>
             )}
           </Panel>
         )}

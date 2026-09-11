@@ -209,6 +209,8 @@ export const get = query({
       players,
       me,
       isOwner: user !== null && game.ownerId === user._id,
+      // While the organizer is in the room, opening a sitting is their call alone.
+      ownerOnline: online.has(game.ownerId),
       session: session
         ? {
             _id: session._id,

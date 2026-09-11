@@ -269,6 +269,24 @@ describe("campaign", () => {
     expect(after.players.every((p) => p.score === 40)).toBe(true);
   });
 
+  it("while the organizer is in the room, only they can open the sitting", async () => {
+    const t = setup();
+    const names = ["ana", "bruno", "carla", "duarte", "eva"];
+    await seedUsers(t, names);
+    const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+      config: configFromPreset("liga", { startingPoints: 40, forcedPlayThreshold: 10 }),
+    });
+    for (const n of names.slice(1)) await as(t, n).mutation(api.games.joinByCode, { code });
+    for (const n of names.slice(1)) await as(t, n).mutation(api.games.setCheckedIn, { gameId, checkedIn: true });
+
+    await as(t, "ana").mutation(api.presence.heartbeat, { gameId });
+    expect((await as(t, "bruno").query(api.games.get, { gameId }))!.ownerOnline).toBe(true);
+    await expect(as(t, "bruno").mutation(api.sessions.start, { gameId })).rejects.toThrow(/ownerPresent/);
+    // The organizer needs no seat of their own to deal.
+    await as(t, "ana").mutation(api.sessions.start, { gameId });
+    expect((await as(t, "ana").query(api.games.get, { gameId }))!.session?.status).toBe("active");
+  });
+
   it("the organizer's lobby order becomes the seating order", async () => {
     const t = setup();
     const names = ["ana", "bruno", "carla", "duarte"];

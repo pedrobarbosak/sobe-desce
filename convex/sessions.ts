@@ -7,7 +7,7 @@ import { startRound } from "./game/advance";
 import { closeSession } from "./game/session";
 import { assertOwner, loadGame, myMembership, rosterOf, rosterOrder } from "./games";
 import { requireUser } from "./lib/auth";
-import { SWEEP_INTERVAL_MS } from "./presence";
+import { SWEEP_INTERVAL_MS, isOnline } from "./presence";
 import { suit } from "./lib/validators";
 
 function shuffleInPlace<T>(arr: T[]): T[] {
@@ -30,9 +30,13 @@ export const start = mutation({
     const me = await myMembership(ctx, gameId, user._id);
     // A league carries on when the organizer is away: any member on the roster may open a
     // sitting, as long as enough people have checked in. One-off games stay owner-only,
-    // and picking the exact line-up by hand is still the organizer's job.
+    // and picking the exact line-up by hand is still the organizer's job. While the
+    // organizer is in the room, though, dealing is theirs to do.
     const openToMembers = game.mode === "campaign" && !playerIds && me !== null && me.status === "active";
     if (!openToMembers) assertOwner(game, user._id);
+    if (game.ownerId !== user._id && (await isOnline(ctx, gameId, game.ownerId))) {
+      throw new ConvexError({ code: "ownerPresent" });
+    }
     if (game.status === "finished") throw new ConvexError({ code: "gameFinished" });
     if (game.currentSessionId) {
       const current = await ctx.db.get(game.currentSessionId);
