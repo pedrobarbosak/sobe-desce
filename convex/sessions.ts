@@ -5,7 +5,7 @@ import { mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { startRound } from "./game/advance";
 import { closeSession } from "./game/session";
-import { assertOwner, loadGame, myMembership, rosterOf } from "./games";
+import { assertOwner, loadGame, myMembership, rosterOf, rosterOrder } from "./games";
 import { requireUser } from "./lib/auth";
 import { SWEEP_INTERVAL_MS } from "./presence";
 import { suit } from "./lib/validators";
@@ -38,7 +38,7 @@ export const start = mutation({
       const current = await ctx.db.get(game.currentSessionId);
       if (current?.status === "active") throw new ConvexError({ code: "sessionActive" });
     }
-    const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active");
+    const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active").sort(rosterOrder);
     let seated: Doc<"gamePlayers">[];
     if (game.mode === "session") {
       seated = roster;
@@ -57,7 +57,10 @@ export const start = mutation({
       .query("sessions")
       .withIndex("by_game", (q) => q.eq("gameId", gameId))
       .collect();
-    const seats = shuffleInPlace(seated.map((p) => p._id));
+    // Seats go round the table in the organizer's lobby order once they have arranged
+    // one; until then the draw is random, as at any table.
+    const arranged = seated.some((p) => p.order !== undefined);
+    const seats = arranged ? seated.map((p) => p._id) : shuffleInPlace(seated.map((p) => p._id));
     const sessionId = await ctx.db.insert("sessions", {
       gameId,
       index: previous.length,

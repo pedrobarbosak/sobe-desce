@@ -195,7 +195,10 @@
     "startAnyone": "Open the sitting",
     "startAnyoneHint": "In a campaign any roster member can open a sitting once at least {{min}} people have checked in.",
     "sessionHost": "Sitting opened by {{name}}",
-    "endSession": "End the sitting"
+    "endSession": "End the sitting",
+    "orderHint": "The arrows change the roster order, which becomes the seating order at the table.",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
   },
   "tabs": {
     "lobby": "Table",
@@ -287,6 +290,7 @@
     "accountHasHistory": "That account has already played this campaign. Link one with no history.",
     "scoreOutOfRange": "Points must be a whole number between 1 and the starting total.",
     "darkWindowClosed": "The blind window has already closed.",
+    "invalidOrder": "Invalid order.",
     "cannotRemoveSelf": "You cannot remove yourself."
   },
   "table": {

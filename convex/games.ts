@@ -40,6 +40,11 @@ export function assertOwner(game: Doc<"games">, userId: Id<"users">) {
   if (game.ownerId !== userId) throw new ConvexError({ code: "notOwner" });
 }
 
+/** Lobby order: the organizer's arrangement when there is one, join order otherwise. */
+export function rosterOrder(a: Doc<"gamePlayers">, b: Doc<"gamePlayers">): number {
+  return (a.order ?? a.joinedAt) - (b.order ?? b.joinedAt) || a.joinedAt - b.joinedAt;
+}
+
 async function uniqueCode(ctx: MutationCtx): Promise<string> {
   for (let i = 0; i < 20; i++) {
     const code = generateCode();
@@ -167,7 +172,7 @@ export const get = query({
     const session = game.currentSessionId ? await ctx.db.get(game.currentSessionId) : null;
     const players = roster
       .filter((p) => p.status === "active")
-      .sort((a, b) => a.joinedAt - b.joinedAt)
+      .sort(rosterOrder)
       .map((p) => ({
         _id: p._id,
         userId: p.userId,
@@ -184,6 +189,7 @@ export const get = query({
         online: p.isBot || (p.userId !== undefined && online.has(p.userId)),
         isMe: user !== null && p.userId === user._id,
         seat: session ? session.seats.indexOf(p._id) : -1,
+        arranged: p.order !== undefined,
       }));
     const me = user ? players.find((p) => p.isMe) ?? null : null;
     return {
@@ -576,6 +582,25 @@ export const removePlayer = mutation({
         botReason: undefined,
       });
     }
+  },
+});
+
+/** Host only: arrange the lobby. The order given is also the seating order at the next sitting. */
+export const setOrder = mutation({
+  args: { gameId: v.id("games"), playerIds: v.array(v.id("gamePlayers")) },
+  handler: async (ctx, { gameId, playerIds }) => {
+    const user = await requireUser(ctx);
+    const game = await loadGame(ctx, gameId);
+    assertOwner(game, user._id);
+    const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active").sort(rosterOrder);
+    const wanted = new Set(playerIds);
+    if (wanted.size !== playerIds.length) throw new ConvexError({ code: "invalidOrder" });
+    for (const id of playerIds) {
+      if (!roster.some((p) => p._id === id)) throw new ConvexError({ code: "notFound" });
+    }
+    // Anyone left out of the list keeps their relative place, after the ones named.
+    const ordered = [...playerIds, ...roster.filter((p) => !wanted.has(p._id)).map((p) => p._id)];
+    for (const [i, id] of ordered.entries()) await ctx.db.patch(id, { order: i });
   },
 });
 

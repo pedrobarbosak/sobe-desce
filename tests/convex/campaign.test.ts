@@ -269,6 +269,29 @@ describe("campaign", () => {
     expect(after.players.every((p) => p.score === 40)).toBe(true);
   });
 
+  it("the organizer's lobby order becomes the seating order", async () => {
+    const t = setup();
+    const names = ["ana", "bruno", "carla", "duarte"];
+    await seedUsers(t, names);
+    const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+      config: configFromPreset("liga", { startingPoints: 40, forcedPlayThreshold: 10 }),
+    });
+    for (const n of names.slice(1)) await as(t, n).mutation(api.games.joinByCode, { code });
+    for (const n of names) await as(t, n).mutation(api.games.setCheckedIn, { gameId, checkedIn: true });
+    const before = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(before.players.map((p) => p.name)).toEqual(names);
+    const id = (name: string) => before.players.find((p) => p.name === name)!._id;
+
+    await expect(as(t, "bruno").mutation(api.games.setOrder, { gameId, playerIds: [id("duarte")] })).rejects.toThrow(/notOwner/);
+    await as(t, "ana").mutation(api.games.setOrder, { gameId, playerIds: [id("duarte"), id("bruno")] });
+    const arranged = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(arranged.players.map((p) => p.name)).toEqual(["duarte", "bruno", "ana", "carla"]);
+
+    await as(t, "ana").mutation(api.sessions.start, { gameId });
+    const seated = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(seated.session!.seats).toEqual([id("duarte"), id("bruno"), id("ana"), id("carla")]);
+  });
+
   it("the organizer can strike a player from the standings for good", async () => {
     const t = setup();
     await seedUsers(t, ["ana", "bruno", "carla"]);

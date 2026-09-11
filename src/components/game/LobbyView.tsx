@@ -27,6 +27,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const removeGame = useMutation(api.games.remove);
   const linkPlayer = useMutation(api.games.linkPlayer);
   const setScore = useMutation(api.games.setScore);
+  const setOrder = useMutation(api.games.setOrder);
   const [linking, setLinking] = useState<string | null>(null);
   const [scoring, setScoring] = useState<{ playerId: string; value: string } | null>(null);
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
@@ -49,6 +50,15 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const rosterOpen = game.status !== "finished" && (isCampaign || !sittingActive);
   const manualPlayers = players.filter((p) => !p.isBot && !p.userId);
   const linkableAccounts = players.filter((p) => !p.isBot && p.userId && p.roundsPlayed === 0 && !seatedNow.has(p._id));
+  const canArrange = isOwner && game.status !== "finished";
+  const move = (playerId: string, dir: -1 | 1) => {
+    const ids = players.map((p) => p._id);
+    const i = ids.indexOf(playerId as Id<"gamePlayers">);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    void run(() => setOrder({ gameId, playerIds: ids }));
+  };
   const sittingHost = sittingActive ? players.find((p) => p._id === session!.hostPlayerId) ?? null : null;
   // Anyone at the table can call time, plus the opener and the table owner.
   const canCloseSitting =
@@ -146,8 +156,32 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
             )}
           </div>
           <ul className="divide-y divide-white/10">
-            {players.map((p) => (
+            {players.map((p, idx) => (
               <li key={p._id} className="flex flex-wrap items-center gap-3 py-2.5">
+                {canArrange && (
+                  <div className="flex flex-col -space-y-1">
+                    <button
+                      type="button"
+                      className="rounded px-1 text-xs leading-none text-cream-100/50 hover:text-gold-400 disabled:opacity-20"
+                      disabled={busy || idx === 0}
+                      onClick={() => move(p._id, -1)}
+                      aria-label={t("lobby.moveUp")}
+                      title={t("lobby.moveUp")}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded px-1 text-xs leading-none text-cream-100/50 hover:text-gold-400 disabled:opacity-20"
+                      disabled={busy || idx === players.length - 1}
+                      onClick={() => move(p._id, 1)}
+                      aria-label={t("lobby.moveDown")}
+                      title={t("lobby.moveDown")}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
                 <Avatar seed={p.avatarSeed} size={36} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -291,6 +325,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
           {isCampaign && rosterOpen && manualPlayers.length > 0 && (
             <p className="mt-3 text-xs text-cream-100/50">{t("lobby.linkHint")}</p>
           )}
+          {canArrange && players.length > 1 && <p className="mt-3 text-xs text-cream-100/50">{t("lobby.orderHint")}</p>}
         </Panel>
 
         {error && <Panel className="border-heart/50 text-sm text-cream-50">{t(`errors.${error}`, { defaultValue: error })}</Panel>}

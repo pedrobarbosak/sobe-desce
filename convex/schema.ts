@@ -53,6 +53,8 @@ export default defineSchema({
     lastDelta: v.number(),
     /** `removed`: struck from the standings by the organizer; kept so history can still name them. */
     status: v.union(v.literal("active"), v.literal("left"), v.literal("removed")),
+    /** Organizer-set position in the lobby, which is also the seating order. Absent: join order. */
+    order: v.optional(v.number()),
     /** A bot plays this seat: the human abandoned, was kicked, or dropped off. */
     botControlled: v.optional(v.boolean()),
     /** Why the bot took over, for the table to explain itself. */

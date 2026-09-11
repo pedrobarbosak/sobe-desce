@@ -197,7 +197,10 @@
     "startAnyone": "Começar a sessão",
     "startAnyoneHint": "Numa campanha, qualquer inscrito pode abrir a sessão quando houver pelo menos {{min}} presentes.",
     "sessionHost": "Sessão aberta por {{name}}",
-    "endSession": "Terminar sessão"
+    "endSession": "Terminar sessão",
+    "orderHint": "As setas mudam a ordem dos inscritos, que passa a ser a ordem dos lugares à mesa.",
+    "moveUp": "Subir",
+    "moveDown": "Descer"
   },
   "tabs": {
     "lobby": "Mesa",
@@ -289,6 +292,7 @@
     "accountHasHistory": "Essa conta já jogou nesta campanha. Liga a um jogador sem histórico.",
     "scoreOutOfRange": "Os pontos têm de ser um número inteiro entre 1 e o valor inicial.",
     "darkWindowClosed": "A janela para chamar no escuro já fechou.",
+    "invalidOrder": "Ordem inválida.",
     "cannotRemoveSelf": "Não te podes remover a ti próprio."
   },
   "table": {
