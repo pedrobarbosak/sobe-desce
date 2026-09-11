@@ -251,6 +251,16 @@ export function botName(index: number): string {
   return BOT_NAMES[index % BOT_NAMES.length]!;
 }
 
+/** A bot name nobody at the table is using yet; falls back to a numbered one when all are taken. */
+export function randomBotName(taken: readonly string[], rand: () => number = Math.random): string {
+  const used = new Set(taken);
+  const free = BOT_NAMES.filter((n) => !used.has(n));
+  if (free.length > 0) return free[Math.floor(rand() * free.length)]!;
+  let i = 2;
+  while (used.has(`Bot ${i}`)) i++;
+  return `Bot ${i}`;
+}
+
 const TABLE_PREFIX = [
   "Mesa", "Tasca", "Taberna", "Café", "Cantina", "Salão", "Esplanada", "Adega",
   "Tertúlia", "Petisqueira", "Taverna", "Botequim", "Quiosque", "Pátio", "Largo", "Recanto",

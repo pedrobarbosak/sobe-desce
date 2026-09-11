@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { MIN_SEATS, validateConfig } from "../src/engine";
-import { botName, randomSeed, randomTableName } from "../src/shared/names";
+import { randomBotName, randomSeed, randomTableName } from "../src/shared/names";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { type MutationCtx, type QueryCtx, mutation, query } from "./_generated/server";
@@ -526,8 +526,8 @@ export const addBot = mutation({
     if (game.status === "finished") throw new ConvexError({ code: "gameFinished" });
     const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active");
     if (roster.length >= game.config.rosterSize) throw new ConvexError({ code: "gameFull" });
-    const bots = roster.filter((p) => p.isBot).length;
-    await insertPlayer(ctx, game, { isBot: true, name: botName(bots), avatarSeed: randomSeed() });
+    const taken = (await rosterOf(ctx, gameId)).map((p) => p.name);
+    await insertPlayer(ctx, game, { isBot: true, name: randomBotName(taken), avatarSeed: randomSeed() });
   },
 });
 
