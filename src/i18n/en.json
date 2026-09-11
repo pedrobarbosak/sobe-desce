@@ -65,7 +65,12 @@
     "host": "Host",
     "seatsFree": "{{count}}/{{max}} players",
     "joinReveal": "Join with a code",
-    "joinCancel": "Cancel"
+    "joinCancel": "Cancel",
+    "finishedGames": "Finished games",
+    "showFinished": "Show {{count}} finished",
+    "showFinished_one": "Show {{count}} finished",
+    "showFinished_other": "Show {{count}} finished",
+    "hideFinished": "Hide finished"
   },
   "presets": {
     "normal": {

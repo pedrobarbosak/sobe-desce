@@ -65,7 +65,12 @@
     "host": "Anfitrião",
     "seatsFree": "{{count}}/{{max}} jogadores",
     "joinReveal": "Entrar com código",
-    "joinCancel": "Cancelar"
+    "joinCancel": "Cancelar",
+    "finishedGames": "Jogos terminados",
+    "showFinished": "Ver {{count}} terminados",
+    "showFinished_one": "Ver {{count}} terminado",
+    "showFinished_other": "Ver {{count}} terminados",
+    "hideFinished": "Esconder terminados"
   },
   "presets": {
     "normal": {

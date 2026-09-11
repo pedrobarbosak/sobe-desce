@@ -51,6 +51,30 @@ function HeroHand() {
   );
 }
 
+type MyGame = NonNullable<ReturnType<typeof useQuery<typeof api.games.myGames>>>[number];
+
+function GameCard({ game: g }: { game: MyGame }) {
+  const { t } = useTranslation();
+  return (
+    <Link to="/g/$gameId" params={{ gameId: g.gameId }}>
+      <Panel className="transition hover:-translate-y-0.5">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-cream-50">{g.name}</span>
+          <span className="font-mono text-xs tracking-widest text-gold-400">{g.code}</span>
+        </div>
+        <div className="mt-1 flex items-center justify-between text-xs text-cream-100/70">
+          <span>
+            {t(`modes.${g.mode}`)}, {t(`status.${g.status}`)}
+          </span>
+          <span>
+            {g.score} {t("common.points")}
+          </span>
+        </div>
+      </Panel>
+    </Link>
+  );
+}
+
 function Landing() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -62,6 +86,10 @@ function Landing() {
   }, [joinOpen]);
   const myGames = useQuery(api.games.myGames);
   const openTables = useQuery(api.games.openTables);
+  const [showFinished, setShowFinished] = useState(false);
+  // Finished games are kept for their standings, but they are not what people come back for.
+  const liveGames = myGames?.filter((g) => g.status !== "finished") ?? [];
+  const finishedGames = myGames?.filter((g) => g.status === "finished") ?? [];
 
   return (
     <div className="space-y-10">
@@ -115,29 +143,36 @@ function Landing() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-display text-2xl font-bold text-cream-50">{t("landing.myGames")}</h2>
-        {myGames === undefined ? null : myGames.length === 0 ? (
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-2xl font-bold text-cream-50">{t("landing.myGames")}</h2>
+          {finishedGames.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowFinished(!showFinished)}
+              className="text-xs font-semibold text-cream-100/60 hover:text-cream-50"
+              aria-expanded={showFinished}
+            >
+              {showFinished ? t("landing.hideFinished") : t("landing.showFinished", { count: finishedGames.length })}
+            </button>
+          )}
+        </div>
+        {myGames === undefined ? null : liveGames.length === 0 && !showFinished ? (
           <Panel className="text-sm text-cream-100/70">{t("landing.noMyGames")}</Panel>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {myGames.map((g) => (
-              <Link key={g.gameId} to="/g/$gameId" params={{ gameId: g.gameId }}>
-                <Panel className="transition hover:-translate-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-cream-50">{g.name}</span>
-                    <span className="font-mono text-xs tracking-widest text-gold-400">{g.code}</span>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-xs text-cream-100/70">
-                    <span>
-                      {t(`modes.${g.mode}`)}, {t(`status.${g.status}`)}
-                    </span>
-                    <span>
-                      {g.score} {t("common.points")}
-                    </span>
-                  </div>
-                </Panel>
-              </Link>
+            {liveGames.map((g) => (
+              <GameCard key={g.gameId} game={g} />
             ))}
+          </div>
+        )}
+        {showFinished && finishedGames.length > 0 && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cream-100/50">{t("landing.finishedGames")}</h3>
+            <div className="grid gap-3 opacity-80 sm:grid-cols-2 lg:grid-cols-3">
+              {finishedGames.map((g) => (
+                <GameCard key={g.gameId} game={g} />
+              ))}
+            </div>
           </div>
         )}
       </section>
