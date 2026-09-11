@@ -457,6 +457,10 @@ export const remove = mutation({
  * Campaign: fold a name the organizer typed into the account of the person it belongs to.
  * The typed row keeps the history (it is the one referenced by every past round and
  * sitting) and gains the account; the account's own empty row goes away.
+ *
+ * The same move re-links a row that already has an account: someone who came back under a
+ * fresh login (a Discord sign-in that lost the guest identity, say) turns up as a second,
+ * empty row, and the organizer points their real history at the new account.
  */
 export const linkPlayer = mutation({
   args: {
@@ -477,8 +481,11 @@ export const linkPlayer = mutation({
       throw new ConvexError({ code: "notFound" });
     }
     if (manual.isBot || account.isBot) throw new ConvexError({ code: "cannotLinkBot" });
-    if (manual.userId !== undefined) throw new ConvexError({ code: "alreadyLinked" });
     if (account.userId === undefined) throw new ConvexError({ code: "notAnAccount" });
+    // Re-pointing the organizer's own row would lock them out of their own league.
+    if (manual.userId !== undefined && manual.userId === game.ownerId) {
+      throw new ConvexError({ code: "cannotRelinkOwner" });
+    }
     // Two histories cannot be added up without guessing; the organizer must pick one.
     if (account.roundsPlayed > 0) throw new ConvexError({ code: "accountHasHistory" });
 

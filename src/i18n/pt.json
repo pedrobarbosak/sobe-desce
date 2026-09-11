@@ -202,6 +202,9 @@
     "wantToPlayHint": "Carrega em «Quero jogar» para entrares na próxima sessão. Só joga quem se marcar.",
     "wantToPlayDone": "Estás marcado para a próxima sessão.",
     "onlyHostPresent": "O anfitrião está presente: é ele que começa a sessão.",
+    "relink": "Religar",
+    "relinkAccount": "Religar “{{name}}” a outra conta…",
+    "relinkHint": "Se alguém entrou com uma conta nova e aparece duas vezes, liga a linha com o histórico à conta nova. A linha vazia desaparece.",
     "orderHint": "As setas mudam a ordem dos inscritos, que passa a ser a ordem dos lugares à mesa.",
     "moveUp": "Subir",
     "moveDown": "Descer",
@@ -298,6 +301,7 @@
     "scoreOutOfRange": "Os pontos têm de ser um número inteiro entre 1 e o valor inicial.",
     "darkWindowClosed": "A janela para chamar no escuro já fechou.",
     "ownerPresent": "O anfitrião está presente: só ele pode começar a sessão.",
+    "cannotRelinkOwner": "Não podes religar a linha do anfitrião.",
     "invalidOrder": "Ordem inválida.",
     "cannotRemoveSelf": "Não te podes remover a ti próprio.",
     "leftSitting": "Saíste desta sessão."

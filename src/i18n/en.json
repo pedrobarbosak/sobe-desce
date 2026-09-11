@@ -200,6 +200,9 @@
     "wantToPlayHint": "Press “I want to play” to be seated at the next sitting. Only those who opt in play.",
     "wantToPlayDone": "You are in for the next sitting.",
     "onlyHostPresent": "The host is here: they open the sitting.",
+    "relink": "Relink",
+    "relinkAccount": "Relink “{{name}}” to another account…",
+    "relinkHint": "If someone came back under a new account and shows up twice, link the row with the history to the new account. The empty row goes away.",
     "orderHint": "The arrows change the roster order, which becomes the seating order at the table.",
     "moveUp": "Move up",
     "moveDown": "Move down",
@@ -296,6 +299,7 @@
     "scoreOutOfRange": "Points must be a whole number between 1 and the starting total.",
     "darkWindowClosed": "The blind window has already closed.",
     "ownerPresent": "The host is here: only they can open the sitting.",
+    "cannotRelinkOwner": "The host's own row cannot be relinked.",
     "invalidOrder": "Invalid order.",
     "cannotRemoveSelf": "You cannot remove yourself.",
     "leftSitting": "You have left this sitting."

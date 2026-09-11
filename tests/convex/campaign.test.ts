@@ -390,6 +390,41 @@ describe("campaign", () => {
     expect(leftovers).toBe(1);
   });
 
+  it("points a row that already has an account at a different one", async () => {
+    const t = setup();
+    await seedUsers(t, ["ana", "bruno"]);
+    const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+      config: configFromPreset("liga", { startingPoints: 12, forcedPlayThreshold: 3 }),
+    });
+    await as(t, "bruno").mutation(api.games.joinByCode, { code });
+    const before = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    const ana = before.players.find((p) => p.name === "ana")!;
+    const bruno = before.players.find((p) => p.name === "bruno")!;
+    await as(t, "ana").mutation(api.sessions.recordManual, {
+      gameId,
+      playerIds: [ana._id, bruno._id],
+      deltas: [{ playerId: bruno._id, delta: -4 }, { playerId: ana._id, delta: -1 }],
+    });
+    // Bruno comes back under a new login and lands on the roster as a stranger.
+    await seedUsers(t, ["bruno2"]);
+    await as(t, "bruno2").mutation(api.games.joinByCode, { code });
+    const fresh = (await as(t, "ana").query(api.games.get, { gameId }))!.players.find((p) => p.name === "bruno2")!;
+
+    await expect(
+      as(t, "ana").mutation(api.games.linkPlayer, { gameId, manualPlayerId: ana._id, accountPlayerId: fresh._id }),
+    ).rejects.toThrow(/cannotRelinkOwner/);
+    await as(t, "ana").mutation(api.games.linkPlayer, { gameId, manualPlayerId: bruno._id, accountPlayerId: fresh._id });
+
+    const after = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(after.players).toHaveLength(2);
+    const relinked = after.players.find((p) => p._id === bruno._id)!;
+    expect(relinked.name).toBe("bruno2");
+    expect(relinked.score).toBe(8);
+    expect((await as(t, "bruno2").query(api.games.get, { gameId }))!.me!._id).toBe(bruno._id);
+    expect((await as(t, "bruno").query(api.games.get, { gameId }))!.me).toBeNull();
+    void (null as unknown as Id<"gamePlayers">);
+  });
+
   describe("leaving a sitting", () => {
     const NAMES = ["ana", "bruno", "carla", "duarte", "eva"];
     async function sitting(t: ReturnType<typeof setup>) {

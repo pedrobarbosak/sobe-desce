@@ -49,7 +49,10 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const seatedNow = new Set(sittingActive ? session!.seats : []);
   const rosterOpen = game.status !== "finished" && (isCampaign || !sittingActive);
   const manualPlayers = players.filter((p) => !p.isBot && !p.userId);
-  const linkableAccounts = players.filter((p) => !p.isBot && p.userId && p.roundsPlayed === 0 && !seatedNow.has(p._id));
+  // Accounts that can absorb another row's history: fresh ones, not the one being linked.
+  const linkableAccounts = players.filter(
+    (p) => !p.isBot && p.userId && p.roundsPlayed === 0 && !seatedNow.has(p._id) && p._id !== linking,
+  );
   const canArrange = isOwner && game.status !== "finished";
   const move = (playerId: string, dir: -1 | 1) => {
     const ids = players.map((p) => p._id);
@@ -264,14 +267,14 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                     {t("lobby.setScore")}
                   </Button>
                 )}
-                {isOwner && isCampaign && !p.isBot && !p.userId && rosterOpen && (
+                {isOwner && isCampaign && !p.isBot && rosterOpen && (!p.userId || p.userId !== game.ownerId) && (
                   <Button
                     variant="ghost"
                     className="px-3 py-1.5 text-xs"
                     disabled={busy}
                     onClick={() => setLinking(linking === p._id ? null : p._id)}
                   >
-                    {t("lobby.linkTo")}
+                    {p.userId ? t("lobby.relink") : t("lobby.linkTo")}
                   </Button>
                 )}
                 {isOwner && !p.isMe && rosterOpen && !seatedNow.has(p._id) && (
@@ -319,8 +322,10 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 )}
                 {linking === p._id && (
                   <div className="mt-2 w-full border-t border-white/10 pt-2">
-                    <p className="text-xs font-semibold text-cream-100/70">{t("lobby.linkManual", { name: p.name })}</p>
-                    <p className="mt-1 text-xs text-cream-100/50">{t("lobby.linkHint")}</p>
+                    <p className="text-xs font-semibold text-cream-100/70">
+                      {p.userId ? t("lobby.relinkAccount", { name: p.name }) : t("lobby.linkManual", { name: p.name })}
+                    </p>
+                    <p className="mt-1 text-xs text-cream-100/50">{p.userId ? t("lobby.relinkHint") : t("lobby.linkHint")}</p>
                     {linkableAccounts.length === 0 ? (
                       <p className="mt-2 text-xs text-cream-100/60">{t("lobby.linkNone")}</p>
                     ) : (
