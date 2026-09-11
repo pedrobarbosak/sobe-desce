@@ -202,7 +202,8 @@
     "onlyHostPresent": "The host is here: they open the sitting.",
     "orderHint": "The arrows change the roster order, which becomes the seating order at the table.",
     "moveUp": "Move up",
-    "moveDown": "Move down"
+    "moveDown": "Move down",
+    "spectating": "Watching"
   },
   "tabs": {
     "lobby": "Table",
@@ -413,6 +414,7 @@
     "darkCalledBy": "{{name}} called hearts in the dark",
     "darkBadge": "in the dark",
     "logDark": "hearts in the dark",
+    "spectatorHands": "You are watching, so you can see everyone's cards.",
     "reclaimed": "You are back: the seat is yours again.",
     "abandonCampaign": "Leave the sitting",
     "abandonConfirmCampaign": "You leave tonight's sitting and nobody plays for you. If you had not yet joined the round it is dealt again without you; if you had, your cards are played out for this round only. Continue?",

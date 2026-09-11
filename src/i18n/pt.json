@@ -204,7 +204,8 @@
     "onlyHostPresent": "O anfitrião está presente: é ele que começa a sessão.",
     "orderHint": "As setas mudam a ordem dos inscritos, que passa a ser a ordem dos lugares à mesa.",
     "moveUp": "Subir",
-    "moveDown": "Descer"
+    "moveDown": "Descer",
+    "spectating": "A assistir"
   },
   "tabs": {
     "lobby": "Mesa",
@@ -417,6 +418,7 @@
     "darkCalledBy": "{{name}} chamou copas no escuro",
     "darkBadge": "no escuro",
     "logDark": "copas no escuro",
+    "spectatorHands": "Estás a assistir, por isso vês as cartas de todos.",
     "reclaimed": "Voltaste: o lugar é outra vez teu.",
     "abandonCampaign": "Sair da sessão",
     "abandonConfirmCampaign": "Sais da sessão de hoje e ninguém joga por ti. Se ainda não tinhas entrado na ronda, ela é dada de novo sem ti; se já tinhas entrado, as tuas cartas são jogadas até ao fim desta ronda. Continuar?",

@@ -680,7 +680,9 @@ export function Table({ data }: { data: TableData }) {
               ))}
             </div>
           ) : (
-            <p className="absolute inset-x-0 bottom-3 text-center text-sm text-cream-100/60">{t("table.spectating")}</p>
+            <p className="absolute inset-x-0 bottom-3 text-center text-sm text-cream-100/60">
+              {openBySeat.size > 0 ? <span className="text-gold-400">{t("table.spectatorHands")}</span> : t("table.spectating")}
+            </p>
           )}
 
           <AnimatePresence>

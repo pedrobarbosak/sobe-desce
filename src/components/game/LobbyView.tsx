@@ -218,6 +218,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                     {p.botControlled && <Tag>{t("table.botStandIn")}</Tag>}
                     {isCampaign && !p.isBot && !p.userId && <Tag>{t("lobby.manualTag")}</Tag>}
                     {isCampaign && p.checkedIn && !sittingActive && <Tag gold>{t("lobby.checkedIn")}</Tag>}
+                    {isCampaign && sittingActive && !p.isBot && p.userId && p.online && !seatedNow.has(p._id) && <Tag>{t("lobby.spectating")}</Tag>}
                   </div>
                   <div className="text-xs text-cream-100/60">
                     {p.score} {t("common.points")}, {p.roundsPlayed} {t("common.rounds")}
