@@ -191,21 +191,45 @@ describe("handing a seat to a bot", () => {
     expect(await as(t, "duarte").query(api.games.ongoing)).toBeNull();
   });
 
-  it("a tab that stops reporting in for a minute loses the seat", async () => {
+  it("a tab that stops reporting in loses the seat, and gets it back when it returns", async () => {
     const t = setup();
     const gameId = await seatedGame(t);
+    const sessionId = (await tableFor(t, "ana", gameId)).session!._id;
+    // A minute of silence is what a locked phone looks like: not enough to lose the seat.
     vi.setSystemTime(Date.now() + 61_000);
+    await as(t, "bruno").mutation(api.presence.heartbeat, { gameId });
+    await t.mutation(internal.presence.sweep, { sessionId });
+    expect((await tableFor(t, "ana", gameId)).seats.every((s) => !s.botControlled)).toBe(true);
+
+    vi.setSystemTime(Date.now() + 100_000);
     // Only bruno's tab is still checking in.
     await as(t, "bruno").mutation(api.presence.heartbeat, { gameId });
-    await t.mutation(internal.presence.sweep, { sessionId: (await tableFor(t, "ana", gameId)).session!._id });
+    await t.mutation(internal.presence.sweep, { sessionId });
 
-    const seats = (await tableFor(t, "ana", gameId)).seats;
+    let seats = (await tableFor(t, "ana", gameId)).seats;
     expect(seats.find((s) => s.name === "bruno")!.botControlled).toBe(false);
     for (const name of ["ana", "carla", "duarte"]) {
       const seat = seats.find((s) => s.name === name)!;
       expect(seat.botControlled).toBe(true);
       expect(seat.botReason).toBe("disconnected");
     }
+
+    // Ana's tab comes back: the seat is hers again, and she can act on it.
+    await as(t, "ana").mutation(api.presence.heartbeat, { gameId });
+    seats = (await tableFor(t, "ana", gameId)).seats;
+    expect(seats.find((s) => s.name === "ana")!.botControlled).toBe(false);
+    expect(seats.find((s) => s.name === "carla")!.botControlled).toBe(true);
+    expect(await as(t, "ana").query(api.games.ongoing)).not.toBeNull();
+  });
+
+  it("a seat given up on purpose stays with the bot even when the tab is back", async () => {
+    const t = setup();
+    const gameId = await seatedGame(t);
+    await as(t, "duarte").mutation(api.games.abandonSeat, { gameId });
+    await as(t, "duarte").mutation(api.presence.heartbeat, { gameId });
+    const seat = (await tableFor(t, "ana", gameId)).seats.find((s) => s.name === "duarte")!;
+    expect(seat.botControlled).toBe(true);
+    expect(seat.botReason).toBe("abandoned");
   });
 });
 

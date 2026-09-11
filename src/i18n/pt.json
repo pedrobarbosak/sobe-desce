@@ -412,7 +412,8 @@
     "darkSkip": "Ver as minhas cartas",
     "darkCalledBy": "{{name}} chamou copas no escuro",
     "darkBadge": "no escuro",
-    "logDark": "copas no escuro"
+    "logDark": "copas no escuro",
+    "reclaimed": "Voltaste: o lugar é outra vez teu."
   },
   "standings": {
     "title": "Classificação",

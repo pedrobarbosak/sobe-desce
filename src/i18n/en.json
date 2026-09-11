@@ -408,7 +408,8 @@
     "darkSkip": "Show me my cards",
     "darkCalledBy": "{{name}} called hearts in the dark",
     "darkBadge": "in the dark",
-    "logDark": "hearts in the dark"
+    "logDark": "hearts in the dark",
+    "reclaimed": "You are back: the seat is yours again."
   },
   "standings": {
     "title": "Standings",
