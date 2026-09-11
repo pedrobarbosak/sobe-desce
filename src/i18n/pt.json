@@ -288,7 +288,8 @@
     "notAnAccount": "Esse jogador não tem conta para ligar.",
     "accountHasHistory": "Essa conta já jogou nesta campanha. Liga a um jogador sem histórico.",
     "scoreOutOfRange": "Os pontos têm de ser um número inteiro entre 1 e o valor inicial.",
-    "darkWindowClosed": "A janela para chamar no escuro já fechou."
+    "darkWindowClosed": "A janela para chamar no escuro já fechou.",
+    "cannotRemoveSelf": "Não te podes remover a ti próprio."
   },
   "table": {
     "round": "Ronda {{n}}",
@@ -423,7 +424,9 @@
     "roundsTitle": "Rondas",
     "sessionTab": "Sessão {{n}}",
     "noRounds": "Ainda não há rondas nesta sessão.",
-    "total": "Pontuação"
+    "total": "Pontuação",
+    "removeForever": "Remover da classificação",
+    "removeConfirm": "Remove “{{name}}” da classificação para sempre. O histórico das sessões mantém o nome. Continuar?"
   },
   "history": {
     "title": "Histórico",

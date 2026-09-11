@@ -51,7 +51,8 @@ export default defineSchema({
     roundsPlayed: v.number(),
     sessionsPlayed: v.number(),
     lastDelta: v.number(),
-    status: v.union(v.literal("active"), v.literal("left")),
+    /** `removed`: struck from the standings by the organizer; kept so history can still name them. */
+    status: v.union(v.literal("active"), v.literal("left"), v.literal("removed")),
     /** A bot plays this seat: the human abandoned, was kicked, or dropped off. */
     botControlled: v.optional(v.boolean()),
     /** Why the bot took over, for the table to explain itself. */

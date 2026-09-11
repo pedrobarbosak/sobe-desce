@@ -86,7 +86,7 @@ export const standings = query({
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
     if (!game) return null;
-    const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active" || p.roundsPlayed > 0);
+    const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active" || (p.status === "left" && p.roundsPlayed > 0));
     const sessions = (
       await ctx.db
         .query("sessions")

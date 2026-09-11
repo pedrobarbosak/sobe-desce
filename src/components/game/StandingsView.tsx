@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
 import { Panel } from "@/components/ui/Panel";
+import { errorCode } from "@/lib/errors";
 import { Loading } from "@/routes/__root";
 
 function Sparkline({ points, max }: { points: number[]; max: number }) {
@@ -25,10 +26,20 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
   const { t } = useTranslation();
   const data = useQuery(api.history.standings, { gameId });
   const sessions = useQuery(api.history.sessions, { gameId });
+  const view = useQuery(api.games.get, { gameId });
+  const removePlayer = useMutation(api.games.removePlayer);
   const [chosen, setChosen] = useState<Id<"sessions"> | null>(null);
+  const [error, setError] = useState<string | null>(null);
   if (data === undefined || sessions === undefined) return <Loading />;
   if (data === null) return null;
   const { players, startingPoints, winnerPlayerId } = data;
+  const isOwner = view?.isOwner ?? false;
+  const seatedNow = new Set(view?.session?.status === "active" ? view.session.seats : []);
+  const strike = (playerId: Id<"gamePlayers">, name: string) => {
+    if (!window.confirm(t("standings.removeConfirm", { name }))) return;
+    setError(null);
+    removePlayer({ gameId, playerId, permanent: true }).catch((err) => setError(errorCode(err)));
+  };
   const sessionId = chosen ?? sessions[0]?._id ?? null;
   const session = sessions.find((s) => s._id === sessionId) ?? null;
 
@@ -45,6 +56,7 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
               <th className="hidden px-2 py-3 text-right sm:table-cell">{t("standings.sessions")}</th>
               <th className="px-2 py-3 text-right">{t("standings.lastSession")}</th>
               <th className="hidden px-4 py-3 md:table-cell">{t("standings.trend")}</th>
+              {isOwner && <th className="px-2 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -70,11 +82,27 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
                 <td className="hidden px-4 py-2.5 md:table-cell">
                   <Sparkline points={p.trajectory} max={startingPoints} />
                 </td>
+                {isOwner && (
+                  <td className="px-2 py-2.5 text-right">
+                    {p.playerId !== view?.me?._id && !seatedNow.has(p.playerId) && (
+                      <button
+                        type="button"
+                        className="rounded-md px-2 py-1 text-xs text-cream-100/40 hover:bg-white/10 hover:text-heart"
+                        onClick={() => strike(p.playerId, p.name)}
+                        aria-label={t("standings.removeForever")}
+                        title={t("standings.removeForever")}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
         {players.every((p) => p.roundsPlayed === 0) && <p className="px-4 py-4 text-sm text-cream-100/60">{t("standings.empty")}</p>}
+        {error && <p className="px-4 pb-3 text-sm text-heart">{t(`errors.${error}`, { defaultValue: error })}</p>}
       </Panel>
 
       {session && (

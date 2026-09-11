@@ -286,7 +286,8 @@
     "notAnAccount": "That player has no account to link.",
     "accountHasHistory": "That account has already played this campaign. Link one with no history.",
     "scoreOutOfRange": "Points must be a whole number between 1 and the starting total.",
-    "darkWindowClosed": "The blind window has already closed."
+    "darkWindowClosed": "The blind window has already closed.",
+    "cannotRemoveSelf": "You cannot remove yourself."
   },
   "table": {
     "round": "Round {{n}}",
@@ -417,7 +418,9 @@
     "roundsTitle": "Rounds",
     "sessionTab": "Sitting {{n}}",
     "noRounds": "No rounds in this sitting yet.",
-    "total": "Score"
+    "total": "Score",
+    "removeForever": "Remove from standings",
+    "removeConfirm": "Removes “{{name}}” from the standings for good. Past sittings keep the name. Continue?"
   },
   "history": {
     "title": "History",

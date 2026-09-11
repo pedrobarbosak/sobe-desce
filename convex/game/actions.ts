@@ -85,7 +85,7 @@ async function mySeat(ctx: MutationCtx, roundId: Id<"rounds">): Promise<number> 
     .unique();
   if (!hand) throw new ConvexError({ code: "notSeated" });
   const player = await ctx.db.get(hand.gamePlayerId);
-  if (player && (player.botControlled === true || player.status === "left")) {
+  if (player && (player.botControlled === true || player.status !== "active")) {
     throw new ConvexError({ code: "seatHandedToBot" });
   }
   return hand.seat;

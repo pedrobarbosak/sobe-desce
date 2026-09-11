@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../convex/_generated/api";
 import { configFromPreset } from "../../src/engine";
 import { as, seedUsers, setup } from "./setup";
 
 describe("campaign", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
   it("seats only checked-in players, freezes the rest, and recomputes the discard cap", async () => {
     const t = setup();
     const names = ["ana", "bruno", "carla", "duarte", "eva", "filipe", "gui"];
@@ -264,5 +267,39 @@ describe("campaign", () => {
     const after = (await as(t, "ana").query(api.games.get, { gameId }))!;
     expect(after.session).toBeNull();
     expect(after.players.every((p) => p.score === 40)).toBe(true);
+  });
+
+  it("the organizer can strike a player from the standings for good", async () => {
+    const t = setup();
+    await seedUsers(t, ["ana", "bruno", "carla"]);
+    const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+      config: configFromPreset("liga", { startingPoints: 12, forcedPlayThreshold: 3 }),
+    });
+    await as(t, "bruno").mutation(api.games.joinByCode, { code });
+    await as(t, "carla").mutation(api.games.joinByCode, { code });
+    const view = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    const [ana, bruno, carla] = view.players.map((p) => p._id);
+    await as(t, "ana").mutation(api.sessions.recordManual, {
+      gameId,
+      playerIds: [ana!, bruno!, carla!],
+      deltas: [{ playerId: ana!, delta: -1 }, { playerId: bruno!, delta: -2 }, { playerId: carla!, delta: -3 }],
+    });
+
+    // Plain removal keeps them on the board, greyed out.
+    await as(t, "ana").mutation(api.games.removePlayer, { gameId, playerId: bruno! });
+    let standings = (await as(t, "ana").query(api.history.standings, { gameId }))!;
+    expect(standings.players.find((p) => p.playerId === bruno)?.left).toBe(true);
+
+    await as(t, "ana").mutation(api.games.removePlayer, { gameId, playerId: bruno!, permanent: true });
+    await as(t, "ana").mutation(api.games.removePlayer, { gameId, playerId: carla!, permanent: true });
+    standings = (await as(t, "ana").query(api.history.standings, { gameId }))!;
+    expect(standings.players.map((p) => p.playerId)).toEqual([ana]);
+    expect((await as(t, "ana").query(api.games.get, { gameId }))!.players).toHaveLength(1);
+    // History still knows who they were.
+    const sessions = await as(t, "ana").query(api.history.sessions, { gameId });
+    expect(sessions[0]!.players.map((p) => p.name).sort()).toEqual(["ana", "bruno", "carla"]);
+    // Coming back through the code puts them on the board again.
+    await as(t, "carla").mutation(api.games.joinByCode, { code });
+    expect((await as(t, "ana").query(api.games.get, { gameId }))!.players).toHaveLength(2);
   });
 });

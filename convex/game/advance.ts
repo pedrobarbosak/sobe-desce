@@ -20,7 +20,7 @@ export function isServerDriven(player: Doc<"gamePlayers"> | null): boolean {
     !player ||
     player.isBot ||
     player.botControlled === true ||
-    player.status === "left" ||
+    player.status !== "active" ||
     player.userId === undefined
   );
 }

@@ -128,7 +128,7 @@ export const joinByCode = mutation({
     if (!game) throw new ConvexError({ code: "notFound" });
     const existing = await myMembership(ctx, game._id, user._id);
     if (existing) {
-      if (existing.status === "left" && game.status !== "finished") {
+      if (existing.status !== "active" && game.status !== "finished") {
         await ctx.db.patch(existing._id, { status: "active" });
       }
       return { gameId: game._id };
@@ -547,9 +547,13 @@ export const addManualPlayer = mutation({
   },
 });
 
+/**
+ * Host only. A player with history is marked as gone rather than deleted, so past rounds
+ * keep their name; `permanent` strikes them from the standings as well.
+ */
 export const removePlayer = mutation({
-  args: { gameId: v.id("games"), playerId: v.id("gamePlayers") },
-  handler: async (ctx, { gameId, playerId }) => {
+  args: { gameId: v.id("games"), playerId: v.id("gamePlayers"), permanent: v.optional(v.boolean()) },
+  handler: async (ctx, { gameId, playerId, permanent }) => {
     const user = await requireUser(ctx);
     const game = await loadGame(ctx, gameId);
     assertOwner(game, user._id);
@@ -565,7 +569,12 @@ export const removePlayer = mutation({
     if (game.status === "lobby" || player.roundsPlayed === 0) {
       await ctx.db.delete(playerId);
     } else {
-      await ctx.db.patch(playerId, { status: "left", checkedIn: false });
+      await ctx.db.patch(playerId, {
+        status: permanent ? "removed" : "left",
+        checkedIn: false,
+        botControlled: undefined,
+        botReason: undefined,
+      });
     }
   },
 });

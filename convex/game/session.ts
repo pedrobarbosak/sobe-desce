@@ -35,7 +35,7 @@ export async function humanSeatCount(ctx: MutationCtx, session: Doc<"sessions">)
   for (const playerId of session.seats) {
     const player = await ctx.db.get(playerId);
     if (!player || player.isBot || player.botControlled === true) continue;
-    if (player.status === "left" || player.userId === undefined) continue;
+    if (player.status !== "active" || player.userId === undefined) continue;
     n++;
   }
   return n;

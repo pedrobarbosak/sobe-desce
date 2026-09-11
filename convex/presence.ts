@@ -43,7 +43,7 @@ export const sweep = internalMutation({
     for (const playerId of session.seats) {
       const player = await ctx.db.get(playerId);
       if (!player || player.isBot || player.botControlled === true) continue;
-      if (player.status === "left" || player.userId === undefined) continue;
+      if (player.status !== "active" || player.userId === undefined) continue;
       const seen = await ctx.db
         .query("presence")
         .withIndex("by_game_user", (q) => q.eq("gameId", session.gameId).eq("userId", player.userId!))
