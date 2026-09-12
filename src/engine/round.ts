@@ -2,7 +2,7 @@ import { type Card, type DeckSize, type Suit, SUITS, buildDeck, isCard, suitOf }
 import { HAND_SIZE, TRICKS_PER_ROUND } from "./config";
 import { EngineError } from "./errors";
 import { legalPlays, sitOutBlockedReason } from "./legal";
-import { mulberry32, shuffle } from "./rng";
+import { rngFromSeed, shuffle } from "./rng";
 import { roundDeltas } from "./scoring";
 import { type CompletedTrick, type TrickInProgress, trickWinner } from "./trick";
 
@@ -81,7 +81,7 @@ export type CreateRoundInput = {
   dealerSeat: number;
   maxDiscard: number;
   blankPenalty: number;
-  seed: number;
+  seed: string;
 };
 
 export function leftOf(seat: number, seatCount: number): number {
@@ -107,7 +107,7 @@ function dealCards(state: RoundState, perPlayer: number): void {
 
 /** Shuffle with the seed and deal the first three cards to everyone. */
 export function createRound(input: CreateRoundInput): RoundState {
-  const rng = mulberry32(input.seed);
+  const rng = rngFromSeed(input.seed);
   const state: RoundState = {
     deck: input.deck,
     seatCount: input.seatCount,

@@ -11,8 +11,15 @@ import type { RoundState } from "../../src/engine";
 export const BOT_DELAY_MS = 900;
 export const NEXT_ROUND_DELAY_MS = 6_000;
 
-function randomSeed(): number {
-  return Math.floor(Math.random() * 0xffffffff) >>> 0;
+/**
+ * 128 bits, which is all the shuffle's state can absorb. Anything narrower leaves few
+ * enough possible deals that a player who knows their own hand can search for the seed
+ * offline and read the rest of the table.
+ */
+function randomSeed(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Bots, handed-over seats and players who left are driven by the server. */

@@ -18,7 +18,7 @@ import {
 const ctx: RoundContext = { scores: [20, 20, 20, 20], sitOutStreak: [0, 0, 0, 0], forcedPlayThreshold: 5 };
 
 function make(seed = 1, seatCount = 4, dealerSeat = 0): RoundState {
-  return createRound({ deck: 40, seatCount, dealerSeat, maxDiscard: 5, blankPenalty: 5, seed });
+  return createRound({ deck: 40, seatCount, dealerSeat, maxDiscard: 5, blankPenalty: 5, seed: String(seed) });
 }
 
 function step(state: RoundState, action: Action, c: RoundContext = ctx): RoundState {
@@ -167,7 +167,7 @@ describe("discard phase", () => {
 
 /** Play a whole round with bots and return the final state. */
 function playOut(seed: number, seatCount = 4, deck: 40 | 52 = 40): RoundState {
-  let s = createRound({ deck, seatCount, dealerSeat: 0, maxDiscard: maxDiscard(deck, seatCount), blankPenalty: 5, seed });
+  let s = createRound({ deck, seatCount, dealerSeat: 0, maxDiscard: maxDiscard(deck, seatCount), blankPenalty: 5, seed: String(seed) });
   const c: RoundContext = {
     scores: Array(seatCount).fill(20),
     sitOutStreak: Array(seatCount).fill(0),

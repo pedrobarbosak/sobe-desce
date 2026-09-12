@@ -138,7 +138,8 @@ export default defineSchema({
   /** SERVER-ONLY: never read from a query. */
   roundSecrets: defineTable({
     roundId: v.id("rounds"),
-    seed: v.number(),
+    /** Rounds dealt before the shuffle widened to 128 bits stored a number. */
+    seed: v.union(v.string(), v.number()),
     drawPile: v.array(v.string()),
   }).index("by_round", ["roundId"]),
 
