@@ -1,6 +1,7 @@
 import { discardCapFor } from "../../src/engine";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { deleteRoundDeep } from "./cleanup";
 
 /**
  * Score a round in progress as a blank: nobody played it out, so inventing a result would
@@ -22,16 +23,7 @@ export async function voidRound(ctx: MutationCtx, round: Doc<"rounds">): Promise
 
 /** Throw a round away as if it had never been dealt: hands, secrets, log and all. */
 export async function discardRound(ctx: MutationCtx, round: Doc<"rounds">): Promise<void> {
-  for (const hand of await ctx.db.query("hands").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
-    await ctx.db.delete(hand._id);
-  }
-  for (const secret of await ctx.db.query("roundSecrets").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
-    await ctx.db.delete(secret._id);
-  }
-  for (const action of await ctx.db.query("actions").withIndex("by_round_seq", (q) => q.eq("roundId", round._id)).collect()) {
-    await ctx.db.delete(action._id);
-  }
-  await ctx.db.delete(round._id);
+  await deleteRoundDeep(ctx, round._id);
   await ctx.db.patch(round.sessionId, { currentRoundId: undefined });
 }
 

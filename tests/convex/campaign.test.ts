@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { configFromPreset } from "../../src/engine";
-import { as, seedUsers, setup } from "./setup";
+import { as, drainCleanup, seedUsers, setup } from "./setup";
 
 describe("campaign", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -386,6 +386,7 @@ describe("campaign", () => {
     expect(after.players.find((p) => p._id === bruno)!.score).toBe(12 - 3 + 4);
     sessions = await as(t, "ana").query(api.history.sessions, { gameId });
     expect(sessions.map((s) => s.index)).toEqual([0]);
+    await drainCleanup(t);
     const leftovers = await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length);
     expect(leftovers).toBe(1);
   });

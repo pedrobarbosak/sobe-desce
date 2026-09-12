@@ -309,19 +309,10 @@ export const remove = mutation({
         await ctx.db.patch(gameId, { status: "active", winnerPlayerId: undefined, finishedAt: undefined });
       }
     }
-    for (const round of rounds) {
-      for (const hand of await ctx.db.query("hands").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
-        await ctx.db.delete(hand._id);
-      }
-      for (const secret of await ctx.db.query("roundSecrets").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
-        await ctx.db.delete(secret._id);
-      }
-      for (const action of await ctx.db.query("actions").withIndex("by_round_seq", (q) => q.eq("roundId", round._id)).collect()) {
-        await ctx.db.delete(action._id);
-      }
-      await ctx.db.delete(round._id);
-    }
+    // The sitting goes now, so it leaves the history immediately; its rounds are swept
+    // afterwards, because a long sitting has more of them than one transaction may delete.
     await ctx.db.delete(sessionId);
+    await ctx.scheduler.runAfter(0, internal.game.cleanup.purgeSessionRounds, { sessionId });
     // Later sittings close the gap so the numbering stays continuous.
     const later = await ctx.db
       .query("sessions")

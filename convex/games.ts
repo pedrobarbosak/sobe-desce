@@ -408,32 +408,21 @@ export const kickToBot = mutation({
 /**
  * Wipe a game and everything hanging off it. Scheduled functions that were pointing at the
  * deleted rows all start with a lookup, so they turn into no-ops on their own.
+ *
+ * The roster and the presence rows are bounded by the roster size, so they go now, along
+ * with the game itself: every query into a game starts from the game document, so the
+ * table leaves the app the moment this commits. Rounds and sittings are not bounded -- a
+ * campaign that ran for a year has hundreds of rounds and tens of thousands of rows behind
+ * them, far past what one transaction may write -- so they are swept afterwards. Deleting
+ * the game first is what makes that safe: nothing can reach them in between.
  */
 async function deleteGameCascade(ctx: MutationCtx, gameId: Id<"games">): Promise<void> {
-  const rounds = await ctx.db
-    .query("rounds")
-    .withIndex("by_game", (q) => q.eq("gameId", gameId))
-    .collect();
-  for (const round of rounds) {
-    for (const hand of await ctx.db.query("hands").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
-      await ctx.db.delete(hand._id);
-    }
-    for (const secret of await ctx.db.query("roundSecrets").withIndex("by_round", (q) => q.eq("roundId", round._id)).collect()) {
-      await ctx.db.delete(secret._id);
-    }
-    for (const action of await ctx.db.query("actions").withIndex("by_round_seq", (q) => q.eq("roundId", round._id)).collect()) {
-      await ctx.db.delete(action._id);
-    }
-    await ctx.db.delete(round._id);
-  }
-  for (const session of await ctx.db.query("sessions").withIndex("by_game", (q) => q.eq("gameId", gameId)).collect()) {
-    await ctx.db.delete(session._id);
-  }
   for (const player of await rosterOf(ctx, gameId)) await ctx.db.delete(player._id);
   for (const row of await ctx.db.query("presence").withIndex("by_game", (q) => q.eq("gameId", gameId)).collect()) {
     await ctx.db.delete(row._id);
   }
   await ctx.db.delete(gameId);
+  await ctx.scheduler.runAfter(0, internal.game.cleanup.purgeGame, { gameId });
 }
 
 /** Nobody but bots is still enrolled, so the table is not worth keeping. */

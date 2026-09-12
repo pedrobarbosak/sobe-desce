@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { configFromPreset } from "../../src/engine";
-import { as, seedUsers, setup } from "./setup";
+import { as, drainCleanup, seedUsers, setup } from "./setup";
 
 const NAMES = ["ana", "bruno", "carla", "duarte"];
 
@@ -237,6 +237,25 @@ describe("throwing a table away", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("takes a long campaign with it, in more rounds than one transaction may delete", async () => {
+    const t = setup();
+    const gameId = await seatedGame(t);
+    // A campaign that ran for a year leaves hundreds of rounds behind. Deleting them in a
+    // single mutation blows the per-transaction write limit, which used to make a table
+    // like this both undeletable and unleavable.
+    await t.run(async (ctx) => {
+      const [round] = await ctx.db.query("rounds").collect();
+      const { _id, _creationTime, ...fields } = round!;
+      for (let i = 0; i < 45; i++) await ctx.db.insert("rounds", fields);
+    });
+    expect(await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length)).toBe(46);
+
+    await as(t, "ana").mutation(api.games.remove, { gameId });
+    expect(await as(t, "ana").query(api.games.get, { gameId })).toBeNull();
+    await drainCleanup(t);
+    expect(await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length)).toBe(0);
+  });
+
   it("only the host can delete, and it takes the rounds with it", async () => {
     const t = setup();
     const gameId = await seatedGame(t);
@@ -245,6 +264,7 @@ describe("throwing a table away", () => {
     await as(t, "ana").mutation(api.games.remove, { gameId });
     expect(await as(t, "ana").query(api.games.get, { gameId })).toBeNull();
     expect(await as(t, "bruno").query(api.games.ongoing)).toBeNull();
+    await drainCleanup(t);
     const leftovers = await t.run(async (ctx) => ({
       rounds: (await ctx.db.query("rounds").collect()).length,
       hands: (await ctx.db.query("hands").collect()).length,

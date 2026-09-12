@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as game_actions from "../game/actions.js";
 import type * as game_advance from "../game/advance.js";
 import type * as game_bots from "../game/bots.js";
+import type * as game_cleanup from "../game/cleanup.js";
 import type * as game_dark from "../game/dark.js";
 import type * as game_seat from "../game/seat.js";
 import type * as game_session from "../game/session.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "game/actions": typeof game_actions;
   "game/advance": typeof game_advance;
   "game/bots": typeof game_bots;
+  "game/cleanup": typeof game_cleanup;
   "game/dark": typeof game_dark;
   "game/seat": typeof game_seat;
   "game/session": typeof game_session;
