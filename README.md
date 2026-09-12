@@ -48,6 +48,13 @@ npm test                # engine rules + Convex game loop (convex-test)
 npm run typecheck
 ```
 
+## Known issues
+
+Tables of six seats and up cannot reach the win condition: only five tricks exist per
+round however many people are playing, so the blank penalty pushes the table's total score
+up faster than tricks pull it down. Affects `mesaGrande`, `party` and `liga`. Diagnosis,
+measurements and candidate fixes are in [docs/LARGE-TABLES.md](docs/LARGE-TABLES.md).
+
 ## Layout
 
 ```
