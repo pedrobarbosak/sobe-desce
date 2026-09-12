@@ -493,7 +493,14 @@ export function Table({ data }: { data: TableData }) {
               );
             })}
 
-          <div className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-2">
+          {/* Whose turn it is, and who took the trick, are the two things a player who
+              cannot see the felt has to be told. Polite, so it waits for a pause. */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-2"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             <AnimatePresence mode="wait">
               <TableStatus
                 actor={statusActor}
@@ -704,6 +711,7 @@ export function Table({ data }: { data: TableData }) {
                 exit={{ y: 12, opacity: 0 }}
                 className="absolute inset-x-0 z-30 flex justify-center px-3"
                 style={{ bottom: handHeight + 8 }}
+                role="alert"
               >
                 <button
                   type="button"
