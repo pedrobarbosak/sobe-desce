@@ -580,7 +580,7 @@ describe("campaign", () => {
       vi.setSystemTime(Date.now() + 200_000);
       for (const n of NAMES.slice(1)) await as(t, n).mutation(api.presence.heartbeat, { gameId });
       await t.mutation(internal.presence.sweep, { sessionId });
-      let table = await tableFor(t, "bruno", gameId);
+      const table = await tableFor(t, "bruno", gameId);
       expect(table.session!.seatCount).toBe(4);
       expect(table.seats.map((s) => s.name)).not.toContain("ana");
       expect(table.seats.every((s) => !s.botControlled)).toBe(true);

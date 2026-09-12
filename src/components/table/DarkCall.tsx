@@ -26,6 +26,12 @@ export function DarkCall({
 }) {
   const { t } = useTranslation();
   const [left, setLeft] = useState(() => Math.max(0, Math.ceil((deadline - (Date.now() + skewMs)) / 1000)));
+  // Measured once, off the render path: the countdown above re-renders every second, and
+  // recomputing this duration each time restarted the bar instead of letting it drain.
+  const [barSeconds, setBarSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    setBarSeconds(Math.max(0, (deadline - (Date.now() + skewMs)) / 1000));
+  }, [deadline, skewMs]);
 
   useEffect(() => {
     const read = () => setLeft(Math.max(0, Math.ceil((deadline - (Date.now() + skewMs)) / 1000)));
@@ -60,12 +66,14 @@ export function DarkCall({
       <div className="mt-3">
         <p className="text-xs text-cream-100/60">{t("table.darkWait", { s: left })}</p>
         <div className="mx-auto mt-1.5 h-1 w-40 overflow-hidden rounded-full bg-white/15">
-          <motion.div
-            className="h-full bg-heart"
-            initial={{ width: "100%" }}
-            animate={{ width: "0%" }}
-            transition={{ duration: Math.max(0, (deadline - (Date.now() + skewMs)) / 1000), ease: "linear" }}
-          />
+          {barSeconds !== null && (
+            <motion.div
+              className="h-full bg-heart"
+              initial={{ width: "100%" }}
+              animate={{ width: "0%" }}
+              transition={{ duration: barSeconds, ease: "linear" }}
+            />
+          )}
         </div>
       </div>
     </motion.div>

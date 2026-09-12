@@ -69,7 +69,7 @@ export function Table({ data }: { data: TableData }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingChoice | null>(null);
   const [drawer, setDrawer] = useState<"lobby" | "standings" | "history" | null>(null);
-  const felt = useElementSize<HTMLDivElement>();
+  const [feltRef, felt] = useElementSize<HTMLDivElement>();
 
   const roundId = round?._id;
   const roundPhase = round?.phase;
@@ -142,16 +142,24 @@ export function Table({ data }: { data: TableData }) {
   // only re-run on data changes), so anchor on the turn deadline instead: it is written by
   // the server the instant a turn starts and reaches us within network latency.
   const totalTurnMs = game.config.turnSeconds * 1000;
-  const skewRef = useRef<number>(data.serverNow - Date.now());
-  const lastTurnKey = useRef<string | null>(null);
-  {
-    const key = round ? `${round._id}:${round.turnNonce}` : null;
-    if (key && key !== lastTurnKey.current && round?.turnDeadline) {
-      lastTurnKey.current = key;
-      skewRef.current = round.turnDeadline - totalTurnMs - Date.now();
-    }
-  }
-  const skewMs = skewRef.current;
+  const turnKey = round?.turnDeadline ? `${round._id}:${round.turnNonce}` : null;
+  /**
+   * Read once when the turn starts, never during render.
+   *
+   * `barMs` has to be frozen for the turn as well as measured once. The progress bar is a
+   * CSS animation, and patching its duration mid-flight does not restart it: the browser
+   * keeps the elapsed time and simply rescales, so a re-render part way through a turn
+   * made the bar jump forward. Holding the value steady for the turn leaves the animation
+   * alone, and the key below restarts it when the turn actually changes.
+   */
+  const [turnClock, setTurnClock] = useState<{ key: string; skewMs: number; barMs: number } | null>(null);
+  useEffect(() => {
+    if (!turnKey || !round?.turnDeadline) return;
+    const now = Date.now();
+    setTurnClock({ key: turnKey, skewMs: round.turnDeadline - totalTurnMs - now, barMs: Math.max(0, round.turnDeadline - now) });
+  }, [turnKey, totalTurnMs, round?.turnDeadline]);
+  const skewMs = turnClock?.skewMs ?? 0;
+  const turnBarMs = turnClock?.key === turnKey ? turnClock.barMs : totalTurnMs;
 
   // ---- sizing from the measured felt
   const W = felt.w || 800;
@@ -185,7 +193,7 @@ export function Table({ data }: { data: TableData }) {
   useEffect(() => {
     if (!myDeadline) return;
     sound.play("turn");
-    const remaining = () => Math.max(0, myDeadline - (Date.now() + skewRef.current!));
+    const remaining = () => Math.max(0, myDeadline - (Date.now() + skewMs));
     let cancelled = false;
     // Ticks: silent for the first stretch, then faster and sharper the less time is left.
     let tickId: number | undefined;
@@ -206,7 +214,7 @@ export function Table({ data }: { data: TableData }) {
       cancelled = true;
       if (tickId) clearTimeout(tickId);
     };
-  }, [myDeadline, totalTurnMs]);
+  }, [myDeadline, totalTurnMs, skewMs]);
 
   const sitOutBlock = useMemo(() => {
     if (!round || !trump || !me) return null;
@@ -448,13 +456,13 @@ export function Table({ data }: { data: TableData }) {
         </div>
 
         {/* felt */}
-        <div ref={felt.ref} className="perspective relative flex-1 overflow-hidden">
+        <div ref={feltRef} className="perspective relative flex-1 overflow-hidden">
           <div className="felt absolute inset-0" />
           {isMyTurn && round?.turnDeadline && (
             <div
               key={`${round._id}-${round.turnNonce}`}
               className="turn-bar absolute inset-x-0 top-0 z-30 h-1.5"
-              style={{ animationDuration: `${Math.max(0, round.turnDeadline - (Date.now() + skewMs))}ms` }}
+              style={{ animationDuration: `${turnBarMs}ms` }}
             />
           )}
           <div

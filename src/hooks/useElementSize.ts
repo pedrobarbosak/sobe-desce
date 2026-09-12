@@ -15,5 +15,7 @@ export function useElementSize<T extends HTMLElement>() {
     setSize({ w: el.clientWidth, h: el.clientHeight });
     return () => ro.disconnect();
   }, []);
-  return { ref, ...size };
+  // The ref is returned beside the size rather than spread into one object: bundling them
+  // makes every read of `size.w` look like a ref access to the hooks lint rules.
+  return [ref, size] as const;
 }
