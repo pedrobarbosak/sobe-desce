@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Sobe e Desce</title>
+    <meta
+      name="description"
+      content="O jogo de cartas português, online e em tempo real. Convida os amigos, escolhe o trunfo e chega aos zero pontos antes dos outros."
+    />
     <meta name="theme-color" content="#0f3d27" />
 
     <!-- Installable on a phone's home screen. Also the gate on web push on iOS, which is
@@ -13,6 +17,21 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Sobe e Desce" />
+
+    <!-- An invite is a link pasted into a group chat, so it needs to unfurl into something.
+         The URLs here are root-relative; the Vite config rewrites them to absolute at build
+         time when VITE_APP_URL is set, because most chat clients will not resolve a
+         relative og:image. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sobe e Desce" />
+    <meta property="og:title" content="Sobe e Desce" />
+    <meta
+      property="og:description"
+      content="O jogo de cartas português, online e em tempo real. Convida os amigos, escolhe o trunfo e chega aos zero pontos antes dos outros."
+    />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta property="og:locale" content="pt_PT" />
+    <meta name="twitter:card" content="summary" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
