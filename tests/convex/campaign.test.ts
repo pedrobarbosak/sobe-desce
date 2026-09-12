@@ -390,6 +390,66 @@ describe("campaign", () => {
     expect(leftovers).toBe(1);
   });
 
+  it("shows the live hands to a player who passed, and to nobody else", async () => {
+    const tableFor = (t: ReturnType<typeof setup>, name: string, gameId: Id<"games">) =>
+      as(t, name).query(api.game.table.get, { gameId }).then((v) => v!);
+    const t = setup();
+    const names = ["ana", "bruno", "carla", "duarte", "eva"];
+    await seedUsers(t, names);
+    const { gameId, code } = await as(t, "ana").mutation(api.games.create, {
+      config: configFromPreset("liga", { startingPoints: 40, forcedPlayThreshold: 10 }),
+    });
+    for (const n of names.slice(1)) await as(t, n).mutation(api.games.joinByCode, { code });
+    // Eva is on the roster but does not check in, so she is not at the table tonight.
+    for (const n of names.slice(0, 4)) await as(t, n).mutation(api.games.setCheckedIn, { gameId, checkedIn: true });
+    await as(t, "ana").mutation(api.sessions.start, { gameId });
+
+    let table = await tableFor(t, "ana", gameId);
+    const roundId = table.round!._id as Id<"rounds">;
+    const namer = table.seats[table.round!.turnSeat!]!.name;
+    await as(t, namer).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+
+    // One seat passes the round; the rest play it out.
+    let passer = "";
+    table = await tableFor(t, "ana", gameId);
+    for (let i = 0; i < 10 && table.round!.phase === "discard"; i++) {
+      const turn = table.seats[table.round!.turnSeat!]!.name;
+      if (turn !== namer && passer === "") {
+        await as(t, turn).mutation(api.game.actions.sitOut, { roundId });
+        passer = turn;
+      } else {
+        await as(t, turn).mutation(api.game.actions.discard, { roundId, cards: [] });
+      }
+      table = await tableFor(t, "ana", gameId);
+    }
+    expect(table.round!.phase).toBe("tricks");
+    expect(passer).not.toBe("");
+
+    // The passer has no stake left in the round, so the hands play out in front of them.
+    const passerView = await tableFor(t, passer, gameId);
+    expect(passerView.openHands).not.toBeNull();
+    expect(passerView.openHands!.length).toBeGreaterThan(0);
+
+    // Everyone else sees backs. Eva is the case that used to leak: a campaign takes joins
+    // while a sitting is live, so any holder of the invite code could walk in mid-round
+    // and read every hand at the table.
+    const eva = await tableFor(t, "eva", gameId);
+    expect(eva.mySeat).toBe(-1);
+    expect(eva.myHand).toBeNull();
+    expect(eva.openHands).toBeNull();
+
+    await seedUsers(t, ["zeca"]);
+    await as(t, "zeca").mutation(api.games.joinByCode, { code });
+    const walkIn = await tableFor(t, "zeca", gameId);
+    expect(walkIn.openHands).toBeNull();
+
+    // And a player still in the round sees only their own cards.
+    const stillIn = table.seats.find((s) => s.name !== namer && s.name !== passer)!.name;
+    const inView = await tableFor(t, stillIn, gameId);
+    expect(inView.myHand).not.toBeNull();
+    expect(inView.openHands).toBeNull();
+  });
+
   it("points a row that already has an account at a different one", async () => {
     const t = setup();
     await seedUsers(t, ["ana", "bruno"]);

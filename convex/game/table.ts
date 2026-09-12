@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { currentUser } from "../lib/auth";
-import { myMembership } from "../games";
 import { PRESENCE_TTL_MS } from "../presence";
 
 /**
@@ -63,14 +62,16 @@ export const get = query({
     }
 
     // A player who passed the round has no stake left in it, so they get to watch the
-    // hands play out. So does a roster member who is in the room but not at the table
-    // tonight. Never before the tricks start: the others are still deciding.
+    // hands play out. Never before the tricks start: the others are still deciding.
+    //
+    // Nobody else sees them. A roster member who is not at the table tonight used to, and
+    // that reached further than it looked: a campaign accepts joins while a sitting is
+    // live, so anyone holding the invite code could walk in mid-round and read every hand
+    // with a seated player one message away.
     const iAmOut = mySeat >= 0 && round?.participants[mySeat]?.decision === "out";
-    const member = user && mySeat < 0 ? await myMembership(ctx, gameId, user._id) : null;
-    const iAmWatching = member !== null && member.status === "active";
     const tricksVisible = round?.phase === "tricks" || round?.phase === "scored";
     let openHands: { seat: number; cards: string[] }[] | null = null;
-    if (round && (iAmOut || iAmWatching) && tricksVisible) {
+    if (round && iAmOut && tricksVisible) {
       const all = await ctx.db
         .query("hands")
         .withIndex("by_round", (q) => q.eq("roundId", round._id))
