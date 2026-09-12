@@ -237,6 +237,28 @@ describe("throwing a table away", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("reports who is connected from its own query, not from the table", async () => {
+    const t = setup();
+    const gameId = await seatedGame(t);
+    const brunoId = await t.run(async (ctx) =>
+      (await ctx.db.query("users").collect()).find((u) => u.displayName === "bruno")!._id,
+    );
+
+    expect(await as(t, "ana").query(api.presence.onlineIn, { gameId })).not.toContain(brunoId);
+    await as(t, "bruno").mutation(api.presence.heartbeat, { gameId });
+    expect(await as(t, "ana").query(api.presence.onlineIn, { gameId })).toContain(brunoId);
+
+    // The table query carries the seat's user, not its connectedness: reading presence
+    // there meant every heartbeat re-sent every hand and trick to everyone.
+    const table = (await as(t, "ana").query(api.game.table.get, { gameId }))!;
+    expect(table.seats.some((seat) => seat.userId === brunoId)).toBe(true);
+    expect(table.seats.every((seat) => !("online" in seat))).toBe(true);
+
+    // A tab that stops beating drops out once the window passes.
+    vi.setSystemTime(Date.now() + 60_000);
+    expect(await as(t, "ana").query(api.presence.onlineIn, { gameId })).not.toContain(brunoId);
+  });
+
   it("takes a long campaign with it, in more rounds than one transaction may delete", async () => {
     const t = setup();
     const gameId = await seatedGame(t);

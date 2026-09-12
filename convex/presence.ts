@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { type MutationCtx, type QueryCtx, internalMutation, mutation } from "./_generated/server";
+import { type MutationCtx, type QueryCtx, internalMutation, mutation, query } from "./_generated/server";
 import { setTurn } from "./game/advance";
 import { handSeatToBot, leaveSitting } from "./game/seat";
 import { isLeaving } from "./game/session";
@@ -24,6 +24,27 @@ export async function isOnline(ctx: QueryCtx | MutationCtx, gameId: Id<"games">,
     .unique();
   return seen !== null && Date.now() - seen.lastSeenAt < PRESENCE_TTL_MS;
 }
+
+/**
+ * Who has a tab open on this game.
+ *
+ * Deliberately its own query, reading nothing but the presence table. A seated player's
+ * tab beats every 15 seconds, and in Convex every subscribed query re-runs when any
+ * document it read changes -- so while the table query read presence, one player's
+ * heartbeat re-sent every hand, trick and seat at the table to everyone, several times a
+ * minute, to move a dot. Here the same churn costs a list of ids.
+ */
+export const onlineIn = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const rows = await ctx.db
+      .query("presence")
+      .withIndex("by_game", (q) => q.eq("gameId", gameId))
+      .collect();
+    const now = Date.now();
+    return rows.filter((r) => now - r.lastSeenAt < PRESENCE_TTL_MS).map((r) => r.userId);
+  },
+});
 
 export const heartbeat = mutation({
   args: { gameId: v.id("games") },

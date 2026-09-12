@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
@@ -43,7 +43,17 @@ const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
 export function Table({ data }: { data: TableData }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { game, session, round, seats, mySeat, myHand } = data;
+  const { game, session, round, seats: seatRows, mySeat, myHand } = data;
+  // Presence is its own subscription so a heartbeat cannot invalidate the table query
+  // and re-send every hand and trick. See presence.onlineIn.
+  const onlineIds = useQuery(api.presence.onlineIn, { gameId: game._id });
+  // Keyed on the joined ids rather than the array: a heartbeat that changes nothing hands
+  // back a fresh array every time, and reseating everyone for that would defeat the point.
+  const onlineKey = (onlineIds ?? []).join(",");
+  const seats = useMemo(() => {
+    const online = new Set(onlineKey === "" ? [] : onlineKey.split(","));
+    return seatRows.map((s) => ({ ...s, online: s.isBot || (s.userId !== null && online.has(s.userId)) }));
+  }, [seatRows, onlineKey]);
   const nameTrump = useMutation(api.game.actions.nameTrump);
   const flipTrump = useMutation(api.game.actions.flipTrump);
   const darkHearts = useMutation(api.game.actions.darkHearts);

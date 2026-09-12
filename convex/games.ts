@@ -9,7 +9,6 @@ import { currentUser, requireUser } from "./lib/auth";
 import { generateCode, normalizeCode } from "./lib/code";
 import { handSeatToBot, leaveSitting } from "./game/seat";
 import { gameConfig } from "./lib/validators";
-import { PRESENCE_TTL_MS } from "./presence";
 
 export async function loadGame(ctx: QueryCtx | MutationCtx, gameId: Id<"games">): Promise<Doc<"games">> {
   const game = await ctx.db.get(gameId);
@@ -160,14 +159,6 @@ export const get = query({
     const game = await ctx.db.get(gameId);
     if (!game) return null;
     const roster = await rosterOf(ctx, gameId);
-    const presence = await ctx.db
-      .query("presence")
-      .withIndex("by_game", (q) => q.eq("gameId", gameId))
-      .collect();
-    const now = Date.now();
-    const online = new Set(
-      presence.filter((p) => now - p.lastSeenAt < PRESENCE_TTL_MS).map((p) => p.userId),
-    );
     const session = game.currentSessionId ? await ctx.db.get(game.currentSessionId) : null;
     const players = roster
       .filter((p) => p.status === "active")
@@ -185,7 +176,6 @@ export const get = query({
         sessionsPlayed: p.sessionsPlayed,
         lastDelta: p.lastDelta,
         checkedIn: p.checkedIn,
-        online: p.isBot || (p.userId !== undefined && online.has(p.userId)),
         isMe: user !== null && p.userId === user._id,
         seat: session ? session.seats.indexOf(p._id) : -1,
         arranged: p.order !== undefined,
@@ -208,8 +198,6 @@ export const get = query({
       players,
       me,
       isOwner: user !== null && game.ownerId === user._id,
-      // While the organizer is in the room, opening a sitting is their call alone.
-      ownerOnline: online.has(game.ownerId),
       session: session
         ? {
             _id: session._id,

@@ -281,7 +281,11 @@ describe("campaign", () => {
     for (const n of names.slice(1)) await as(t, n).mutation(api.games.setCheckedIn, { gameId, checkedIn: true });
 
     await as(t, "ana").mutation(api.presence.heartbeat, { gameId });
-    expect((await as(t, "bruno").query(api.games.get, { gameId }))!.ownerOnline).toBe(true);
+    const [ownerId] = await t.run(async (ctx) => {
+      const owner = (await ctx.db.query("users").collect()).find((u) => u.displayName === "ana")!;
+      return [owner._id];
+    });
+    expect(await as(t, "bruno").query(api.presence.onlineIn, { gameId })).toContain(ownerId);
     await expect(as(t, "bruno").mutation(api.sessions.start, { gameId })).rejects.toThrow(/ownerPresent/);
     // The organizer needs no seat of their own to deal.
     await as(t, "ana").mutation(api.sessions.start, { gameId });

@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { currentUser } from "../lib/auth";
-import { PRESENCE_TTL_MS } from "../presence";
 
 /**
  * Everything the live table needs, computed per caller. Other players' hands never leave
@@ -32,25 +31,19 @@ export const get = query({
     }
     const round = session.currentRoundId ? await ctx.db.get(session.currentRoundId) : null;
     const players = await Promise.all(session.seats.map((id) => ctx.db.get(id)));
-    const presence = await ctx.db
-      .query("presence")
-      .withIndex("by_game", (q) => q.eq("gameId", gameId))
-      .collect();
-    const now = Date.now();
-    const online = new Set(presence.filter((p) => now - p.lastSeenAt < PRESENCE_TTL_MS).map((p) => p.userId));
 
     let mySeat = -1;
     if (user) mySeat = players.findIndex((p) => p?.userId === user._id);
     // "Before seeing any cards" is enforced here: while the blind window is open the seat
     // that settles the trump is not sent its own hand at all.
-    const now0 = Date.now();
+    const now = Date.now();
     const inTheDark =
       round !== null &&
       round.phase === "trump" &&
       round.turnSeat === mySeat &&
       mySeat >= 0 &&
       round.darkUntil !== undefined &&
-      now0 < round.darkUntil;
+      now < round.darkUntil;
 
     let myHand: string[] | null = null;
     if (round && user && mySeat >= 0 && !inTheDark) {
@@ -93,7 +86,9 @@ export const get = query({
         botReason: p?.botReason ?? null,
         left: p?.status !== "active" || (session.leaving?.includes(session.seats[seat]!) ?? false),
         score: p?.score ?? 0,
-        online: (p?.isBot ?? false) || (p?.userId !== undefined && online.has(p.userId)),
+        // Who is connected comes from presence.onlineIn, so a heartbeat cannot invalidate
+        // this query and re-send every hand at the table.
+        userId: p?.userId ?? null,
         isMe: seat === mySeat,
         decision: part?.decision ?? "pending",
         tricksWon: part?.tricksWon ?? 0,

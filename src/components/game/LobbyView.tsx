@@ -15,6 +15,9 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const { t } = useTranslation();
   const navigate = useNavigate();
   const data = useQuery(api.games.get, { gameId });
+  // Separate subscription on purpose: heartbeats churn every few seconds, and this keeps
+  // that churn off the roster query. See presence.onlineIn.
+  const onlineIds = useQuery(api.presence.onlineIn, { gameId });
   const start = useMutation(api.sessions.start);
   const closeSitting = useMutation(api.sessions.close);
   const addBot = useMutation(api.games.addBot);
@@ -37,7 +40,12 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
 
   if (data === undefined) return <Loading />;
   if (data === null) return null;
-  const { game, players, me, isOwner, session, ownerOnline } = data;
+  const { game, players, me, isOwner, session } = data;
+  const online = new Set(onlineIds ?? []);
+  // While the organizer is in the room, opening a sitting is their call alone.
+  const ownerOnline = online.has(game.ownerId);
+  const isOnline = (p: { isBot: boolean; userId: Id<"users"> | undefined }) =>
+    p.isBot || (p.userId !== undefined && online.has(p.userId));
   const isCampaign = game.mode === "campaign";
   const sittingActive = session?.status === "active";
   const seatedCount = isCampaign ? players.filter((p) => p.checkedIn).length : players.length;
@@ -221,13 +229,13 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                     {p.botControlled && <Tag>{t("table.botStandIn")}</Tag>}
                     {isCampaign && !p.isBot && !p.userId && <Tag>{t("lobby.manualTag")}</Tag>}
                     {isCampaign && p.checkedIn && !sittingActive && <Tag gold>{t("lobby.checkedIn")}</Tag>}
-                    {isCampaign && sittingActive && !p.isBot && p.userId && p.online && !seatedNow.has(p._id) && <Tag>{t("lobby.spectating")}</Tag>}
+                    {isCampaign && sittingActive && !p.isBot && p.userId && isOnline(p) && !seatedNow.has(p._id) && <Tag>{t("lobby.spectating")}</Tag>}
                   </div>
                   <div className="text-xs text-cream-100/60">
                     {p.score} {t("common.points")}, {p.roundsPlayed} {t("common.rounds")}
                     {!p.isBot && p.userId && (
-                      <span className={`ml-2 ${p.online ? "text-emerald-300" : "text-cream-100/40"}`}>
-                        ● {p.online ? t("common.online") : t("common.offline")}
+                      <span className={`ml-2 ${isOnline(p) ? "text-emerald-300" : "text-cream-100/40"}`}>
+                        ● {isOnline(p) ? t("common.online") : t("common.offline")}
                       </span>
                     )}
                   </div>
