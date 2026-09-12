@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # Covers the Convex project too, which `npm run build` does not.
+      - run: npm run typecheck
+      # Runs Vite first, because the route tree is generated during the build and the
+      # type check needs it. This is the same order the Dockerfile uses.
+      - run: npm run build
+        env:
+          # Only used to make the social tags absolute; the check does not need the real one.
+          VITE_APP_URL: https://example.invalid
