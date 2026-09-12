@@ -121,6 +121,13 @@ export default defineSchema({
   })
     .index("by_session", ["sessionId"])
     .index("by_session_index", ["sessionId", "index"])
+    /**
+     * Scored rounds only, in order. Standings read this rather than every round of the
+     * sitting: a round in progress is patched on every single action, and a query that had
+     * read it re-runs each time. Narrowing the range to `scored` keeps the live round out
+     * of the read set, so standings settle once per round instead of once per card.
+     */
+    .index("by_session_phase", ["sessionId", "phase", "index"])
     .index("by_game", ["gameId"]),
 
   /** PRIVATE: only ever returned to its owner. */

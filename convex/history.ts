@@ -40,10 +40,9 @@ export const rounds = query({
   handler: async (ctx, { sessionId }) => {
     const rounds = await ctx.db
       .query("rounds")
-      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .withIndex("by_session_index", (q) => q.eq("sessionId", sessionId))
       .collect();
     return rounds
-      .sort((a, b) => a.index - b.index)
       .map((r) => ({
         _id: r._id,
         index: r.index,
@@ -98,15 +97,15 @@ export const standings = query({
     const lastSessionDelta = new Map<string, number>();
     for (const p of roster) trajectory.set(p._id, [game.config.startingPoints]);
     for (const s of sessions) {
-      const rounds = (
-        await ctx.db
-          .query("rounds")
-          .withIndex("by_session", (q) => q.eq("sessionId", s._id))
-          .collect()
-      ).sort((a, b) => a.index - b.index);
+      // Scored rounds only, and in index order from the index itself. Reading the round
+      // in progress here would re-run this query, and every campaign round behind it, on
+      // every card played.
+      const rounds = await ctx.db
+        .query("rounds")
+        .withIndex("by_session_phase", (q) => q.eq("sessionId", s._id).eq("phase", "scored"))
+        .collect();
       const sessionDelta = new Map<string, number>();
       for (const r of rounds) {
-        if (r.phase !== "scored") continue;
         for (const part of r.participants) {
           if (part.scoreAfter === undefined) continue;
           trajectory.get(part.gamePlayerId)?.push(part.scoreAfter);
