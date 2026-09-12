@@ -12,10 +12,16 @@ type Props = {
   style?: React.CSSProperties;
   onClick?: () => void;
   title?: string;
+  /** Accessible name. Defaults to the rank and the suit glyph, which screen readers read poorly. */
+  label?: string;
+  /** Shown but not playable: announced as such rather than silently ignoring the press. */
+  disabled?: boolean;
+  /** Discard phase: the card is a toggle rather than an action, so it reports pressed state. */
+  toggle?: boolean;
 };
 
 export const CardFace = forwardRef<HTMLDivElement, Props>(function CardFace(
-  { card, width = 72, dimmed, selected, className = "", style, onClick, title },
+  { card, width = 72, dimmed, selected, className = "", style, onClick, title, label, disabled, toggle },
   ref,
 ) {
   const suit = suitOf(card);
@@ -27,10 +33,25 @@ export const CardFace = forwardRef<HTMLDivElement, Props>(function CardFace(
       ref={ref}
       title={title}
       onClick={onClick}
+      // A role of button that cannot be focused or pressed is worse than no role at all:
+      // it announces a control and then refuses to work. Space is prevented because it
+      // would otherwise scroll the page out from under the table.
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              onClick();
+            }
+          : undefined
+      }
       className={`card-face relative select-none ${onClick ? "cursor-pointer" : ""} ${dimmed ? "opacity-45 saturate-50" : ""} ${selected ? "card-selected" : ""} ${className}`}
       style={{ width, height, fontSize: width * 0.3, ...style }}
-      role={onClick ? "button" : undefined}
-      aria-label={`${rank}${SUIT_SYMBOLS[suit]}`}
+      role={onClick ? "button" : "img"}
+      tabIndex={onClick ? 0 : undefined}
+      aria-disabled={disabled || undefined}
+      aria-pressed={toggle ? selected === true : undefined}
+      aria-label={label ?? `${rank}${SUIT_SYMBOLS[suit]}`}
     >
       <div className="absolute left-1.5 top-1 flex flex-col items-center leading-none" style={{ color }}>
         <span className="font-display font-extrabold">{rank}</span>

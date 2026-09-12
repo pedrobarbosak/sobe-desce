@@ -312,6 +312,8 @@
     "noTrump": "no trump",
     "dealer": "Deals",
     "cap": "Discard cap {{cap}}",
+    "cardLabel": "{{rank}} of {{suit}}",
+    "handLabel": "Your hand",
     "choosingTrump": "{{name}} is naming the trump…",
     "chooseTrump": "Name the trump",
     "heartsNote": "Hearts: everything doubles",

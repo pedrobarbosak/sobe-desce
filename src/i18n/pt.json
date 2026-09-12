@@ -312,6 +312,8 @@
     "noTrump": "sem trunfo",
     "dealer": "Dá as cartas",
     "cap": "Troca até {{cap}} cartas",
+    "cardLabel": "{{rank}} de {{suit}}",
+    "handLabel": "A tua mão",
     "choosingTrump": "{{name}} está a escolher o trunfo…",
     "chooseTrump": "Escolhe o trunfo",
     "heartsNote": "Copas: tudo a dobrar",

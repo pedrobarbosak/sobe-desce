@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { type Card as CardT, type DeckSize, type Suit, type TrickInProgress, illegalReason, sortHand } from "@/engine";
+import { type Card as CardT, type DeckSize, type Suit, type TrickInProgress, illegalReason, rankOf, sortHand, suitOf } from "@/engine";
 import { CardFace } from "./Card";
 
 type Props = {
@@ -32,13 +32,20 @@ export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay
   const natural = cardWidth * 0.84;
   const overlap = n > 1 ? Math.min(natural, Math.max(cardWidth * 0.3, (maxWidth - cardWidth) / (n - 1))) : natural;
   return (
-    <div className="relative mx-auto" style={{ height: cardWidth * 1.42 + 28, width: overlap * (n - 1) + cardWidth }}>
+    <div
+      className="relative mx-auto"
+      style={{ height: cardWidth * 1.42 + 28, width: overlap * (n - 1) + cardWidth }}
+      role="group"
+      aria-label={t("table.handLabel")}
+    >
       {cards.map((card, i) => {
           const reason = canPlay && trick && trump ? illegalReason(hand, card, trick, trump, deck) : null;
           const legal = canPlay && reason === null;
           const angle = (i - (n - 1) / 2) * spread;
           const lift = Math.abs(i - (n - 1) / 2) * 3;
           const isSelected = selected.has(card);
+          const why = reason && reason !== "notInHand" ? t(`table.illegal.${reason}`) : null;
+          const name = t("table.cardLabel", { rank: rankOf(card), suit: t(`suits.${suitOf(card)}`) });
           const interactive = legal || selectable;
           const isHovered = hovered === card;
           return (
@@ -58,11 +65,16 @@ export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay
                 width={cardWidth}
                 dimmed={canPlay && !legal}
                 selected={isSelected}
+                toggle={selectable}
+                disabled={canPlay && !legal}
                 className={isHovered && interactive ? "card-hover" : ""}
                 onClick={
                   legal ? () => onPlay(card) : selectable ? () => onToggle(card) : undefined
                 }
-                title={reason && reason !== "notInHand" ? t(`table.illegal.${reason}`) : undefined}
+                title={why ?? undefined}
+                // Why a card cannot be played was a tooltip only, so on a phone the rule
+                // the game turns on was invisible. It belongs in the name either way.
+                label={why ? `${name}, ${why}` : name}
               />
             </motion.div>
           );
