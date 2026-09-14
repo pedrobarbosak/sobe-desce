@@ -8,6 +8,7 @@ import { MIN_SEATS, discardCapFor } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
+import { StandingsView } from "@/components/game/StandingsView";
 import { errorCode } from "@/lib/errors";
 import { Loading } from "@/routes/__root";
 
@@ -180,6 +181,11 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
           </Panel>
         )}
 
+        {/* Once the game is over nothing on the roster can change, and what everyone wants to
+            see is how it ended. */}
+        {game.status === "finished" ? (
+          <StandingsView gameId={gameId} readOnly />
+        ) : (
         <Panel>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display text-xl font-bold text-cream-50">
@@ -188,7 +194,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 {players.length}/{game.config.rosterSize}
               </span>
             </h2>
-            {!sittingActive && game.status !== "finished" && (
+            {!sittingActive && (
               <p className="text-xs text-cream-100/60">{t("lobby.waiting", { min: MIN_SEATS, max: game.config.seats })}</p>
             )}
           </div>
@@ -367,6 +373,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
           )}
           {canArrange && players.length > 1 && <p className="mt-3 text-xs text-cream-100/50">{t("lobby.orderHint")}</p>}
         </Panel>
+        )}
 
         {error && <Panel className="border-heart/50 text-sm text-cream-50">{t(`errors.${error}`, { defaultValue: error })}</Panel>}
       </div>

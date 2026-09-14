@@ -759,7 +759,10 @@ export function Table({ data }: { data: TableData }) {
         </Drawer>
 
         {round && phase === "scored" && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div
+            className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 ${gameOver ? "items-start" : "items-center"}`}
+          >
+            <div className={`w-full space-y-3 ${gameOver ? "max-w-3xl" : "max-w-md"}`}>
             <RoundResult
               seats={seats}
               trump={trump}
@@ -772,6 +775,9 @@ export function Table({ data }: { data: TableData }) {
               onRematch={goRematch}
               busy={busy}
             />
+            {/* The final round alone does not say how the game went: show the classification. */}
+            {gameOver && <StandingsView gameId={game._id} readOnly />}
+            </div>
           </div>
         )}
       </div>

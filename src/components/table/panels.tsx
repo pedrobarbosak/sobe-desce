@@ -209,7 +209,7 @@ export function RoundResult({
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="w-full max-w-md rounded-2xl border border-gold-400/50 bg-black/75 p-5 text-center shadow-2xl"
+      className="mx-auto w-full max-w-md rounded-2xl border border-gold-400/50 bg-black/75 p-5 text-center shadow-2xl"
     >
       <p className="text-xs uppercase tracking-widest text-gold-400">{gameOver ? t("table.gameOver") : t("table.roundOver")}</p>
       {gameOver && winnerName && <p className="mt-1 font-display text-2xl font-bold text-cream-50">{t("table.winner", { name: winnerName })}</p>}
@@ -219,6 +219,8 @@ export function RoundResult({
           {trump === "H" && <span className="ml-1 rounded bg-heart px-1 text-[10px] font-bold text-white">{dark ? "×4" : "×2"}</span>}
         </p>
       )}
+      {/* At the end of the game the classification below says this and more. */}
+      {!gameOver && (
       <ul className="mt-3 divide-y divide-white/10">
         {ordered.map((s) => (
           <li key={s.seat} className="flex items-center gap-3 py-2 text-sm">
@@ -233,6 +235,7 @@ export function RoundResult({
           </li>
         ))}
       </ul>
+      )}
       {gameOver ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {(isOwner || hasRematch) && (

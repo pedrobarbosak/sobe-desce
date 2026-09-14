@@ -442,6 +442,7 @@
     "lastSession": "Last sitting",
     "trend": "Trend",
     "empty": "No rounds played yet.",
+    "winner": "Winner",
     "leader": "Leader",
     "sessionsPlayed": "{{count}} sittings",
     "sessionsPlayed_one": "{{count}} sitting",

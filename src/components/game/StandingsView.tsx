@@ -22,7 +22,11 @@ function Sparkline({ points, max }: { points: number[]; max: number }) {
   );
 }
 
-export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
+/**
+ * The classification: the table ranked by points left, and the rounds of a sitting.
+ * `readOnly` drops the owner's controls, for when it is shown as a game's final summary.
+ */
+export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games">; readOnly?: boolean }) {
   const { t } = useTranslation();
   const data = useQuery(api.history.standings, { gameId });
   const sessions = useQuery(api.history.sessions, { gameId });
@@ -33,7 +37,7 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
   if (data === undefined || sessions === undefined) return <Loading />;
   if (data === null) return null;
   const { players, startingPoints, winnerPlayerId } = data;
-  const isOwner = view?.isOwner ?? false;
+  const canStrike = !readOnly && (view?.isOwner ?? false);
   const seatedNow = new Set(view?.session?.status === "active" ? view.session.seats : []);
   const strike = (playerId: Id<"gamePlayers">, name: string) => {
     if (!window.confirm(t("standings.removeConfirm", { name }))) return;
@@ -56,7 +60,7 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
               <th className="hidden px-2 py-3 text-right sm:table-cell">{t("standings.sessions")}</th>
               <th className="px-2 py-3 text-right">{t("standings.lastSession")}</th>
               <th className="hidden px-4 py-3 md:table-cell">{t("standings.trend")}</th>
-              {isOwner && <th className="px-2 py-3" />}
+              {canStrike && <th className="px-2 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -67,6 +71,7 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
                   <div className="flex items-center gap-2">
                     <Avatar seed={p.avatarSeed} size={28} />
                     <span className="font-semibold text-cream-50">{p.name}</span>
+                    {p.playerId === winnerPlayerId && <span title={t("standings.winner")} aria-label={t("standings.winner")}>🏆</span>}
                     {i === 0 && !winnerPlayerId && <span className="rounded bg-gold-400/20 px-1.5 text-[10px] font-semibold text-gold-400">{t("standings.leader")}</span>}
                   </div>
                 </td>
@@ -82,7 +87,7 @@ export function StandingsView({ gameId }: { gameId: Id<"games"> }) {
                 <td className="hidden px-4 py-2.5 md:table-cell">
                   <Sparkline points={p.trajectory} max={startingPoints} />
                 </td>
-                {isOwner && (
+                {canStrike && (
                   <td className="px-2 py-2.5 text-right">
                     {p.playerId !== view?.me?._id && !seatedNow.has(p.playerId) && (
                       <button

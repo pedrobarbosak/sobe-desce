@@ -442,6 +442,7 @@
     "lastSession": "Última sessão",
     "trend": "Percurso",
     "empty": "Ainda não há rondas jogadas.",
+    "winner": "Vencedor",
     "leader": "Líder",
     "sessionsPlayed": "{{count}} sessões",
     "sessionsPlayed_one": "{{count}} sessão",
