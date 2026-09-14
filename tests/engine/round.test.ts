@@ -66,6 +66,18 @@ describe("trump + deal 2", () => {
   });
 });
 
+describe("hearts in the dark", () => {
+  it("quadruples the round for a seat with at least four blank penalties in points", () => {
+    const next = step(make(), { type: "darkHearts", seat: 1 });
+    expect(next.trump).toBe("H");
+    expect(next.darkHearts).toBe(true);
+  });
+
+  it("is refused below four blank penalties", () => {
+    expectError(make(), { type: "darkHearts", seat: 1 }, "darkHeartsTooFewPoints", { ...ctx, scores: [20, 19, 20, 20] });
+  });
+});
+
 describe("flipping for the trump", () => {
   it("the next card off the stock sets the trump and still reaches the flipper", () => {
     const s = make();

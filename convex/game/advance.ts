@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { applyDeltas, createRound, playOrder } from "../../src/engine";
+import { applyDeltas, canCallDarkHearts, createRound, playOrder } from "../../src/engine";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, internalMutation } from "../_generated/server";
@@ -77,6 +77,9 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
     seed,
   });
   const players = await Promise.all(session.seats.map((id) => ctx.db.get(id)));
+  // A seat too low to call blind is not kept waiting in the dark for an offer it cannot take.
+  const firstScore = players[state.turnSeat!]?.score ?? game.config.startingPoints;
+  const darkOpen = canCallDarkHearts(firstScore, game.config.blankPenalty);
   const participants = session.seats.map((gamePlayerId, seat) => ({
     seat,
     gamePlayerId,
@@ -97,11 +100,11 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
     participants,
     currentTrick: state.currentTrick,
     completedTricks: [],
-    darkUntil: Date.now() + darkMs,
+    darkUntil: darkOpen ? Date.now() + darkMs : undefined,
     startedAt: Date.now(),
   });
   // The window has to end with a write, or the withheld hand would never appear.
-  await ctx.scheduler.runAfter(darkMs, internal.game.dark.close, { roundId });
+  if (darkOpen) await ctx.scheduler.runAfter(darkMs, internal.game.dark.close, { roundId });
   for (let seat = 0; seat < session.seatCount; seat++) {
     await ctx.db.insert("hands", {
       roundId,

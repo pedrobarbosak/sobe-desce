@@ -136,6 +136,33 @@ describe("hearts in the dark", () => {
     await expect(as(t, caller).mutation(api.game.actions.darkHearts, { roundId })).rejects.toThrow(/darkWindowClosed/);
   });
 
+  it("is not offered to a seat below four blank penalties", async () => {
+    const t = setup();
+    const gameId = await seatedGame(t);
+    let table = await tableFor(t, "ana", gameId);
+    const caller = blindSeatName(table);
+    // Drop the next caller under 20 and deal a fresh round to them.
+    const round = await t.run(async (ctx) => {
+      const round = (await ctx.db.query("rounds").collect())[0]!;
+      const nextCaller = table.seats[(round.turnSeat! + 1) % 4]!;
+      await ctx.db.patch(nextCaller.playerId as Id<"gamePlayers">, { score: 19 });
+      await ctx.db.patch(round._id, { phase: "scored", turnSeat: null });
+      await ctx.db.patch(round.sessionId, { roundsPlayed: 1 });
+      return round;
+    });
+    await t.mutation(internal.game.advance.nextRound, { sessionId: round.sessionId, afterRoundId: round._id });
+    table = await tableFor(t, "ana", gameId);
+    const lowSeat = blindSeatName(table);
+    expect(lowSeat).not.toBe(caller);
+    expect(table.round!.darkUntil).toBeNull();
+    const view = await tableFor(t, lowSeat, gameId);
+    expect(view.inTheDark).toBe(false);
+    expect(view.myHand).toHaveLength(3);
+    await expect(
+      as(t, lowSeat).mutation(api.game.actions.darkHearts, { roundId: table.round!._id as Id<"rounds"> }),
+    ).rejects.toThrow(/darkWindowClosed/);
+  });
+
   it("can be given up early to take the cards now", async () => {
     const t = setup();
     const gameId = await seatedGame(t);

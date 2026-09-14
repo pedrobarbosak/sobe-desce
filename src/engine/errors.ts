@@ -12,6 +12,7 @@ export type EngineErrorCode =
   | "sitOutClubs"
   | "sitOutTrumpNamer"
   | "stockEmpty"
+  | "darkHeartsTooFewPoints"
   | "invalidSeat";
 
 export class EngineError extends Error {

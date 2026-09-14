@@ -300,6 +300,7 @@
     "accountHasHistory": "That account has already played this campaign. Link one with no history.",
     "scoreOutOfRange": "Points must be a whole number between 1 and the starting total.",
     "darkWindowClosed": "The blind window has already closed.",
+    "darkHeartsTooFewPoints": "You need at least four times the blank penalty in points to call hearts blind.",
     "ownerPresent": "The host is here: only they can open the sitting.",
     "cannotRelinkOwner": "The host's own row cannot be relinked.",
     "invalidOrder": "Invalid order.",

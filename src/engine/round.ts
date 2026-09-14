@@ -3,7 +3,7 @@ import { HAND_SIZE, TRICKS_PER_ROUND } from "./config";
 import { EngineError } from "./errors";
 import { legalPlays, sitOutBlockedReason } from "./legal";
 import { rngFromSeed, shuffle } from "./rng";
-import { roundDeltas } from "./scoring";
+import { canCallDarkHearts, roundDeltas } from "./scoring";
 import { type CompletedTrick, type TrickInProgress, trickWinner } from "./trick";
 
 export type Phase = "trump" | "discard" | "tricks" | "scored";
@@ -253,6 +253,9 @@ export function applyAction(
      */
     case "darkHearts": {
       if (state.phase !== "trump") return fail("wrongPhase");
+      if (!canCallDarkHearts(ctx.scores[action.seat] ?? 0, state.blankPenalty)) {
+        return fail("darkHeartsTooFewPoints");
+      }
       state.trump = "H";
       state.trumpSeat = action.seat;
       state.darkHearts = true;

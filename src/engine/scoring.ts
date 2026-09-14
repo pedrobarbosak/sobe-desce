@@ -9,6 +9,18 @@ export function scoreMultiplier(trump: Suit, darkHearts = false): number {
 }
 
 /**
+ * A blind call can cost the caller four blank penalties at once, so only a seat that can
+ * absorb that may make it: 20 points on the default table.
+ */
+export function darkHeartsMinimum(blankPenalty: number): number {
+  return blankPenalty * scoreMultiplier("H", true);
+}
+
+export function canCallDarkHearts(score: number, blankPenalty: number): boolean {
+  return score >= darkHeartsMinimum(blankPenalty);
+}
+
+/**
  * Deltas per seat for one round: -1 per trick, +blankPenalty for playing and winning none,
  * 0 for sitting out, all times the trump multiplier.
  */
