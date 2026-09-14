@@ -5,8 +5,12 @@ WORKDIR /app
 
 ARG VITE_CONVEX_URL
 ARG VITE_CONVEX_SITE_URL
+# The site's own origin. Link previews need absolute image URLs, and index.html only gets
+# them when this is set (see absoluteSocialUrls in vite.config.ts).
+ARG VITE_APP_URL
 ENV VITE_CONVEX_URL=$VITE_CONVEX_URL
 ENV VITE_CONVEX_SITE_URL=$VITE_CONVEX_SITE_URL
+ENV VITE_APP_URL=$VITE_APP_URL
 # A bare `docker build` with no build args would otherwise produce a bundle that points at
 # `undefined` and still serve happily. Compose always passes them; people do not.
 RUN test -n "$VITE_CONVEX_URL" -a -n "$VITE_CONVEX_SITE_URL" || { \

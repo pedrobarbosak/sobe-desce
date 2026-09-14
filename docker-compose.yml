@@ -46,6 +46,7 @@ services:
         # Baked into the bundle at build time; a change here needs a rebuild.
         VITE_CONVEX_URL: ${CONVEX_CLOUD_ORIGIN:?}
         VITE_CONVEX_SITE_URL: ${CONVEX_SITE_ORIGIN:?}
+        VITE_APP_URL: https://${APP_HOST:?}
     image: sobe-desce-web:${WEB_TAG:-latest}
     container_name: sobe-desce-web
     logging: *logging

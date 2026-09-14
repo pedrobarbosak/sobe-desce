@@ -18,7 +18,7 @@ function absoluteSocialUrls(): Plugin {
       const base = process.env.VITE_APP_URL?.replace(/\/+$/, "");
       if (!base) return html;
       return html.replace(
-        /(<meta\s+property="og:(?:image|url)"\s+content=")(\/[^"]*)(")/g,
+        /(<meta\s+(?:property="og:(?:image|url)"|name="twitter:image")\s+content=")(\/[^"]*)(")/g,
         (_m, before: string, path: string, after: string) => `${before}${base}${path}${after}`,
       );
     },
