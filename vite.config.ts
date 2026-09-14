@@ -25,17 +25,40 @@ function absoluteSocialUrls(): Plugin {
   };
 }
 
+/** The dev server's twin of nginx's `$uri.html`: /cards opens the card sheet, not the app. */
+function standalonePages(): Plugin {
+  return {
+    name: "standalone-pages",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url === "/cards" || req.url?.startsWith("/cards?")) req.url = req.url.replace("/cards", "/cards.html");
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
     tailwindcss(),
     absoluteSocialUrls(),
+    standalonePages(),
   ],
   server: {
     // Local development only. The public hostnames belong to the VPS deployment, which
     // serves a built bundle through nginx and never touches this dev server.
     host: true,
+  },
+  build: {
+    // The card sheet is its own page, so it builds without the app's router or backend.
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        cards: fileURLToPath(new URL("./cards.html", import.meta.url)),
+      },
+    },
   },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
