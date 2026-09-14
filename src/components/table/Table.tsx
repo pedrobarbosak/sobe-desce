@@ -169,16 +169,30 @@ export function Table({ data }: { data: TableData }) {
   const avatarSize = Math.round(Math.max(36, Math.min(64, H / 10)));
   const myBadge = Math.round(Math.max(20, avatarSize * 0.8 * 0.46));
   const handHeight = cardWidth * 1.42 * 0.8;
-  // Keep the ellipse clear of the top bar and of the hand at the bottom.
+  // Whether this viewer has a hand along the bottom edge. Spectators and players who sat
+  // out do not, and they are the ones shown the other hands face up.
+  const sittingOut = mySeat >= 0 && seats[mySeat]?.decision === "out" && (round?.phase === "tricks" || round?.phase === "scored");
+  const handShown = mySeat >= 0 && myHand !== null && !sittingOut;
+  // The status card normally hangs from the top of the felt, right over the seat opposite.
+  // With face-up hands there that covers the cards, so it moves to the free bottom edge.
+  const statusBelow = !handShown && !data.inTheDark;
+  const statusHeight = compact ? 44 : 52;
+  // Above the one-line "spectating" / "you sat out" note that owns the very bottom.
+  const statusBottom = 34;
+  const hasOpenHands = (data.openHands?.length ?? 0) > 0;
+  // Half a seat's height (it is centred on its point): a fan of cards above the avatar, or
+  // a row of backs, plus the name and score below.
+  const seatHalf = hasOpenHands ? avatarSize * 0.94 + 27 : avatarSize * 0.5 + 39;
+  // Keep the ellipse clear of the top bar, the status card, and the hand at the bottom.
   const ellipse: Ellipse = useMemo(() => {
-    const topPad = avatarSize * 1.4 + 26;
-    const bottomPad = handHeight + avatarSize * 0.4;
+    const topPad = statusBelow ? seatHalf + 8 : avatarSize * 1.4 + 26;
+    const bottomPad = statusBelow ? statusBottom + statusHeight + 6 + seatHalf : handHeight + avatarSize * 0.4;
     const usable = Math.max(120, H - topPad - bottomPad);
     const cy = ((topPad + usable / 2) / H) * 100;
     const ry = ((usable / 2) / H) * 100;
     const rx = Math.min(45, ((W / 2 - avatarSize * 1.2) / W) * 100);
     return { cx: 50, cy, rx, ry };
-  }, [W, H, avatarSize, handHeight]);
+  }, [W, H, avatarSize, handHeight, statusBelow, statusHeight, statusBottom, seatHalf]);
 
   const n = session?.seatCount ?? seats.length;
   const me = mySeat >= 0 ? seats[mySeat] : undefined;
@@ -504,7 +518,8 @@ export function Table({ data }: { data: TableData }) {
           {/* Whose turn it is, and who took the trick, are the two things a player who
               cannot see the felt has to be told. Polite, so it waits for a pause. */}
           <div
-            className="pointer-events-none absolute inset-x-0 top-2 z-30 flex justify-center px-2"
+            className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2"
+            style={statusBelow ? { bottom: statusBottom } : { top: 8 }}
             role="status"
             aria-live="polite"
             aria-atomic="true"
@@ -531,8 +546,8 @@ export function Table({ data }: { data: TableData }) {
             cardWidth={Math.round(cardWidth * 0.78)}
           />
 
-          {/* Kept clear of the status card, which is centred at the top of the felt. */}
-          <div className="absolute left-2 z-20 flex max-w-[45%] flex-col items-start gap-2" style={{ top: compact ? 54 : 8 }}>
+          {/* Kept clear of the status card when it is centred at the top of the felt. */}
+          <div className="absolute left-2 z-20 flex max-w-[45%] flex-col items-start gap-2" style={{ top: compact && !statusBelow ? 54 : 8 }}>
             {satOut.length > 0 && (
               <div className="rounded-xl bg-black/40 px-3 py-2 text-xs text-cream-100/80">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cream-100/50">{t("table.satOutList")}</p>
@@ -679,7 +694,7 @@ export function Table({ data }: { data: TableData }) {
           )}
 
           {mySeat >= 0 && myHand && iAmOut && tricksStarted ? (
-            <p className="absolute inset-x-0 bottom-4 text-center text-sm text-cream-100/70">
+            <p className="absolute inset-x-0 bottom-2 text-center text-sm text-cream-100/70">
               {t("table.youSatOut")} {openBySeat.size > 0 && <span className="text-gold-400">{t("table.watchingHands")}</span>}
             </p>
           ) : mySeat >= 0 && myHand ? (
@@ -705,7 +720,7 @@ export function Table({ data }: { data: TableData }) {
               ))}
             </div>
           ) : (
-            <p className="absolute inset-x-0 bottom-3 text-center text-sm text-cream-100/60">
+            <p className="absolute inset-x-0 bottom-2 text-center text-sm text-cream-100/60">
               {openBySeat.size > 0 ? <span className="text-gold-400">{t("table.spectatorHands")}</span> : t("table.spectating")}
             </p>
           )}

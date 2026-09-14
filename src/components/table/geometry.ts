@@ -35,9 +35,9 @@ export function ringLayout(seatCount: number, inRing: (seat: number) => boolean)
 /**
  * Position lookup for a seat within a ring layout. The viewer anchors the bottom. When the
  * viewer is not in the ring (they sat out, or are only watching) the ring turns half a
- * step: with an even number of seats that keeps anyone off the 12 o'clock spot, where
- * the status card would otherwise cover their face-up hand, and off the 6 o'clock spot,
- * which belongs to the viewer.
+ * step: with an even number of seats that keeps anyone off the 6 o'clock spot, which
+ * belongs to the viewer. (An odd ring still puts someone at 12 o'clock, which is why the
+ * table moves its status card to the bottom for these viewers.)
  */
 export function ringPlacer(layout: number[], mySeat: number, e: Ellipse = DEFAULT_ELLIPSE) {
   const n = Math.max(1, layout.length);
