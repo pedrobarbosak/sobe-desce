@@ -8,6 +8,55 @@ type Sfx = "card" | "tick" | "turn" | "trick" | "trickWin" | "trickLose" | "roun
 const KEY_SFX = "sd.sfx";
 const KEY_MUSIC = "sd.music";
 
+/** Overall music volume; the effects play at full level on top of this. */
+const MUSIC_LEVEL = 0.045;
+
+/** C major pentatonic, C4..C5: low and close together, so a run of plays stays mellow. */
+const CARD_NOTES = [262, 294, 330, 392, 440, 523];
+
+/** Note sets for the frequent trick cues; one is picked at random each time. */
+const TRICK: number[][] = [[659], [587], [698], [784], [587, 784], [659, 880]];
+const TRICK_WIN: number[][] = [
+  [659, 784, 1047],
+  [523, 784, 1047],
+  [523, 659, 784, 1047],
+  [784, 988, 1175],
+  [698, 880, 1047],
+];
+const TRICK_LOSE: [number, number][] = [
+  [392, 330],
+  [440, 349],
+  [330, 294],
+  [349, 294],
+];
+
+/** Chord progressions as major-scale degrees (0 = I). */
+const PROGRESSIONS: number[][] = [
+  [0, 5, 3, 4],
+  [0, 4, 5, 3],
+  [5, 3, 0, 4],
+  [0, 3, 5, 4],
+  [1, 4, 0, 5],
+  [3, 0, 4, 5],
+  [0, 2, 3, 3],
+];
+const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+/** Major pentatonic across two octaves, in semitones. */
+const PENTA_LADDER = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+
+function scaleNote(key: number, degree: number): number {
+  return key + MAJOR[degree % 7]! + 12 * Math.floor(degree / 7);
+}
+
+function mtof(midi: number): number {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+/** A multiplier around 1, up to ±amount. */
+function jitter(amount: number): number {
+  return 1 + (Math.random() * 2 - 1) * amount;
+}
+
 function read(key: string, fallback: boolean): boolean {
   try {
     const v = localStorage.getItem(key);
@@ -24,7 +73,9 @@ class SoundSystem {
   private wet: GainNode | null = null;
   private musicGain: GainNode | null = null;
   private musicTimer: number | null = null;
-  private musicStep = 0;
+  private musicBar = 0;
+  private lastVariant = new Map<string, number>();
+  private cardNote = 2; // index into CARD_NOTES
   sfxEnabled = read(KEY_SFX, true);
   musicEnabled = read(KEY_MUSIC, false);
   private listeners = new Set<() => void>();
@@ -168,21 +219,47 @@ class SoundSystem {
     src.start(start);
   }
 
+  /** A random variant index for a repeated cue, never the same one twice in a row. */
+  private variant(name: string, count: number): number {
+    const last = this.lastVariant.get(name);
+    let i: number;
+    if (last === undefined || count < 2) i = Math.floor(Math.random() * count);
+    else {
+      i = Math.floor(Math.random() * (count - 1));
+      if (i >= last) i++;
+    }
+    this.lastVariant.set(name, i);
+    return i;
+  }
+
   /**
    * `level` (0..1) only matters for "tick": 0 is a calm early tick, 1 the last seconds.
+   *
+   * Frequent cues (card, trick results) vary their notes and add a little volume jitter
+   * so they never sound mechanical. Cues that must be recognised at once (turn, tick,
+   * trump, round end) stay fixed.
    */
   play(name: Sfx, level = 0) {
     if (!this.sfxEnabled) return;
     this.unlock();
     if (!this.ctx) return;
     const t = this.ctx.currentTime + 0.01;
+    // Volume only: pitch jitter would put the tuned cues out of tune.
+    const v = jitter(0.15);
     switch (name) {
-      case "card":
-        // Felt thump, paper snap, tiny click.
-        this.tone(160, t, 0.14, { gain: 0.35, to: 55, reverb: 0.4 });
-        this.noise(t, 0.07, 0.5, 2600, "bandpass", 0.7, 0.5);
-        this.noise(t + 0.005, 0.02, 0.25, 6000, "highpass", 0.5, 0.2);
+      case "card": {
+        // A soft marimba-like "bop". The note wanders around a pentatonic scale, so a run
+        // of plays sounds like a little tune rather than the same hit over and over.
+        const dir = this.cardNote <= 0 ? 1 : this.cardNote >= CARD_NOTES.length - 1 ? -1 : Math.random() < 0.5 ? -1 : 1;
+        this.cardNote += dir;
+        const f = CARD_NOTES[this.cardNote]!;
+        // A quick upward blip into the note gives it a rounded, bubbly attack.
+        this.tone(f * 0.8, t, 0.04, { gain: 0.035 * v, to: f, attack: 0.006, reverb: 0.2 });
+        this.tone(f, t, 0.28, { gain: 0.09 * v, attack: 0.008, reverb: 0.4 });
+        // The faintest brush of paper underneath.
+        this.noise(t, 0.035, 0.03 * v, 1200, "lowpass", 0.5, 0.2);
         break;
+      }
       case "tick": {
         // Woodblock that rises in pitch and weight as time runs out.
         const f = 720 + level * 620;
@@ -194,20 +271,28 @@ class SoundSystem {
         this.bell(880, t, 0.9, 0.16);
         this.bell(1318, t + 0.13, 1.1, 0.13);
         break;
-      case "trick":
-        // Someone else's trick while you sit out: a single soft bell.
-        this.bell(659, t, 0.7, 0.08);
+      case "trick": {
+        // Someone else's trick while you sit out: a single soft bell, sometimes two.
+        const notes = TRICK[this.variant("trick", TRICK.length)]!;
+        notes.forEach((f, i) => this.bell(f, t + i * 0.11, 0.7, 0.05 * v));
         break;
-      case "trickWin":
-        this.bell(659, t, 0.6, 0.12);
-        this.bell(784, t + 0.1, 0.7, 0.12);
-        this.bell(1047, t + 0.2, 1.2, 0.14);
+      }
+      case "trickWin": {
+        const notes = TRICK_WIN[this.variant("trickWin", TRICK_WIN.length)]!;
+        const gap = 0.08 + Math.random() * 0.04;
+        notes.forEach((f, i) => {
+          const lastNote = i === notes.length - 1;
+          this.bell(f, t + i * gap, lastNote ? 1.2 : 0.65, (lastNote ? 0.09 : 0.075) * v);
+        });
         break;
-      case "trickLose":
+      }
+      case "trickLose": {
         // Two low notes stepping down; short so it never nags.
-        this.tone(392, t, 0.22, { type: "triangle", gain: 0.1, attack: 0.01 });
-        this.tone(330, t + 0.16, 0.4, { type: "triangle", gain: 0.09, to: 300, attack: 0.01 });
+        const [a, b] = TRICK_LOSE[this.variant("trickLose", TRICK_LOSE.length)]!;
+        this.tone(a, t, 0.22, { type: "triangle", gain: 0.065 * v, attack: 0.01 });
+        this.tone(b, t + 0.16, 0.4, { type: "triangle", gain: 0.06 * v, to: b * 0.92, attack: 0.01 });
         break;
+      }
       case "trump":
         this.bell(523, t, 1.4, 0.11);
         this.bell(659, t + 0.04, 1.4, 0.1);
@@ -230,36 +315,80 @@ class SoundSystem {
     }
   }
 
-  /** A slow, quiet loop of soft chords. */
+  /**
+   * Generative background music: soft pad chords over a quiet bass, with a sparse
+   * pentatonic melody on top. It stays in C to match the effects; the progression,
+   * voicings and melody are re-rolled as it plays, so it never loops audibly.
+   */
   private startMusic() {
     if (!this.ctx || !this.master || this.musicTimer) return;
-    this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.07;
-    const lp = this.ctx.createBiquadFilter();
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    // Fade in, and keep it well under the effects.
+    out.gain.setValueAtTime(0.0001, ctx.currentTime);
+    out.gain.exponentialRampToValueAtTime(MUSIC_LEVEL, ctx.currentTime + 4);
+    this.musicGain = out;
+    const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
-    lp.frequency.value = 900;
-    this.musicGain.connect(lp);
+    lp.frequency.value = 1300;
+    out.connect(lp);
     this.out(lp, 1.4);
-    const chords = [
-      [196, 247, 294, 392],
-      [220, 262, 330, 440],
-      [175, 220, 262, 349],
-      [147, 196, 247, 294],
-    ];
-    const step = () => {
-      if (!this.ctx || !this.musicGain) return;
-      const chord = chords[this.musicStep % chords.length]!;
-      const t = this.ctx.currentTime;
-      chord.forEach((f, i) => this.tone(f, t + i * 0.08, 3.6, { type: "triangle", gain: 0.5, attack: 0.4, dest: this.musicGain! }));
-      this.musicStep++;
+
+    // C, like the effects, so the cues always sit in harmony with the music.
+    const key = 48;
+    let progression = PROGRESSIONS[Math.floor(Math.random() * PROGRESSIONS.length)]!;
+    let barSeconds = 4.4 + Math.random() * 0.8;
+    let melodyNote = 2; // index into the pentatonic ladder
+    this.musicBar = 0;
+
+    const bar = () => {
+      if (!this.musicGain || this.musicGain !== out) return;
+      if (this.musicBar > 0 && this.musicBar % 8 === 0) {
+        const next = PROGRESSIONS.filter((pr) => pr !== progression);
+        progression = next[Math.floor(Math.random() * next.length)]!;
+        barSeconds = 4.4 + Math.random() * 0.8;
+      }
+      const t = ctx.currentTime + 0.05;
+      const degree = progression[this.musicBar % progression.length]!;
+
+      // Pad: a triad (sometimes with a seventh), in a random inversion.
+      const tones = [0, 2, 4].map((s) => scaleNote(key, degree + s));
+      if (Math.random() < 0.35) tones.push(scaleNote(key, degree + 6));
+      const inversion = Math.floor(Math.random() * 3);
+      for (let i = 0; i < inversion; i++) tones[i]! += 12;
+      tones.forEach((m, i) =>
+        this.tone(mtof(m + 12), t + i * (0.05 + Math.random() * 0.06), barSeconds * 0.95, {
+          type: "triangle",
+          gain: 0.3,
+          attack: 0.7,
+          dest: out,
+        }),
+      );
+
+      // Bass: the root, low and round.
+      this.tone(mtof(scaleNote(key, degree) - 12), t, barSeconds * 0.9, { gain: 0.35, attack: 0.08, dest: out });
+
+      // Melody: a few notes, wandering by small steps; some bars rest.
+      const beat = barSeconds / 4;
+      const count = Math.random() < 0.3 ? 0 : 1 + Math.floor(Math.random() * 3);
+      const slots = [0, 1, 1.5, 2, 2.5, 3].sort(() => Math.random() - 0.5).slice(0, count).sort((a, b) => a - b);
+      for (const slot of slots) {
+        melodyNote = Math.max(0, Math.min(PENTA_LADDER.length - 1, melodyNote + Math.floor(Math.random() * 5) - 2));
+        const f = mtof(key + 12 + PENTA_LADDER[melodyNote]!);
+        const at = t + slot * beat + Math.random() * 0.04;
+        this.tone(f, at, 1.8, { gain: 0.16, attack: 0.02, dest: out });
+        this.tone(f * 2, at, 0.8, { gain: 0.03, attack: 0.01, dest: out });
+      }
+
+      this.musicBar++;
+      this.musicTimer = window.setTimeout(bar, barSeconds * 1000);
     };
-    step();
-    this.musicTimer = window.setInterval(step, 4000);
+    bar();
   }
 
   private stopMusic() {
     if (this.musicTimer) {
-      clearInterval(this.musicTimer);
+      clearTimeout(this.musicTimer);
       this.musicTimer = null;
     }
     if (this.musicGain && this.ctx) {
