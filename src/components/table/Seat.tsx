@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { type Card as CardT, type DeckSize, type Suit, SUIT_SYMBOLS, sortHand } from "@/engine";
+import { CURSE_POINTS, type Card as CardT, type DeckSize, type Suit, SUIT_SYMBOLS, sortHand } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
 import { CardBack, CardFace } from "./Card";
 import { TimerRing } from "./TimerRing";
@@ -36,16 +36,22 @@ type Props = {
   deadline: number | null;
   totalMs: number;
   skewMs: number;
-  phase: "trump" | "discard" | "tricks" | "scored";
+  phase: "trump" | "discard" | "pass" | "tricks" | "scored";
   compact?: boolean;
   size?: number;
   /** Face-up hand, shown only to a viewer who sat this round out. */
   openHand?: string[] | null;
   deck: DeckSize;
   trump: Suit | null;
+  /** Party: curses laid on this seat this round. */
+  cursed?: number;
+  /** Party: this seat cancelled its own blank penalty. */
+  shielded?: boolean;
+  /** Party: the viewer is looking at this hand through a peek. */
+  peeked?: boolean;
 };
 
-export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTurn, deadline, totalMs, skewMs, phase, compact, size: sizeProp, openHand, deck, trump }: Props) {
+export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTurn, deadline, totalMs, skewMs, phase, compact, size: sizeProp, openHand, deck, trump, cursed = 0, shielded = false, peeked = false }: Props) {
   const { t } = useTranslation();
   const size = sizeProp ?? (compact ? 44 : 56);
   const open = openHand && openHand.length > 0 ? sortHand(openHand as CardT[], deck, trump ?? undefined) : null;
@@ -118,6 +124,25 @@ export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTur
       <div className="max-w-[7rem] truncate rounded-md bg-black/40 px-2 py-0.5 text-center text-[11px] font-semibold text-cream-50">
         {seat.isMe ? t("common.you") : seat.name}
       </div>
+      {(cursed > 0 || shielded || peeked) && (
+        <div className="flex gap-1 text-[10px] font-semibold">
+          {cursed > 0 && (
+            <span className="rounded bg-purple-700/80 px-1 text-white" title={t("party.cursedPoints", { points: cursed * CURSE_POINTS })}>
+              ☠ +{cursed * CURSE_POINTS}
+            </span>
+          )}
+          {shielded && (
+            <span className="rounded bg-sky-700/80 px-1 text-white" title={t("party.shielded")}>
+              🛡
+            </span>
+          )}
+          {peeked && (
+            <span className="rounded bg-gold-400 px-1 text-ink-900" title={t("party.peeked")}>
+              👁
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-1 text-[11px]">
         <span className="rounded bg-cream-100 px-1.5 font-mono font-bold text-ink-900">{seat.score}</span>
         {seat.decision === "out" && phase !== "scored" && <span className="rounded bg-black/40 px-1 text-cream-100/70">{t("table.out")}</span>}

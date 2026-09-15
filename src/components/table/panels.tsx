@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { type Card as CardT, SUITS, SUIT_SYMBOLS, type Suit, type SitOutBlock } from "@/engine";
+import { useState } from "react";
+import { CURSE_POINTS, LIGHTNING_SECONDS, MAX_POWERUPS, type Card as CardT, type Powerup, SUITS, SUIT_SYMBOLS, type Suit, type SitOutBlock, type Twist } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { CardBack, CardFace } from "./Card";
 import type { SeatView } from "./Seat";
@@ -65,18 +66,142 @@ export function TrumpPicker({
   );
 }
 
-export function TrumpBig({ trump, flipped, compact = false }: { trump: Suit; flipped?: string | null; compact?: boolean }) {
+export const POWERUP_ICONS: Record<Powerup, string> = { peek: "👁", curse: "☠", shield: "🛡" };
+const TWIST_ICONS: Record<Twist, string> = {
+  desce: "⬇",
+  golden: "★",
+  lastTrick: "×3",
+  blankPays: "0",
+  noTrump: "∅",
+  openHands: "👁",
+  passLeft: "↰",
+  allIn: "!",
+  lightning: "⚡",
+  asDealt: "🎴",
+};
+
+export type PartyView = {
+  twist: Twist;
+  goldenSuit: Suit | null;
+  shielded: boolean[];
+  curses: number[];
+  peeks: { seat: number; target: number }[];
+  awards: { seat: number; powerup: Powerup }[];
+};
+
+/** The round's twist, flipped face up for everyone before a card is played. */
+export function TwistBanner({ party, compact = false }: { party: PartyView; compact?: boolean }) {
+  const { t } = useTranslation();
+  const suit = party.goldenSuit ? t(`suits.${party.goldenSuit}`).split(" ")[0] : "";
+  return (
+    <motion.div
+      initial={{ x: -20, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      className={`rounded-xl border border-purple-400/50 bg-purple-950/70 text-cream-50 shadow-lg backdrop-blur ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🎲 {t("party.twistOfRound")}</p>
+      <p className={`font-display font-bold ${compact ? "text-sm" : "text-base"}`}>
+        <span className="mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-purple-400/30 px-1 text-xs">
+          {party.twist === "golden" && party.goldenSuit ? SUIT_SYMBOLS[party.goldenSuit] : TWIST_ICONS[party.twist]}
+        </span>
+        {t(`party.twists.${party.twist}.name`)}
+      </p>
+      {!compact && <p className="max-w-[16rem] text-xs text-cream-100/75">{t(`party.twists.${party.twist}.desc`, { suit, seconds: LIGHTNING_SECONDS })}</p>}
+    </motion.div>
+  );
+}
+
+/** The viewer's unspent powerups. Peek and curse ask for a target before they fire. */
+export function PowerupTray({
+  stash,
+  targets,
+  shielded,
+  busy,
+  onUse,
+  compact = false,
+}: {
+  stash: Powerup[];
+  /** Other seats that can be picked on. */
+  targets: SeatView[];
+  shielded: boolean;
+  busy: boolean;
+  onUse: (powerup: Powerup, target?: number) => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [picking, setPicking] = useState<Powerup | null>(null);
+  const label = (p: Powerup) => t(`party.powerups.${p}.name`);
+  const desc = (p: Powerup) => t(`party.powerups.${p}.desc`, { points: CURSE_POINTS });
+  return (
+    <motion.div
+      initial={{ y: 10, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`rounded-xl border border-purple-400/50 bg-black/70 text-cream-50 shadow-lg backdrop-blur ${compact ? "p-1.5" : "p-2"}`}
+    >
+      {picking ? (
+        <div className="flex flex-col gap-1">
+          <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+            {POWERUP_ICONS[picking]} {t("party.pickTarget", { powerup: label(picking) })}
+          </p>
+          {targets.map((s) => (
+            <button
+              key={s.seat}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                onUse(picking, s.seat);
+                setPicking(null);
+              }}
+              className="rounded-lg px-2 py-1 text-left text-sm font-semibold hover:bg-white/10 disabled:opacity-50"
+            >
+              {s.name} <span className="font-mono text-xs text-cream-100/60">{s.score}</span>
+            </button>
+          ))}
+          <button type="button" onClick={() => setPicking(null)} className="rounded-lg px-2 py-1 text-left text-xs text-cream-100/60 hover:bg-white/10">
+            {t("party.cancel")}
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1">
+          <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-purple-200/80" title={t("party.stashHint", { max: MAX_POWERUPS })}>
+            {t("party.stash")}
+          </span>
+          {stash.map((p, i) => {
+            const spent = p === "shield" && shielded;
+            return (
+              <button
+                key={`${p}-${i}`}
+                type="button"
+                disabled={busy || spent}
+                title={desc(p)}
+                onClick={() => (p === "shield" ? onUse(p) : setPicking(p))}
+                className={`flex items-center gap-1 rounded-lg border border-purple-400/40 bg-purple-900/40 font-semibold transition hover:-translate-y-0.5 hover:bg-purple-800/60 disabled:opacity-40 ${
+                  compact ? "px-1.5 py-1 text-xs" : "px-2 py-1 text-sm"
+                }`}
+              >
+                <span>{POWERUP_ICONS[p]}</span>
+                <span className={compact ? "hidden sm:inline" : ""}>{label(p)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+export function TrumpBig({ trump, flipped, compact = false }: { trump: Suit | null; flipped?: string | null; compact?: boolean }) {
   const { t } = useTranslation();
   const red = trump === "H" || trump === "D";
   return (
     <div className="flex items-center justify-center gap-3">
       {flipped && <CardFace card={flipped as CardT} width={compact ? 34 : 44} title={t("table.flippedCard")} />}
       <span className={`flex items-center justify-center rounded-2xl bg-cream-50 leading-none shadow-lg ${compact ? "h-12 w-12 text-4xl" : "h-16 w-16 text-5xl"} ${red ? "text-heart" : "text-ink-900"}`}>
-        {SUIT_SYMBOLS[trump]}
+        {trump ? SUIT_SYMBOLS[trump] : "∅"}
       </span>
       <div className="text-left">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-cream-100/60">{t("table.trumpIs")}</p>
-        <p className={`font-display font-bold text-cream-50 ${compact ? "text-xl" : "text-2xl"}`}>{t(`suits.${trump}`).split(" ")[0]}</p>
+        <p className={`font-display font-bold text-cream-50 ${compact ? "text-xl" : "text-2xl"}`}>{trump ? t(`suits.${trump}`).split(" ")[0] : t("table.noTrump")}</p>
         {trump === "H" && <p className="text-xs text-heart">{t("table.heartsNote")}</p>}
         {trump === "C" && <p className="text-xs text-cream-100/80">{t("table.clubsNote")}</p>}
       </div>
@@ -103,7 +228,7 @@ export function DiscardPanel({
   onClear,
 }: {
   cap: number;
-  trump: Suit;
+  trump: Suit | null;
   flipped?: string | null;
   /** The viewer flipped for the trump, so the round has not committed them. */
   youFlipped?: boolean;
@@ -152,10 +277,10 @@ export function DiscardPanel({
       ) : (
         <TrumpBig trump={trump} flipped={flipped} compact={compact} />
       )}
-      <p className={`text-cream-50 ${compact ? "mt-2 text-xs" : "mt-3 text-sm"}`}>{t("table.yourDiscard", { cap })}</p>
+      <p className={`text-cream-50 ${compact ? "mt-2 text-xs" : "mt-3 text-sm"}`}>{cap > 0 ? t("table.yourDiscard", { cap }) : t("table.noDiscards")}</p>
       <div className="mt-3 flex flex-wrap justify-center gap-2">
         <Button disabled={busy || selectedCount > cap} onClick={onDiscard}>
-          {selectedCount > 0 ? t("table.discardN", { count: selectedCount }) : t("table.keepAll")}
+          {selectedCount > 0 ? t("table.discardN", { count: selectedCount }) : cap > 0 ? t("table.keepAll") : t("table.playAsDealt")}
         </Button>
         <Button
           variant="ghost"
@@ -173,6 +298,39 @@ export function DiscardPanel({
   );
 }
 
+/** Party "passLeft": pick one card for the neighbour on the left. */
+export function PassPanel({
+  leftName,
+  selected,
+  busy,
+  onPass,
+  compact = false,
+}: {
+  leftName: string;
+  selected: CardT | null;
+  busy: boolean;
+  onPass: () => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <motion.div
+      initial={{ y: 30, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">↰ {t("party.twists.passLeft.name")}</p>
+      <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>{t("table.passTitle", { name: leftName })}</p>
+      <p className="mt-1 text-xs text-cream-100/60">{t("table.passHint")}</p>
+      <div className="mt-3">
+        <Button disabled={busy || selected === null} onClick={onPass}>
+          {selected ? t("table.passCard", { card: selected }) : t("table.passPick")}
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
+
 export type HistoryRow = {
   index: number;
   trump: Suit | null;
@@ -184,6 +342,7 @@ export function RoundResult({
   seats,
   trump,
   dark = false,
+  party = null,
   winnerName,
   gameOver,
   onBack,
@@ -195,6 +354,7 @@ export function RoundResult({
   seats: SeatView[];
   trump: Suit | null;
   dark?: boolean;
+  party?: PartyView | null;
   winnerName: string | null;
   gameOver: boolean;
   onBack: () => void;
@@ -217,7 +377,28 @@ export function RoundResult({
         <p className="mt-1 text-sm text-cream-100/70">
           {t("table.trump")}: <span className={trump === "H" || trump === "D" ? "text-heart" : "text-cream-50"}>{SUIT_SYMBOLS[trump]}</span> {t(`suits.${trump}`)}
           {trump === "H" && <span className="ml-1 rounded bg-heart px-1 text-[10px] font-bold text-white">{dark ? "×4" : "×2"}</span>}
+          {party && party.twist === "golden" && party.goldenSuit === trump && (
+            <span className="ml-1 rounded bg-gold-400 px-1 text-[10px] font-bold text-ink-900">{t("party.golden")}</span>
+          )}
         </p>
+      )}
+      {party && (
+        <p className="mt-1 text-xs text-purple-200">
+          🎲 {t(`party.twists.${party.twist}.name`)}
+        </p>
+      )}
+      {party && party.awards.length > 0 && !gameOver && (
+        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
+          {party.awards.map((a, i) => {
+            const who = seats[a.seat];
+            const powerup = `${POWERUP_ICONS[a.powerup]} ${t(`party.powerups.${a.powerup}.name`)}`;
+            return (
+              <li key={i} className={who?.isMe ? "font-semibold text-gold-400" : ""}>
+                {who?.isMe ? t("party.youDrew", { powerup }) : t("party.drew", { name: who?.name ?? "?", powerup })}
+              </li>
+            );
+          })}
+        </ul>
       )}
       {/* At the end of the game the classification below says this and more. */}
       {!gameOver && (

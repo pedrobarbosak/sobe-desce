@@ -5,8 +5,11 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../convex/_generated/api";
 import {
   MAX_ROSTER,
+  MAX_POWERUPS,
+  OFFERED_PRESETS,
   type GameConfig,
   type PresetId,
+  type Variant,
   configFromPreset,
   defaultThreshold,
   maxSeatsFor,
@@ -17,7 +20,7 @@ import { Panel } from "@/components/ui/Panel";
 import { errorCode } from "@/lib/errors";
 import { randomTableName } from "@/shared/names";
 
-const PRESET_IDS: PresetId[] = ["normal", "long", "mesaGrande", "party", "liga", "custom"];
+const PRESET_IDS: readonly PresetId[] = [...OFFERED_PRESETS, "custom"];
 
 export const Route = createFileRoute("/new")({
   validateSearch: (search: Record<string, unknown>): { preset?: PresetId } => {
@@ -46,9 +49,9 @@ function NewGame() {
   const { preset: initialPreset } = Route.useSearch();
   const create = useMutation(api.games.create);
   const [name, setName] = useState(() => randomTableName());
-  const [preset, setPreset] = useState<PresetId>(initialPreset ?? "normal");
+  const [preset, setPreset] = useState<PresetId>(initialPreset ?? "classic");
   const [cfg, setCfg] = useState<GameConfig>(() => {
-    const c = configFromPreset(initialPreset ?? "normal");
+    const c = configFromPreset(initialPreset ?? "classic");
     const seats = maxSeatsFor(c.deck);
     return { ...c, seats, rosterSize: c.mode === "session" ? seats : Math.max(seats, c.rosterSize) };
   });
@@ -101,7 +104,7 @@ function NewGame() {
       <Panel>
         <span className="text-xs font-semibold text-cream-100/60">{t("new.preset")}</span>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {PRESET_IDS.map((id) => (
+          {OFFERED_PRESETS.map((id) => (
             <button
               key={id}
               type="button"
@@ -113,9 +116,28 @@ function NewGame() {
             </button>
           ))}
         </div>
+        {preset === "custom" && <p className="mt-2 text-xs text-cream-100/50">{t("presets.custom.desc")}</p>}
       </Panel>
 
       <Panel className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label={t("new.variant")}
+          hint={cfg.variant === "party" ? t("new.variantPartyHint", { max: MAX_POWERUPS }) : t("new.variantClassicHint")}
+        >
+          <div className="flex overflow-hidden rounded-lg border border-white/20">
+            {(["classic", "party"] as const satisfies readonly Variant[]).map((vr) => (
+              <button
+                key={vr}
+                type="button"
+                onClick={() => patch({ variant: vr })}
+                className={`flex-1 px-3 py-2 text-sm font-semibold ${cfg.variant === vr ? "bg-cream-100 text-ink-900" : "text-cream-100/80 hover:bg-white/10"}`}
+              >
+                {vr === "party" ? "🎲 " : ""}
+                {t(`variants.${vr}`)}
+              </button>
+            ))}
+          </div>
+        </Field>
         <Field label={t("new.name")}>
           <div className="flex gap-2">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("new.namePlaceholder")} maxLength={40} className={inputCls} />

@@ -187,6 +187,9 @@ function Landing() {
               <Panel key={g.gameId} className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-semibold text-cream-50">{g.name}</span>
+                  {g.variant === "party" && (
+                    <span className="shrink-0 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">🎲 {t("variants.party")}</span>
+                  )}
                   <span className="shrink-0 rounded bg-white/10 px-1.5 text-[10px] font-semibold text-cream-100/70">{t(`modes.${g.mode}`)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-cream-100/70">

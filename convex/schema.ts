@@ -6,7 +6,9 @@ import {
   gameConfig,
   gameMode,
   participant,
+  partyRound,
   phase,
+  powerup,
   suit,
   trickInProgress,
 } from "./lib/validators";
@@ -61,6 +63,8 @@ export default defineSchema({
     botReason: v.optional(v.union(v.literal("abandoned"), v.literal("kicked"), v.literal("disconnected"))),
     /** Campaign: raised a hand for the next sitting. */
     checkedIn: v.boolean(),
+    /** PRIVATE: party powerups not yet spent. Only ever sent to this player. */
+    powerups: v.optional(v.array(powerup)),
     joinedAt: v.number(),
   })
     .index("by_game", ["gameId"])
@@ -115,6 +119,8 @@ export default defineSchema({
     currentTrick: trickInProgress,
     completedTricks: v.array(completedTrick),
     deltas: v.optional(v.array(v.number())),
+    /** Party tables only: the round's twist and the public trace of powerups. */
+    party: v.optional(partyRound),
     winnerSeat: v.optional(v.number()),
     startedAt: v.number(),
     scoredAt: v.optional(v.number()),
@@ -148,6 +154,8 @@ export default defineSchema({
     /** Rounds dealt before the shuffle widened to 128 bits stored a number. */
     seed: v.union(v.string(), v.number()),
     drawPile: v.array(v.string()),
+    /** Party "passLeft": cards chosen but not yet delivered, by seat. */
+    passes: v.optional(v.array(v.union(v.string(), v.null()))),
   }).index("by_round", ["roundId"]),
 
   /** Per-round action log; payloads are redacted at write time. */

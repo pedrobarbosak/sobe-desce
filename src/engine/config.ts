@@ -1,10 +1,16 @@
 import type { DeckSize } from "./cards";
 
 export type GameMode = "session" | "campaign";
-export type PresetId = "normal" | "long" | "mesaGrande" | "party" | "liga" | "custom";
+/** Classic is the game as played at the table. Party layers round twists and powerups on top. */
+export type Variant = "classic" | "party";
+/** `normal`, `long` and `mesaGrande` are legacy ids kept so stored games still name themselves. */
+export type PresetId = "classic" | "party" | "liga" | "custom" | "normal" | "long" | "mesaGrande";
+/** The presets the new-game page offers. */
+export const OFFERED_PRESETS: readonly PresetId[] = ["classic", "party", "liga"];
 
 export type GameConfig = {
   preset: PresetId;
+  variant: Variant;
   deck: DeckSize;
   /** Everyone starts here and races down to exactly 0. */
   startingPoints: number;
@@ -20,6 +26,11 @@ export type GameConfig = {
   /** Per-turn timer; on expiry the lowest legal card is auto-played. */
   turnSeconds: number;
 };
+
+/** Stored configs from before the party variant have no `variant`; they are classic. */
+export function variantOf(cfg: { variant?: Variant }): Variant {
+  return cfg.variant ?? "classic";
+}
 
 export const MAX_ROSTER = 16;
 export const MIN_SEATS = 4;
@@ -63,21 +74,24 @@ export const DEFAULT_BLANK_PENALTY = 5;
 type PresetShape = Omit<GameConfig, "preset" | "forcedPlayThreshold" | "blankPenalty" | "turnSeconds">;
 
 export const PRESETS: Record<Exclude<PresetId, "custom">, PresetShape> = {
-  normal: { deck: 40, startingPoints: 20, mode: "session", rosterSize: 4, seats: 4 },
-  long: { deck: 40, startingPoints: 30, mode: "session", rosterSize: 4, seats: 4 },
-  mesaGrande: { deck: 52, startingPoints: 20, mode: "session", rosterSize: 6, seats: 6 },
-  party: { deck: 52, startingPoints: 15, mode: "session", rosterSize: 8, seats: 8 },
-  liga: { deck: 40, startingPoints: 1000, mode: "campaign", rosterSize: MAX_ROSTER, seats: 6 },
+  classic: { variant: "classic", deck: 40, startingPoints: 20, mode: "session", rosterSize: 4, seats: 4 },
+  /** Short and loud: twists every round, powerups, and a score that a single evening can reach. */
+  party: { variant: "party", deck: 52, startingPoints: 12, mode: "session", rosterSize: 8, seats: 8 },
+  liga: { variant: "classic", deck: 40, startingPoints: 1000, mode: "campaign", rosterSize: MAX_ROSTER, seats: 6 },
+  normal: { variant: "classic", deck: 40, startingPoints: 20, mode: "session", rosterSize: 4, seats: 4 },
+  long: { variant: "classic", deck: 40, startingPoints: 30, mode: "session", rosterSize: 4, seats: 4 },
+  mesaGrande: { variant: "classic", deck: 52, startingPoints: 20, mode: "session", rosterSize: 6, seats: 6 },
 };
 
 export function configFromPreset(preset: PresetId, overrides: Partial<GameConfig> = {}): GameConfig {
-  const base = preset === "custom" ? PRESETS.normal : PRESETS[preset];
+  const base = preset === "custom" ? PRESETS.classic : PRESETS[preset];
   const startingPoints = overrides.startingPoints ?? base.startingPoints;
   const mode = overrides.mode ?? base.mode;
   const seats = overrides.seats ?? base.seats;
   const rosterSize = overrides.rosterSize ?? (mode === "session" ? seats : base.rosterSize);
   return {
     preset,
+    variant: overrides.variant ?? base.variant,
     deck: overrides.deck ?? base.deck,
     startingPoints,
     forcedPlayThreshold: overrides.forcedPlayThreshold ?? defaultThreshold(startingPoints),
@@ -90,6 +104,7 @@ export function configFromPreset(preset: PresetId, overrides: Partial<GameConfig
 }
 
 export type ConfigError =
+  | "variant"
   | "deck"
   | "startingPoints"
   | "forcedPlayThreshold"
@@ -105,6 +120,7 @@ const isInt = (n: unknown): n is number => typeof n === "number" && Number.isInt
 /** Returns a list of error codes; empty means valid. */
 export function validateConfig(cfg: GameConfig): ConfigError[] {
   const errors: ConfigError[] = [];
+  if (cfg.variant !== "classic" && cfg.variant !== "party") errors.push("variant");
   if (cfg.deck !== 40 && cfg.deck !== 52) errors.push("deck");
   if (!isInt(cfg.startingPoints) || cfg.startingPoints < 1) errors.push("startingPoints");
   if (

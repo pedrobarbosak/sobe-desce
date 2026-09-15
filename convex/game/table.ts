@@ -23,6 +23,7 @@ export const get = query({
         seats: [],
         mySeat: -1,
         myHand: null,
+        myPowerups: [],
         inTheDark: false,
         openHands: null,
         serverNow: Date.now(),
@@ -63,16 +64,25 @@ export const get = query({
     // with a seated player one message away.
     const iAmOut = mySeat >= 0 && round?.participants[mySeat]?.decision === "out";
     const tricksVisible = round?.phase === "tricks" || round?.phase === "scored";
+    // Party: a peek opens one chosen hand to the peeker for the rest of the round, and the
+    // "openHands" twist opens every hand to every seated player once the trump is settled.
+    const peeked = new Set(round?.party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []);
+    const allOpen = round !== null && mySeat >= 0 && round.party?.twist === "openHands" && round.phase !== "trump";
     let openHands: { seat: number; cards: string[] }[] | null = null;
-    if (round && iAmOut && tricksVisible) {
+    if (round && ((iAmOut && tricksVisible) || peeked.size > 0 || allOpen)) {
       const all = await ctx.db
         .query("hands")
         .withIndex("by_round", (q) => q.eq("roundId", round._id))
         .collect();
       openHands = all
-        .filter((h) => h.seat !== mySeat && round.participants[h.seat]?.decision === "in")
+        .filter(
+          (h) =>
+            h.seat !== mySeat &&
+            (allOpen || peeked.has(h.seat) || (iAmOut && tricksVisible && round.participants[h.seat]?.decision === "in")),
+        )
         .map((h) => ({ seat: h.seat, cards: h.cards }));
     }
+    const myPowerups = round?.party && mySeat >= 0 ? players[mySeat]?.powerups ?? [] : [];
 
     const seats = players.map((p, seat) => {
       const part = round?.participants[seat];
@@ -129,6 +139,16 @@ export const get = query({
             currentTrick: round.currentTrick,
             completedTricks: round.completedTricks,
             deltas: round.deltas ?? null,
+            party: round.party
+              ? {
+                  twist: round.party.twist,
+                  goldenSuit: round.party.goldenSuit ?? null,
+                  shielded: round.party.shielded,
+                  curses: round.party.curses,
+                  peeks: round.party.peeks,
+                  awards: round.party.awards ?? [],
+                }
+              : null,
             winnerSeat: round.winnerSeat ?? null,
             startedAt: round.startedAt,
             scoredAt: round.scoredAt ?? null,
@@ -137,6 +157,7 @@ export const get = query({
       seats,
       mySeat,
       myHand,
+      myPowerups,
       inTheDark,
       openHands,
       serverNow: now,

@@ -3,7 +3,7 @@ import { type Action, type RoundContext, applyAction } from "../../src/engine";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation } from "../_generated/server";
 import { requireUser } from "../lib/auth";
-import { suit } from "../lib/validators";
+import { powerup, suit } from "../lib/validators";
 import { finalizeRound, setTurn } from "./advance";
 import { isLeaving } from "./session";
 import { type LoadedRound, loadRound, persistRound } from "./state";
@@ -32,6 +32,10 @@ function redactPayload(action: Action): unknown {
       return {};
     case "play":
       return { card: action.card };
+    case "pass":
+      return {}; // the card stays secret: it surfaces in the receiver's hand only
+    case "usePowerup":
+      return { powerup: action.powerup, target: action.target };
   }
 }
 
@@ -70,6 +74,8 @@ export async function applyInternal(
   if (!result.ok) throw new ConvexError({ code: result.error.code });
   await persistRound(ctx, loaded, result.state);
   await appendAction(ctx, loaded, args.action, args.actor);
+  // A powerup is spent out of turn: the clock and the seat on turn stay as they were.
+  if (args.action.type === "usePowerup") return { applied: true };
   if (result.state.phase === "scored") {
     await finalizeRound(ctx, loaded, result.state);
   } else {
@@ -165,5 +171,29 @@ export const playCard = mutation({
       actor: "user",
       action: { type: "play", seat, card: card as Action extends { card: infer C } ? C : never },
     });
+  },
+});
+
+/** Party "passLeft": hand one card to the seat on your left. */
+export const passCard = mutation({
+  args: { roundId: v.id("rounds"), card: v.string() },
+  handler: async (ctx, { roundId, card }) => {
+    const seat = await mySeat(ctx, roundId);
+    await applyInternal(ctx, {
+      roundId,
+      actor: "user",
+      action: { type: "pass", seat, card: card as Action extends { card: infer C } ? C : never },
+    });
+  },
+});
+
+/** Party: spend a powerup. Allowed out of turn while the round is being decided or played. */
+export const usePowerup = mutation({
+  args: { roundId: v.id("rounds"), powerup, target: v.optional(v.number()) },
+  handler: async (ctx, { roundId, powerup, target }) => {
+    const seat = await mySeat(ctx, roundId);
+    const action: Action = { type: "usePowerup", seat, powerup };
+    if (target !== undefined) action.target = target;
+    await applyInternal(ctx, { roundId, actor: "user", action });
   },
 });

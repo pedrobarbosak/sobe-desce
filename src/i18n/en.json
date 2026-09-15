@@ -73,6 +73,22 @@
     "hideFinished": "Hide finished"
   },
   "presets": {
+    "classic": {
+      "name": "Classic",
+      "desc": "40 cards · 20 points · the game as played at the table"
+    },
+    "party": {
+      "name": "Party",
+      "desc": "A twist every round · 52 cards · 12 points · up to 8 seated"
+    },
+    "liga": {
+      "name": "Liga",
+      "desc": "Campaign · 40 cards · 1000 points · 16 enrolled"
+    },
+    "custom": {
+      "name": "Custom",
+      "desc": "Set everything yourself"
+    },
     "normal": {
       "name": "Normal",
       "desc": "40 cards · 20 points · up to 6 seated"
@@ -84,18 +100,6 @@
     "mesaGrande": {
       "name": "Mesa Grande",
       "desc": "52 cards · 20 points · up to 8 seated"
-    },
-    "party": {
-      "name": "Party",
-      "desc": "52 cards · 15 points · up to 8 seated"
-    },
-    "liga": {
-      "name": "Liga",
-      "desc": "Campaign · 40 cards · 1000 points · 16 enrolled"
-    },
-    "custom": {
-      "name": "Custom",
-      "desc": "Set everything yourself"
     }
   },
   "modes": {
@@ -130,10 +134,14 @@
       "rosterRange": "Roster must be between the seat count and 16",
       "rosterSession": "In a session the roster equals the seats",
       "blankPenalty": "Invalid penalty",
-      "turnSeconds": "Between 10 and 180 seconds"
+      "turnSeconds": "Between 10 and 180 seconds",
+      "variant": "Invalid rules"
     },
     "seatsDynamic": "Dynamic seats: up to {{max}} players with the {{deck}}-card deck. Whoever joins the lobby plays.",
-    "randomName": "Random name"
+    "randomName": "Random name",
+    "variant": "Rules",
+    "variantClassicHint": "The classic rules, nothing added.",
+    "variantPartyHint": "Every round flips a public twist: low card wins, no trump, open hands, pass a card left, lightning turns and more. Shorter, louder games."
   },
   "join": {
     "title": "Join table",
@@ -305,7 +313,16 @@
     "cannotRelinkOwner": "The host's own row cannot be relinked.",
     "invalidOrder": "Invalid order.",
     "cannotRemoveSelf": "You cannot remove yourself.",
-    "leftSitting": "You have left this sitting."
+    "leftSitting": "You have left this sitting.",
+    "notPartyTable": "This is not a party table.",
+    "powerupNotHeld": "You do not hold that powerup.",
+    "powerupWrongPhase": "Powerups can only be used while the round is being decided or played.",
+    "powerupSatOut": "You sat this round out.",
+    "powerupBadTarget": "Pick another player who is in the round.",
+    "alreadyPeeked": "You are already looking at that hand.",
+    "alreadyShielded": "You are already shielded this round.",
+    "sitOutAllIn": "Nobody sits out this round.",
+    "alreadyPassed": "You already passed a card."
   },
   "table": {
     "round": "Round {{n}}",
@@ -330,7 +347,8 @@
       "belowThreshold": "Below {{threshold}} you cannot sit out",
       "maxConsecutive": "You already sat out 2 rounds in a row",
       "clubs": "Clubs are trump: nobody sits out",
-      "trumpNamer": "You named the trump, so you play this round"
+      "trumpNamer": "You named the trump, so you play this round",
+      "allIn": "All in: nobody sits out this round"
     },
     "waitingFor": "{{name}}'s turn",
     "yourTurn": "Your turn",
@@ -343,7 +361,8 @@
       "mustFollowSuit": "You must follow suit",
       "mustTrump": "You must trump",
       "mustClimb": "Sobe! You must beat the winning card",
-      "notInHand": ""
+      "notInHand": "",
+      "mustLeadTrumpLow": "Desce! You must lead the lowest trump"
     },
     "roundOver": "Round over",
     "nextRoundSoon": "Next round starting…",
@@ -431,7 +450,14 @@
     "abandonConfirmCampaign": "You leave tonight's sitting and nobody plays for you. If you had not yet joined the round it is dealt again without you; if you had, your cards are played out for this round only. Continue?",
     "kickCampaign": "Remove from the sitting",
     "kickConfirmCampaign": "{{name}} leaves tonight's sitting. Nobody plays for them; if they had already joined the round, their cards are played out for this round only. Continue?",
-    "leaving": "leaving"
+    "leaving": "leaving",
+    "passing": "{{name}} is passing a card…",
+    "passTitle": "Pass one card to {{name}}",
+    "passHint": "Pick a card from your hand. It is theirs for the rest of the round.",
+    "passCard": "Pass {{card}}",
+    "passPick": "Pick a card",
+    "noDiscards": "No discards this round: play what you were dealt",
+    "playAsDealt": "Play as dealt"
   },
   "standings": {
     "title": "Standings",
@@ -509,5 +535,83 @@
     "lobby": "waiting",
     "active": "in progress",
     "finished": "finished"
+  },
+  "variants": {
+    "classic": "Classic",
+    "party": "Party"
+  },
+  "party": {
+    "twist": "Twist",
+    "twistOfRound": "This round's twist",
+    "twists": {
+      "desce": {
+        "name": "Desce",
+        "desc": "Lowest card wins the trick. Go under if you can, and the lowest trump leads."
+      },
+      "golden": {
+        "name": "Golden suit",
+        "desc": "{{suit}} doubles the round if it becomes trump."
+      },
+      "lastTrick": {
+        "name": "Last trick ×3",
+        "desc": "The fifth trick is worth three."
+      },
+      "blankPays": {
+        "name": "Blank pays",
+        "desc": "Winning no tricks pays the penalty out instead of in. Everybody plays to lose."
+      },
+      "noTrump": {
+        "name": "No trump",
+        "desc": "No trump suit this round. The trump phase is skipped and only the led suit can win."
+      },
+      "openHands": {
+        "name": "Open hands",
+        "desc": "Every hand is face up once the trump is settled."
+      },
+      "passLeft": {
+        "name": "Pass left",
+        "desc": "After the discards, everyone still in passes one card to the player on their left."
+      },
+      "allIn": {
+        "name": "All in",
+        "desc": "Nobody may sit this round out."
+      },
+      "lightning": {
+        "name": "Lightning",
+        "desc": "{{seconds}}-second turns. Think fast."
+      },
+      "asDealt": {
+        "name": "As dealt",
+        "desc": "No discards and nobody sits out: you play exactly what you were dealt."
+      }
+    },
+    "golden": "×2 golden",
+    "powerups": {
+      "peek": {
+        "name": "Peek",
+        "desc": "See a player's hand for the rest of the round."
+      },
+      "curse": {
+        "name": "Curse",
+        "desc": "A player of your choice takes +{{points}} at the end of the round. Sitting out escapes it."
+      },
+      "shield": {
+        "name": "Shield",
+        "desc": "Your own blank penalty this round is cancelled."
+      }
+    },
+    "stash": "Powerups",
+    "stashHint": "The player furthest from 0 and anyone who pays a blank draw one at the end of every round. You hold at most {{max}}.",
+    "pickTarget": "{{powerup}} on whom?",
+    "cancel": "Cancel",
+    "shielded": "Shielded",
+    "cursed": "Cursed",
+    "cursedPoints": "+{{points}} at the end of the round",
+    "peeked": "You can see this hand",
+    "peeking": "Looking at {{name}}'s hand",
+    "drew": "{{name}} drew {{powerup}}",
+    "youDrew": "You drew {{powerup}}",
+    "used": "{{name}} used {{powerup}}",
+    "usedOn": "{{name}} used {{powerup}} on {{target}}"
   }
 }

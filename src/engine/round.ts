@@ -1,12 +1,26 @@
 import { type Card, type DeckSize, type Suit, SUITS, buildDeck, isCard, suitOf } from "./cards";
-import { HAND_SIZE, TRICKS_PER_ROUND } from "./config";
+import { HAND_SIZE, TRICKS_PER_ROUND, type Variant } from "./config";
 import { EngineError } from "./errors";
 import { legalPlays, sitOutBlockedReason } from "./legal";
+import {
+  type PartyState,
+  type Powerup,
+  type PowerupAction,
+  type PowerupEvent,
+  applyPowerup,
+  clonePartyState,
+  createPartyState,
+  partyDeltas,
+  partyRules,
+  powerupBlockedReason,
+} from "./party";
 import { rngFromSeed, shuffle } from "./rng";
+import { CLASSIC_RULES, type RoundRules } from "./rules";
 import { canCallDarkHearts, roundDeltas } from "./scoring";
 import { type CompletedTrick, type TrickInProgress, trickWinner } from "./trick";
 
-export type Phase = "trump" | "discard" | "tricks" | "scored";
+/** `pass` only occurs under the party "passLeft" twist, between the discards and the tricks. */
+export type Phase = "trump" | "discard" | "pass" | "tricks" | "scored";
 export type Decision = "pending" | "in" | "out";
 
 export type SeatState = {
@@ -43,6 +57,8 @@ export type RoundState = {
   completedTricks: CompletedTrick[];
   /** Set when phase === "scored". Indexed by seat. */
   deltas: number[] | null;
+  /** The round's twist and powerups. Null on a classic table. Holds PRIVATE inventories. */
+  party: PartyState | null;
 };
 
 /** Per-seat context the round needs from the outside world (scores live on the game). */
@@ -58,7 +74,10 @@ export type Action =
   | { type: "darkHearts"; seat: number }
   | { type: "discard"; seat: number; cards: Card[] }
   | { type: "sitOut"; seat: number }
-  | { type: "play"; seat: number; card: Card };
+  | { type: "play"; seat: number; card: Card }
+  /** Party "passLeft": the card this seat hands to its left. */
+  | { type: "pass"; seat: number; card: Card }
+  | PowerupAction;
 
 export type RoundEvent =
   | { type: "trumpNamed"; seat: number; suit: Suit }
@@ -67,9 +86,11 @@ export type RoundEvent =
   | { type: "dealt"; count: number }
   | { type: "discarded"; seat: number; count: number }
   | { type: "satOut"; seat: number }
+  | { type: "passed"; seat: number }
   | { type: "played"; seat: number; card: Card }
   | { type: "trickWon"; seat: number; trickIndex: number }
-  | { type: "scored"; deltas: number[] };
+  | { type: "scored"; deltas: number[] }
+  | PowerupEvent;
 
 export type ApplyResult =
   | { ok: true; state: RoundState; events: RoundEvent[] }
@@ -82,6 +103,10 @@ export type CreateRoundInput = {
   maxDiscard: number;
   blankPenalty: number;
   seed: string;
+  /** Defaults to classic. */
+  variant?: Variant;
+  /** Party only: what each seat brings to the round. */
+  inventory?: readonly (readonly Powerup[])[];
 };
 
 export function leftOf(seat: number, seatCount: number): number {
@@ -95,6 +120,11 @@ export function playOrder(dealerSeat: number, seatCount: number): number[] {
   return out;
 }
 
+/** The rules this round plays by. Classic unless a party twist says otherwise. */
+export function rulesFor(state: Pick<RoundState, "party">): RoundRules {
+  return state.party ? partyRules(state.party) : CLASSIC_RULES;
+}
+
 function dealCards(state: RoundState, perPlayer: number): void {
   for (const seat of playOrder(state.dealerSeat, state.seatCount)) {
     for (let i = 0; i < perPlayer; i++) {
@@ -105,7 +135,10 @@ function dealCards(state: RoundState, perPlayer: number): void {
   }
 }
 
-/** Shuffle with the seed and deal the first three cards to everyone. */
+/**
+ * Shuffle with the seed and deal the first three cards to everyone. A party twist may
+ * change the discard cap, or skip the trump phase altogether and deal all five at once.
+ */
 export function createRound(input: CreateRoundInput): RoundState {
   const rng = rngFromSeed(input.seed);
   const state: RoundState = {
@@ -130,8 +163,17 @@ export function createRound(input: CreateRoundInput): RoundState {
     currentTrick: { leader: leftOf(input.dealerSeat, input.seatCount), plays: [] },
     completedTricks: [],
     deltas: null,
+    // Drawn after the shuffle so a classic and a party round from one seed deal alike.
+    party: input.variant === "party" ? createPartyState(rng, input.seatCount, input.inventory ?? []) : null,
   };
+  const rules = rulesFor(state);
+  if (rules.maxDiscard !== null) state.maxDiscard = rules.maxDiscard;
   dealCards(state, 3);
+  if (rules.noTrump) {
+    // Nothing to name: everyone gets a full hand and the deciding starts at once.
+    dealCards(state, HAND_SIZE - 3);
+    state.phase = "discard";
+  }
   return state;
 }
 
@@ -144,6 +186,7 @@ function clone(state: RoundState): RoundState {
     currentTrick: { ...state.currentTrick, plays: [...state.currentTrick.plays] },
     completedTricks: state.completedTricks.map((t) => ({ ...t, plays: [...t.plays] })),
     deltas: state.deltas ? [...state.deltas] : null,
+    party: state.party ? clonePartyState(state.party) : null,
   };
 }
 
@@ -162,20 +205,39 @@ function nextInSeat(state: RoundState, from: number): number {
 }
 
 function scoreRound(state: RoundState, events: RoundEvent[]): void {
-  const deltas = roundDeltas(
-    state.seats.map((s, seat) => ({
-      seat,
-      participated: s.decision === "in",
-      tricksWon: s.tricksWon,
-    })),
-    state.trump!,
-    state.blankPenalty,
-    state.darkHearts,
-  );
-  state.deltas = state.seats.map((_, seat) => deltas.get(seat) ?? 0);
+  if (state.party) {
+    state.deltas = partyDeltas({
+      party: state.party,
+      seats: state.seats,
+      completedTricks: state.completedTricks,
+      trump: state.trump,
+      blankPenalty: state.blankPenalty,
+      darkHearts: state.darkHearts,
+    });
+  } else {
+    const deltas = roundDeltas(
+      state.seats.map((s, seat) => ({
+        seat,
+        participated: s.decision === "in",
+        tricksWon: s.tricksWon,
+      })),
+      state.trump,
+      state.blankPenalty,
+      state.darkHearts,
+    );
+    state.deltas = state.seats.map((_, seat) => deltas.get(seat) ?? 0);
+  }
   state.phase = "scored";
   state.turnSeat = null;
   events.push({ type: "scored", deltas: state.deltas });
+}
+
+function startTricks(state: RoundState): void {
+  const players = inSeats(state);
+  state.phase = "tricks";
+  const leader = players[0]!;
+  state.currentTrick = { leader, plays: [] };
+  state.turnSeat = leader;
 }
 
 function finishDiscardPhase(state: RoundState, events: RoundEvent[]): void {
@@ -190,10 +252,23 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[]): void {
     scoreRound(state, events);
     return;
   }
-  state.phase = "tricks";
-  const leader = players[0]!;
-  state.currentTrick = { leader, plays: [] };
-  state.turnSeat = leader;
+  if (rulesFor(state).passLeft) {
+    state.phase = "pass";
+    state.turnSeat = players[0]!;
+    return;
+  }
+  startTricks(state);
+}
+
+/** Everyone has chosen: each card goes to the next seat still in, and the tricks begin. */
+function deliverPasses(state: RoundState): void {
+  const passes = state.party!.passes;
+  for (const seat of inSeats(state)) {
+    const card = passes[seat]!;
+    state.hands[nextInSeat(state, seat)]!.push(card);
+    passes[seat] = null;
+  }
+  startTricks(state);
 }
 
 function advanceDiscardTurn(state: RoundState, events: RoundEvent[]): void {
@@ -220,6 +295,25 @@ function fail(code: EngineError["code"], message?: string): ApplyResult {
 }
 
 /**
+ * Powerups do not wait for a turn: any seat may spend one while the round is being
+ * decided or played, and the turn stays where it was.
+ */
+function applyPowerupAction(prev: RoundState, action: PowerupAction): ApplyResult {
+  if (!prev.party) return fail("notPartyTable");
+  const blocked = powerupBlockedReason(prev.party, action, {
+    phase: prev.phase,
+    seatCount: prev.seatCount,
+    decisions: prev.seats.map((s) => s.decision),
+  });
+  if (blocked) return fail(blocked);
+  const state = clone(prev);
+  applyPowerup(state.party!, action);
+  const event: PowerupEvent = { type: "powerupUsed", seat: action.seat, powerup: action.powerup };
+  if (action.target !== undefined) event.target = action.target;
+  return { ok: true, state, events: [event] };
+}
+
+/**
  * Pure reducer. Never mutates the input; returns the next state or an error.
  */
 export function applyAction(
@@ -230,6 +324,7 @@ export function applyAction(
   if (action.seat < 0 || action.seat >= prev.seatCount || !Number.isInteger(action.seat)) {
     return fail("invalidSeat");
   }
+  if (action.type === "usePowerup") return applyPowerupAction(prev, action);
   if (prev.turnSeat !== action.seat) return fail("notYourTurn");
   const state = clone(prev);
   const events: RoundEvent[] = [];
@@ -312,10 +407,12 @@ export function applyAction(
         score: ctx.scores[action.seat] ?? 0,
         forcedPlayThreshold: ctx.forcedPlayThreshold,
         consecutiveSitOuts: ctx.sitOutStreak[action.seat] ?? 0,
-        trump: state.trump!,
+        trump: state.trump,
         isTrumpNamer: state.trumpSeat === action.seat && state.flipped === null,
+        allIn: rulesFor(state).allIn,
       });
       if (blocked === "trumpNamer") return fail("sitOutTrumpNamer");
+      if (blocked === "allIn") return fail("sitOutAllIn");
       if (blocked === "clubs") return fail("sitOutClubs");
       if (blocked === "belowThreshold") return fail("sitOutBelowThreshold");
       if (blocked === "maxConsecutive") return fail("sitOutMaxConsecutive");
@@ -325,12 +422,28 @@ export function applyAction(
       return { ok: true, state, events };
     }
 
+    case "pass": {
+      if (state.phase !== "pass") return fail("wrongPhase");
+      if (state.party!.passes[action.seat] !== null) return fail("alreadyPassed");
+      if (!isCard(action.card, state.deck) || !hand.includes(action.card)) {
+        return fail("cardNotInHand", String(action.card));
+      }
+      state.hands[action.seat] = hand.filter((c) => c !== action.card);
+      state.party!.passes[action.seat] = action.card;
+      events.push({ type: "passed", seat: action.seat });
+      const waiting = inSeats(state).find((s) => state.party!.passes[s] === null);
+      if (waiting === undefined) deliverPasses(state);
+      else state.turnSeat = waiting;
+      return { ok: true, state, events };
+    }
+
     case "play": {
       if (state.phase !== "tricks") return fail("wrongPhase");
       if (!isCard(action.card, state.deck) || !hand.includes(action.card)) {
         return fail("cardNotInHand", String(action.card));
       }
-      const legal = legalPlays(hand, state.currentTrick, state.trump!, state.deck);
+      const rules = rulesFor(state);
+      const legal = legalPlays(hand, state.currentTrick, state.trump, state.deck, rules);
       if (!legal.includes(action.card)) return fail("illegalPlay");
       state.hands[action.seat] = hand.filter((c) => c !== action.card);
       state.currentTrick.plays.push({ seat: action.seat, card: action.card });
@@ -342,7 +455,7 @@ export function applyAction(
         return { ok: true, state, events };
       }
 
-      const winner = trickWinner(state.currentTrick.plays, state.trump!, state.deck);
+      const winner = trickWinner(state.currentTrick.plays, state.trump, state.deck, rules.lowWins);
       state.seats[winner]!.tricksWon += 1;
       state.completedTricks.push({ ...state.currentTrick, winner });
       events.push({ type: "trickWon", seat: winner, trickIndex: state.completedTricks.length - 1 });

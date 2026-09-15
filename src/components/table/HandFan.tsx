@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { type Card as CardT, type DeckSize, type Suit, type TrickInProgress, illegalReason, rankOf, sortHand, suitOf } from "@/engine";
+import { CLASSIC_RULES, type Card as CardT, type DeckSize, type RoundRules, type Suit, type TrickInProgress, illegalReason, rankOf, sortHand, suitOf } from "@/engine";
 import { CardFace } from "./Card";
 
 type Props = {
@@ -19,9 +19,11 @@ type Props = {
   cardWidth: number;
   /** Maximum width the fan may take; overlap tightens to fit. */
   maxWidth: number;
+  /** The round's rules; a party twist may turn the climb rule upside down. */
+  rules?: RoundRules;
 };
 
-export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay, selectable, selected, onToggle, onPlay, cardWidth, maxWidth }: Props) {
+export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay, selectable, selected, onToggle, onPlay, cardWidth, maxWidth, rules = CLASSIC_RULES }: Props) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState<CardT | null>(null);
   const cards = sortHand(hand, deck, trump ?? undefined);
@@ -39,7 +41,7 @@ export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay
       aria-label={t("table.handLabel")}
     >
       {cards.map((card, i) => {
-          const reason = canPlay && trick && trump ? illegalReason(hand, card, trick, trump, deck) : null;
+          const reason = canPlay && trick ? illegalReason(hand, card, trick, trump, deck, rules) : null;
           const legal = canPlay && reason === null;
           const angle = (i - (n - 1) / 2) * spread;
           const lift = Math.abs(i - (n - 1) / 2) * 3;

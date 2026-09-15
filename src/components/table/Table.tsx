@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
-import { type Card as CardT, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, sitOutBlockedReason } from "@/engine";
+import { CLASSIC_RULES, LIGHTNING_SECONDS, POWERUPS_ENABLED, type Card as CardT, type Powerup, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, partyRules, sitOutBlockedReason } from "@/engine";
 import { errorCode } from "@/lib/errors";
 import { useTrickDisplay } from "@/hooks/useTrickDisplay";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -25,7 +25,7 @@ import { TableStatus } from "./TableStatus";
 import { DarkCall } from "./DarkCall";
 import { type PlayedTrick, TrickHistory } from "./TrickHistory";
 import { Drawer } from "./Drawer";
-import { type PendingChoice, DiscardPanel, RoundResult, TrumpPicker, TrumpReveal } from "./panels";
+import { type PartyView, type PendingChoice, DiscardPanel, PassPanel, PowerupTray, RoundResult, TrumpPicker, TrumpReveal, TwistBanner } from "./panels";
 import { type Ellipse, ringLayout, ringPlacer } from "./geometry";
 
 export type TableData = NonNullable<FunctionReturnType<typeof api.game.table.get>>;
@@ -61,6 +61,8 @@ export function Table({ data }: { data: TableData }) {
   const discard = useMutation(api.game.actions.discard);
   const sitOut = useMutation(api.game.actions.sitOut);
   const playCard = useMutation(api.game.actions.playCard);
+  const passCard = useMutation(api.game.actions.passCard);
+  const spendPowerup = useMutation(api.game.actions.usePowerup);
   const rematch = useMutation(api.games.rematch);
   const abandonSeat = useMutation(api.games.abandonSeat);
   const closeSitting = useMutation(api.sessions.close);
@@ -70,6 +72,11 @@ export function Table({ data }: { data: TableData }) {
   const [pending, setPending] = useState<PendingChoice | null>(null);
   const [drawer, setDrawer] = useState<"lobby" | "standings" | "history" | null>(null);
   const [feltRef, felt] = useElementSize<HTMLDivElement>();
+
+  // Party: the round's twist and the public trace of powerups. Null on a classic table.
+  const party: PartyView | null = (round?.party as PartyView | null | undefined) ?? null;
+  const rules = party ? partyRules(party) : CLASSIC_RULES;
+  const goldenTrump = party !== null && party.twist === "golden" && party.goldenSuit !== null && party.goldenSuit === round?.trump;
 
   const roundId = round?._id;
   const roundPhase = round?.phase;
@@ -141,7 +148,9 @@ export function Table({ data }: { data: TableData }) {
   // Clock skew between server and client. `serverNow` on the query can be stale (queries
   // only re-run on data changes), so anchor on the turn deadline instead: it is written by
   // the server the instant a turn starts and reaches us within network latency.
-  const totalTurnMs = game.config.turnSeconds * 1000;
+  // A party twist may shorten the clock or cap the discards for this round only.
+  const totalTurnMs = (rules.turnSeconds ?? game.config.turnSeconds) * 1000;
+  const maxDiscardNow = rules.maxDiscard ?? session?.maxDiscard ?? 0;
   const turnKey = round?.turnDeadline ? `${round._id}:${round.turnNonce}` : null;
   /**
    * Read once when the turn starts, never during render.
@@ -231,15 +240,16 @@ export function Table({ data }: { data: TableData }) {
   }, [myDeadline, totalTurnMs, skewMs]);
 
   const sitOutBlock = useMemo(() => {
-    if (!round || !trump || !me) return null;
+    if (!round || round.phase === "trump" || !me) return null;
     return sitOutBlockedReason({
       score: me.score,
       forcedPlayThreshold: game.config.forcedPlayThreshold,
       consecutiveSitOuts: me.sitOutStreak,
       trump,
       isTrumpNamer: round.trumpSeat === mySeat,
+      allIn: rules.allIn,
     });
-  }, [round, trump, me, mySeat, game.config.forcedPlayThreshold]);
+  }, [round, trump, me, mySeat, game.config.forcedPlayThreshold, rules.allIn]);
 
   const report = useCallback((err: unknown) => {
     const code = errorCode(err);
@@ -293,17 +303,18 @@ export function Table({ data }: { data: TableData }) {
     })();
   }, [pending, isMyTurn, roundPhase, roundId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const maxDiscard = session?.maxDiscard ?? 0;
+  // Passing left takes exactly one card; discarding takes up to the cap.
+  const selectLimit = roundPhase === "pass" ? 1 : maxDiscardNow;
   const toggle = useCallback(
     (card: CardT) => {
       setSelected((prev) => {
         const next = new Set(prev);
         if (next.has(card)) next.delete(card);
-        else if (next.size < maxDiscard) next.add(card);
+        else if (next.size < selectLimit) next.add(card);
         return next;
       });
     },
-    [maxDiscard],
+    [selectLimit],
   );
   const onPlay = useCallback(
     (card: CardT) => {
@@ -312,6 +323,14 @@ export function Table({ data }: { data: TableData }) {
     },
     [roundId, run, playCard],
   );
+  const onUsePowerup = useCallback(
+    (powerup: Powerup, target?: number) => {
+      if (!roundId) return;
+      void run(() => spendPowerup(target === undefined ? { roundId, powerup } : { roundId, powerup, target }));
+    },
+    [roundId, run, spendPowerup],
+  );
+  const peekedSeats = useMemo(() => new Set(party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []), [party, mySeat]);
 
   const openBySeat = useMemo(() => {
     const map = new Map<number, string[]>();
@@ -321,7 +340,7 @@ export function Table({ data }: { data: TableData }) {
   const iAmOut = me?.decision === "out";
   // Who the status card is about: the trick winner while the table holds, else the turn.
   const statusActor = display.holding && display.winnerSeat !== null ? seats[display.winnerSeat] : turnSeat;
-  const statusKind: "trump" | "discard" | "tricks" | "trickWon" | null =
+  const statusKind: "trump" | "discard" | "pass" | "tricks" | "trickWon" | null =
     display.holding && display.winnerSeat !== null
       ? "trickWon"
       : phase === "scored" || !turnSeat
@@ -330,12 +349,14 @@ export function Table({ data }: { data: TableData }) {
           ? "trump"
           : phase === "discard"
             ? "discard"
-            : "tricks";
+            : phase === "pass"
+              ? "pass"
+              : "tricks";
   // Discard phase, my decision still open, somebody else on the clock.
   // Before anyone decides, the seat on turn in the trump phase is the one about to.
-  const trumpSeatNow = round?.trumpSeat ?? (round?.phase === "trump" ? round.turnSeat : null);
+  const trumpSeatNow = rules.noTrump ? null : round?.trumpSeat ?? (round?.phase === "trump" ? round.turnSeat : null);
   const canPrepare =
-    phase === "discard" && mySeat >= 0 && !standIn && me?.decision === "pending" && !isMyTurn && Boolean(trump);
+    phase === "discard" && mySeat >= 0 && !standIn && me?.decision === "pending" && !isMyTurn && (Boolean(trump) || rules.noTrump);
 
   const winnerName = game.winnerPlayerId ? seats.find((s) => s.playerId === game.winnerPlayerId)?.name ?? null : null;
   const gameOver = game.status === "finished";
@@ -344,8 +365,8 @@ export function Table({ data }: { data: TableData }) {
   const placer = ringPlacer(layout, mySeat, ellipse);
   const satOut = tricksStarted ? seats.filter((s) => s.decision === "out") : [];
   const liveLeader =
-    round && !display.holding && trump && round.currentTrick.plays.length > 0
-      ? (currentWinner(round.currentTrick.plays as { seat: number; card: CardT }[], trump, game.config.deck)?.seat ?? null)
+    round && !display.holding && round.currentTrick.plays.length > 0
+      ? (currentWinner(round.currentTrick.plays as { seat: number; card: CardT }[], trump, game.config.deck, rules.lowWins)?.seat ?? null)
       : null;
   const leadingSeat = display.holding ? display.winnerSeat : liveLeader;
   // Trump/discard panels: centred in the ellipse on wide screens; on compact/portrait
@@ -401,7 +422,7 @@ export function Table({ data }: { data: TableData }) {
           </button>
           <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{game.name}</span>
           {round && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: round.index + 1 })}</span>}
-          {session && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap: session.maxDiscard })}</span>}
+          {session && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap: maxDiscardNow })}</span>}
           {trump ? (
             <span className={`flex items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
               <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
@@ -413,9 +434,22 @@ export function Table({ data }: { data: TableData }) {
                 </span>
               )}
               {trump === "C" && <span className="rounded bg-ink-900 px-1 text-[10px] text-white">!</span>}
+              {goldenTrump && <span className="rounded bg-gold-400 px-1 text-[10px] font-bold text-ink-900">×2</span>}
             </span>
           ) : (
             <span className="whitespace-nowrap text-cream-100/50">{t("table.noTrump")}</span>
+          )}
+          {party && (
+            <span
+              className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
+              title={t(`party.twists.${party.twist}.desc`, { suit: party.goldenSuit ? t(`suits.${party.goldenSuit}`).split(" ")[0] : "", seconds: LIGHTNING_SECONDS })}
+            >
+              🎲
+              <span className="hidden sm:inline">{t(`party.twists.${party.twist}.name`)}</span>
+              {party.twist === "golden" && party.goldenSuit && (
+                <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
+              )}
+            </span>
           )}
           <nav className="ml-auto flex shrink-0 items-center gap-1">
             <button type="button" onClick={() => setDrawer("lobby")} className="rounded-md px-2 py-1 hover:bg-white/10">
@@ -503,7 +537,7 @@ export function Table({ data }: { data: TableData }) {
                   flipped={flippedCard !== null}
                   isTurn={round?.turnSeat === s.seat && phase !== "scored"}
                   deadline={round?.turnDeadline ?? null}
-                  totalMs={game.config.turnSeconds * 1000}
+                  totalMs={totalTurnMs}
                   skewMs={skewMs}
                   phase={phase}
                   compact={compact}
@@ -511,6 +545,9 @@ export function Table({ data }: { data: TableData }) {
                   openHand={openBySeat.get(s.seat) ?? null}
                   deck={game.config.deck}
                   trump={trump}
+                  cursed={party?.curses[s.seat] ?? 0}
+                  shielded={party?.shielded[s.seat] ?? false}
+                  peeked={peekedSeats.has(s.seat)}
                 />
               );
             })}
@@ -548,6 +585,7 @@ export function Table({ data }: { data: TableData }) {
 
           {/* Kept clear of the status card when it is centred at the top of the felt. */}
           <div className="absolute left-2 z-20 flex max-w-[45%] flex-col items-start gap-2" style={{ top: compact && !statusBelow ? 54 : 8 }}>
+            {party && phase !== "scored" && <TwistBanner party={party} compact={compact} />}
             {satOut.length > 0 && (
               <div className="rounded-xl bg-black/40 px-3 py-2 text-xs text-cream-100/80">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cream-100/50">{t("table.satOutList")}</p>
@@ -605,8 +643,8 @@ export function Table({ data }: { data: TableData }) {
                 prepare
                 pending={pending}
                 onClear={() => setPending(null)}
-                cap={session.maxDiscard}
-                trump={trump ?? "S"}
+                cap={maxDiscardNow}
+                trump={trump}
                 flipped={flippedCard}
                 youFlipped={flippedCard !== null && round?.trumpSeat === mySeat}
                 selectedCount={selected.size}
@@ -622,8 +660,8 @@ export function Table({ data }: { data: TableData }) {
             <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
               <DiscardPanel
                 compact={compact}
-                cap={session.maxDiscard}
-                trump={trump ?? "S"}
+                cap={maxDiscardNow}
+                trump={trump}
                 flipped={flippedCard}
                 youFlipped={flippedCard !== null && round?.trumpSeat === mySeat}
                 selectedCount={selected.size}
@@ -632,6 +670,27 @@ export function Table({ data }: { data: TableData }) {
                 busy={busy}
                 onDiscard={() => void run(() => discard({ roundId: round._id, cards: [...selected] }))}
                 onSitOut={() => void run(() => sitOut({ roundId: round._id }))}
+              />
+            </div>
+          )}
+          {isMyTurn && phase === "pass" && session && (
+            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+              <PassPanel
+                compact={compact}
+                leftName={(() => {
+                  // The card goes to the next seat still in the round, clockwise.
+                  for (let i = 1; i < n; i++) {
+                    const s = seats[(mySeat + i) % n];
+                    if (s && s.decision === "in") return s.name;
+                  }
+                  return "";
+                })()}
+                selected={[...selected][0] ?? null}
+                busy={busy}
+                onPass={() => {
+                  const card = [...selected][0];
+                  if (card) void run(() => passCard({ roundId: round._id, card }));
+                }}
               />
             </div>
           )}
@@ -645,7 +704,7 @@ export function Table({ data }: { data: TableData }) {
               <div className="relative" style={{ width: avatarSize * 0.8, height: avatarSize * 0.8 }}>
                 <Avatar seed={me.avatarSeed} size={avatarSize * 0.8} className={me.decision === "out" ? "opacity-50 grayscale" : ""} />
                 {isMyTurn && round?.turnDeadline && (
-                  <TimerRing deadline={round.turnDeadline} totalMs={game.config.turnSeconds * 1000} size={avatarSize * 0.8} skewMs={skewMs} />
+                  <TimerRing deadline={round.turnDeadline} totalMs={totalTurnMs} size={avatarSize * 0.8} skewMs={skewMs} />
                 )}
                 {trumpSeatNow === mySeat && (
                   <span
@@ -682,6 +741,10 @@ export function Table({ data }: { data: TableData }) {
                       {me.tricksWon}
                     </span>
                   )}
+                  {party && (party.curses[mySeat] ?? 0) > 0 && (
+                    <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}>☠</span>
+                  )}
+                  {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}>🛡</span>}
                   {me.decision === "out" && phase !== "scored" && <span className="text-cream-100/70">{t("table.out")}</span>}
                   {phase === "scored" && me.delta !== undefined && (
                     <span className={`rounded px-1 font-bold ${me.delta < 0 ? "bg-emerald-400 text-ink-900" : me.delta > 0 ? "bg-heart text-white" : "bg-black/40"}`}>
@@ -690,6 +753,19 @@ export function Table({ data }: { data: TableData }) {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {POWERUPS_ENABLED && party && me && !standIn && me.decision !== "out" && (phase === "discard" || phase === "tricks") && data.myPowerups.length > 0 && (
+            <div className="absolute right-2 z-20" style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}>
+              <PowerupTray
+                stash={data.myPowerups as Powerup[]}
+                targets={seats.filter((s) => s.seat !== mySeat && s.decision !== "out")}
+                shielded={party.shielded[mySeat] ?? false}
+                busy={busy}
+                onUse={onUsePowerup}
+                compact={compact}
+              />
             </div>
           )}
 
@@ -705,12 +781,13 @@ export function Table({ data }: { data: TableData }) {
                 trump={trump}
                 trick={(round?.currentTrick as TrickInProgress | undefined) ?? null}
                 canPlay={isMyTurn && phase === "tricks" && me?.decision === "in"}
-                selectable={phase === "discard" && me?.decision === "pending" && pending === null}
+                selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || (phase === "pass" && isMyTurn)}
                 selected={selected}
                 onToggle={toggle}
                 onPlay={onPlay}
                 cardWidth={cardWidth}
                 maxWidth={W * 0.92}
+                rules={rules}
               />
             </div>
           ) : data.inTheDark ? (
@@ -767,6 +844,7 @@ export function Table({ data }: { data: TableData }) {
               seats={seats}
               trump={trump}
               dark={isDark}
+              party={party}
               winnerName={winnerName}
               gameOver={gameOver}
               onBack={() => void navigate({ to: "/g/$gameId", params: { gameId: game._id } })}

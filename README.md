@@ -6,6 +6,10 @@ Online, real-time multiplayer version of the Portuguese trick-taking game **Sobe
 - **Auth**: Better Auth via `@convex-dev/better-auth` (anonymous by default; link Discord, Microsoft Entra ID or an email magic link)
 - **Frontend**: Vite + React + TypeScript + TanStack Router + Tailwind v4 + Motion
 - **Rules engine**: pure TypeScript in `src/engine`, shared by server validation and client card-greying
+- **Variants**: *Classic* is the game as played at the table. *Party* flips a public twist every round:
+  Desce, Golden suit, Last trick ×3, Blank pays, No trump, Open hands, Pass left, All in, Lightning, As dealt.
+  Everything party-specific lives in `src/engine/party`. Powerups (Peek, Curse, Shield) are built and
+  tested there too but switched off behind `POWERUPS_ENABLED` until they earn their place.
 
 ## Run locally
 
@@ -59,6 +63,7 @@ measurements and candidate fixes are in [docs/LARGE-TABLES.md](docs/LARGE-TABLES
 
 ```
 src/engine/     pure rules: cards, legal plays (sobe), scoring, round reducer, bots
+src/engine/party/  the party variant: twists, powerups, party scoring; classic never calls in
 convex/         schema, auth, games/sessions/presence, game loop (actions, timers, bots), history
 src/routes/     landing, new game, join, lobby, live table, standings, history, manual entry, account
 ```

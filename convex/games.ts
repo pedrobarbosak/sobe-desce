@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { MIN_SEATS, validateConfig } from "../src/engine";
+import { type GameConfig, MIN_SEATS, validateConfig, variantOf } from "../src/engine";
 import { randomBotName, randomSeed, randomTableName } from "../src/shared/names";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -75,8 +75,9 @@ async function insertPlayer(
 
 export const create = mutation({
   args: { name: v.optional(v.string()), config: gameConfig },
-  handler: async (ctx, { name, config }) => {
+  handler: async (ctx, { name, config: raw }) => {
     const user = await requireUser(ctx);
+    const config: GameConfig = { ...raw, variant: variantOf(raw) };
     const errors = validateConfig(config);
     if (errors.length > 0) throw new ConvexError({ code: "invalidConfig", errors });
     const code = await uniqueCode(ctx);
@@ -241,6 +242,7 @@ export const openTables = query({
         name: g.name,
         mode: g.mode,
         preset: g.config.preset,
+        variant: variantOf(g.config),
         deck: g.config.deck,
         startingPoints: g.config.startingPoints,
         seats: g.config.seats,

@@ -1,11 +1,22 @@
 import { v } from "convex/values";
-import { applyDeltas, canCallDarkHearts, createRound, playOrder } from "../../src/engine";
+import {
+  POWERUPS_ENABLED,
+  type Powerup,
+  applyDeltas,
+  awardPowerups,
+  canCallDarkHearts,
+  createRound,
+  partyRules,
+  playOrder,
+  rngFromSeed,
+  variantOf,
+} from "../../src/engine";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, internalMutation } from "../_generated/server";
 import { DARK_WINDOW_MS } from "./dark";
 import { applyLeaving, isLeaving } from "./session";
-import type { LoadedRound } from "./state";
+import { type LoadedRound, partyDoc } from "./state";
 import type { RoundState } from "../../src/engine";
 
 export const BOT_DELAY_MS = 900;
@@ -46,7 +57,9 @@ export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">): Promise<
     await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: undefined, timerId: undefined });
     return;
   }
-  const ms = game.config.turnSeconds * 1000;
+  // A party twist may shorten the clock for the round.
+  const seconds = (round.party ? partyRules(round.party).turnSeconds : null) ?? game.config.turnSeconds;
+  const ms = seconds * 1000;
   const timerId = await ctx.scheduler.runAfter(ms, internal.game.timer.onTimeout, { roundId, nonce });
   await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: Date.now() + ms, timerId });
   const playerId = session.seats[round.turnSeat];
@@ -68,6 +81,7 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
   const seed = randomSeed();
   // Never let the blind window swallow the turn on a table with a short clock.
   const darkMs = Math.min(DARK_WINDOW_MS, Math.floor((game.config.turnSeconds * 1000) / 2));
+  const players = await Promise.all(session.seats.map((id) => ctx.db.get(id)));
   const state = createRound({
     deck: game.config.deck,
     seatCount: session.seatCount,
@@ -75,11 +89,13 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
     maxDiscard: session.maxDiscard,
     blankPenalty: game.config.blankPenalty,
     seed,
+    variant: variantOf(game.config),
+    inventory: players.map((p) => (p?.powerups ?? []) as Powerup[]),
   });
-  const players = await Promise.all(session.seats.map((id) => ctx.db.get(id)));
-  // A seat too low to call blind is not kept waiting in the dark for an offer it cannot take.
+  // A seat too low to call blind is not kept waiting in the dark for an offer it cannot
+  // take, and a round with no trump phase has nothing to call.
   const firstScore = players[state.turnSeat!]?.score ?? game.config.startingPoints;
-  const darkOpen = canCallDarkHearts(firstScore, game.config.blankPenalty);
+  const darkOpen = state.phase === "trump" && canCallDarkHearts(firstScore, game.config.blankPenalty);
   const participants = session.seats.map((gamePlayerId, seat) => ({
     seat,
     gamePlayerId,
@@ -100,6 +116,7 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
     participants,
     currentTrick: state.currentTrick,
     completedTricks: [],
+    party: state.party ? partyDoc(state.party) : undefined,
     darkUntil: darkOpen ? Date.now() + darkMs : undefined,
     startedAt: Date.now(),
   });
@@ -122,7 +139,7 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
 
 /** Apply a scored round to the roster, then either finish the game or queue the next deal. */
 export async function finalizeRound(ctx: MutationCtx, loaded: LoadedRound, next: RoundState): Promise<void> {
-  const { round, session, game } = loaded;
+  const { round, session, game, secrets } = loaded;
   const deltasArr = next.deltas ?? [];
   const before = new Map(round.participants.map((p) => [p.seat, p.scoreBefore]));
   const deltas = new Map(deltasArr.map((d, seat) => [seat, d]));
@@ -145,10 +162,28 @@ export async function finalizeRound(ctx: MutationCtx, loaded: LoadedRound, next:
     }
     sitOutStreak[p.seat] = s.decision === "out" ? (sitOutStreak[p.seat] ?? 0) + 1 : 0;
   }
+  // Party: the catch-up draw. Drawn from the round's seed so a replay hands out the same.
+  let awards: NonNullable<Doc<"rounds">["party"]>["awards"];
+  if (next.party && POWERUPS_ENABLED) {
+    const drawn = awardPowerups({
+      scores: participants.map((p) => p.scoreAfter),
+      deltas: deltasArr,
+      participated: next.seats.map((s) => s.decision === "in"),
+      tricksWon: next.seats.map((s) => s.tricksWon),
+      inventory: next.party.inventory,
+      rng: rngFromSeed(`${secrets.seed}:awards`),
+    });
+    awards = drawn.awards;
+    for (const { seat } of drawn.awards) {
+      const playerId = session.seats[seat];
+      if (playerId) await ctx.db.patch(playerId, { powerups: drawn.inventory[seat] });
+    }
+  }
   await ctx.db.patch(round._id, {
     phase: "scored",
     participants,
     deltas: deltasArr,
+    party: next.party ? { ...partyDoc(next.party), awards } : undefined,
     winnerSeat: winner,
     turnSeat: null,
     turnNonce: round.turnNonce + 1,

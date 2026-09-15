@@ -3,7 +3,7 @@ import type { Suit } from "./cards";
 export type SeatResult = { seat: number; participated: boolean; tricksWon: number };
 
 /** Hearts doubles the round. Hearts called before seeing a single card quadruples it. */
-export function scoreMultiplier(trump: Suit, darkHearts = false): number {
+export function scoreMultiplier(trump: Suit | null, darkHearts = false): number {
   if (trump !== "H") return 1;
   return darkHearts ? 4 : 2;
 }
@@ -26,7 +26,7 @@ export function canCallDarkHearts(score: number, blankPenalty: number): boolean 
  */
 export function roundDeltas(
   results: readonly SeatResult[],
-  trump: Suit,
+  trump: Suit | null,
   blankPenalty: number,
   darkHearts = false,
 ): Map<number, number> {

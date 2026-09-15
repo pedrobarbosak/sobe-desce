@@ -11,9 +11,18 @@ export type EngineErrorCode =
   | "sitOutMaxConsecutive"
   | "sitOutClubs"
   | "sitOutTrumpNamer"
+  | "sitOutAllIn"
+  | "alreadyPassed"
   | "stockEmpty"
   | "darkHeartsTooFewPoints"
-  | "invalidSeat";
+  | "invalidSeat"
+  | "notPartyTable"
+  | "powerupNotHeld"
+  | "powerupWrongPhase"
+  | "powerupSatOut"
+  | "powerupBadTarget"
+  | "alreadyPeeked"
+  | "alreadyShielded";
 
 export class EngineError extends Error {
   constructor(public readonly code: EngineErrorCode, message?: string) {

@@ -9,11 +9,16 @@ export function ledSuit(plays: readonly Play[]): Suit | undefined {
   return first ? suitOf(first.card) : undefined;
 }
 
-/** The play currently winning the trick: highest trump, else highest card of the led suit. */
+/**
+ * The play currently winning the trick: highest trump, else highest card of the led suit.
+ * With `lowWins` (the party "Desce" twist) the ranks read the other way round: trumps
+ * still beat non-trumps, but within a suit the lowest card wins.
+ */
 export function currentWinner(
   plays: readonly Play[],
-  trump: Suit,
+  trump: Suit | null,
   deck: DeckSize,
+  lowWins = false,
 ): Play | undefined {
   const led = ledSuit(plays);
   if (!led) return undefined;
@@ -23,24 +28,29 @@ export function currentWinner(
       best = play;
       continue;
     }
-    if (beats(play.card, best.card, trump, deck)) best = play;
+    if (beats(play.card, best.card, trump, deck, lowWins)) best = play;
   }
   return best;
 }
 
 /**
  * Does `candidate` beat `incumbent` in a trick? Trumps beat non-trumps; within the same
- * suit the higher rank wins; a non-trump of a different suit never wins.
+ * suit the higher rank wins; a non-trump of a different suit never wins. With no trump
+ * (party "Sem trunfo") only the led suit can win.
  */
-export function beats(candidate: Card, incumbent: Card, trump: Suit, deck: DeckSize): boolean {
+export function beats(candidate: Card, incumbent: Card, trump: Suit | null, deck: DeckSize, lowWins = false): boolean {
   const cs = suitOf(candidate);
   const is = suitOf(incumbent);
-  if (cs === is) return rankValue(candidate, deck) > rankValue(incumbent, deck);
+  if (cs === is) {
+    const c = rankValue(candidate, deck);
+    const i = rankValue(incumbent, deck);
+    return lowWins ? c < i : c > i;
+  }
   return cs === trump;
 }
 
-export function trickWinner(plays: readonly Play[], trump: Suit, deck: DeckSize): number {
-  const winner = currentWinner(plays, trump, deck);
+export function trickWinner(plays: readonly Play[], trump: Suit | null, deck: DeckSize, lowWins = false): number {
+  const winner = currentWinner(plays, trump, deck, lowWins);
   if (!winner) throw new Error("Cannot resolve an empty trick");
   return winner.seat;
 }

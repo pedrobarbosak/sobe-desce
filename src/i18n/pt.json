@@ -73,6 +73,22 @@
     "hideFinished": "Esconder terminados"
   },
   "presets": {
+    "classic": {
+      "name": "Clássico",
+      "desc": "40 cartas · 20 pontos · o jogo tal como se joga à mesa"
+    },
+    "party": {
+      "name": "Festa",
+      "desc": "Uma reviravolta em cada ronda · 52 cartas · 12 pontos · até 8 à mesa"
+    },
+    "liga": {
+      "name": "Liga",
+      "desc": "Campanha · 40 cartas · 1000 pontos · 16 inscritos"
+    },
+    "custom": {
+      "name": "Personalizado",
+      "desc": "Define tudo à tua maneira"
+    },
     "normal": {
       "name": "Normal",
       "desc": "40 cartas · 20 pontos · até 6 à mesa"
@@ -84,18 +100,6 @@
     "mesaGrande": {
       "name": "Mesa Grande",
       "desc": "52 cartas · 20 pontos · até 8 à mesa"
-    },
-    "party": {
-      "name": "Festa",
-      "desc": "52 cartas · 15 pontos · até 8 à mesa"
-    },
-    "liga": {
-      "name": "Liga",
-      "desc": "Campanha · 40 cartas · 1000 pontos · 16 inscritos"
-    },
-    "custom": {
-      "name": "Personalizado",
-      "desc": "Define tudo à tua maneira"
     }
   },
   "modes": {
@@ -130,10 +134,14 @@
       "rosterRange": "O número de inscritos tem de ser igual ou superior ao de lugares, até um máximo de 16",
       "rosterSession": "Numa sessão única, o número de inscritos tem de ser igual ao de lugares",
       "blankPenalty": "Penalização inválida",
-      "turnSeconds": "Escolhe entre 10 e 180 segundos por jogada"
+      "turnSeconds": "Escolhe entre 10 e 180 segundos por jogada",
+      "variant": "Regras inválidas"
     },
     "seatsDynamic": "Com o baralho de {{deck}} cartas, podem jogar até {{max}} pessoas. Quem entrar na mesa antes de o jogo começar participa.",
-    "randomName": "Nome aleatório"
+    "randomName": "Nome aleatório",
+    "variant": "Regras",
+    "variantClassicHint": "As regras clássicas, sem acrescentos.",
+    "variantPartyHint": "Em cada ronda vira-se uma reviravolta à vista de todos: ganha a carta baixa, sem trunfo, cartas à vista, passar uma carta à esquerda, jogadas relâmpago e mais. Jogos mais curtos e mais barulhentos."
   },
   "join": {
     "title": "Entrar na mesa",
@@ -305,7 +313,16 @@
     "cannotRelinkOwner": "Não podes religar a linha do anfitrião.",
     "invalidOrder": "Ordem inválida.",
     "cannotRemoveSelf": "Não te podes remover a ti próprio.",
-    "leftSitting": "Saíste desta sessão."
+    "leftSitting": "Saíste desta sessão.",
+    "notPartyTable": "Esta mesa não é de festa.",
+    "powerupNotHeld": "Não tens esse poder.",
+    "powerupWrongPhase": "Os poderes só se usam enquanto a ronda está a ser decidida ou jogada.",
+    "powerupSatOut": "Passaste esta ronda.",
+    "powerupBadTarget": "Escolhe outro jogador que esteja em jogo.",
+    "alreadyPeeked": "Já estás a ver essa mão.",
+    "alreadyShielded": "Já estás protegido nesta ronda.",
+    "sitOutAllIn": "Ninguém passa esta ronda.",
+    "alreadyPassed": "Já passaste uma carta."
   },
   "table": {
     "round": "Ronda {{n}}",
@@ -330,7 +347,8 @@
       "belowThreshold": "Com menos de {{threshold}} pontos, não podes ficar de fora",
       "maxConsecutive": "Já ficaste de fora 2 rondas seguidas",
       "clubs": "O trunfo é paus: ninguém pode ficar de fora",
-      "trumpNamer": "Escolheste o trunfo: tens de jogar esta ronda"
+      "trumpNamer": "Escolheste o trunfo: tens de jogar esta ronda",
+      "allIn": "Todos jogam: ninguém passa esta ronda"
     },
     "waitingFor": "Vez de {{name}}",
     "yourTurn": "É a tua vez",
@@ -343,7 +361,8 @@
       "mustFollowSuit": "Tens de jogar uma carta do naipe de saída",
       "mustTrump": "Tens de trunfar",
       "mustClimb": "Sobe! Tens de bater a carta que está a ganhar",
-      "notInHand": "Não tens essa carta na mão"
+      "notInHand": "Não tens essa carta na mão",
+      "mustLeadTrumpLow": "Desce! Tens de sair com o trunfo mais baixo"
     },
     "roundOver": "Fim da ronda",
     "nextRoundSoon": "A próxima ronda começa já…",
@@ -431,7 +450,14 @@
     "abandonConfirmCampaign": "Sais da sessão de hoje e ninguém joga por ti. Se ainda não tinhas entrado na ronda, ela é dada de novo sem ti; se já tinhas entrado, as tuas cartas são jogadas até ao fim desta ronda. Continuar?",
     "kickCampaign": "Tirar da sessão",
     "kickConfirmCampaign": "{{name}} sai da sessão de hoje. Ninguém joga por ele; se já tinha entrado na ronda, as cartas são jogadas até ao fim desta ronda. Continuar?",
-    "leaving": "a sair"
+    "leaving": "a sair",
+    "passing": "{{name}} está a passar uma carta…",
+    "passTitle": "Passa uma carta a {{name}}",
+    "passHint": "Escolhe uma carta da tua mão. Fica com ela até ao fim da ronda.",
+    "passCard": "Passar {{card}}",
+    "passPick": "Escolhe uma carta",
+    "noDiscards": "Sem trocas nesta ronda: jogas o que te saiu",
+    "playAsDealt": "Jogar como calhou"
   },
   "standings": {
     "title": "Classificação",
@@ -509,5 +535,83 @@
     "lobby": "à espera",
     "active": "a decorrer",
     "finished": "terminado"
+  },
+  "variants": {
+    "classic": "Clássico",
+    "party": "Festa"
+  },
+  "party": {
+    "twist": "Reviravolta",
+    "twistOfRound": "Reviravolta desta ronda",
+    "twists": {
+      "desce": {
+        "name": "Desce",
+        "desc": "Ganha a carta mais baixa. Se puderes ir por baixo, tens de ir, e sai-se com o trunfo mais baixo."
+      },
+      "golden": {
+        "name": "Naipe de ouro",
+        "desc": "{{suit}} conta a dobrar se for o trunfo."
+      },
+      "lastTrick": {
+        "name": "Última vaza ×3",
+        "desc": "A quinta vaza vale por três."
+      },
+      "blankPays": {
+        "name": "Zero paga",
+        "desc": "Não fazer vazas tira a penalização em vez de a somar. Toda a gente joga para perder."
+      },
+      "noTrump": {
+        "name": "Sem trunfo",
+        "desc": "Não há trunfo nesta ronda. Salta-se a escolha e só o naipe de saída pode ganhar."
+      },
+      "openHands": {
+        "name": "Cartas à vista",
+        "desc": "Todas as mãos ficam à vista assim que o trunfo está decidido."
+      },
+      "passLeft": {
+        "name": "Passa à esquerda",
+        "desc": "Depois das trocas, quem está em jogo passa uma carta ao jogador da sua esquerda."
+      },
+      "allIn": {
+        "name": "Todos jogam",
+        "desc": "Ninguém pode passar esta ronda."
+      },
+      "lightning": {
+        "name": "Relâmpago",
+        "desc": "Jogadas de {{seconds}} segundos. Pensa depressa."
+      },
+      "asDealt": {
+        "name": "Como calhou",
+        "desc": "Sem trocas e ninguém passa: jogas exatamente o que te saiu."
+      }
+    },
+    "golden": "×2 ouro",
+    "powerups": {
+      "peek": {
+        "name": "Espreitar",
+        "desc": "Vês a mão de um jogador até ao fim da ronda."
+      },
+      "curse": {
+        "name": "Maldição",
+        "desc": "Um jogador à tua escolha soma +{{points}} no fim da ronda. Se passar a ronda, escapa."
+      },
+      "shield": {
+        "name": "Escudo",
+        "desc": "A tua penalização por não fazer vazas nesta ronda é anulada."
+      }
+    },
+    "stash": "Poderes",
+    "stashHint": "Quem estiver mais longe do 0 e quem pagar uma ronda a zero recebem um no fim de cada ronda. Guardas no máximo {{max}}.",
+    "pickTarget": "{{powerup}} em quem?",
+    "cancel": "Cancelar",
+    "shielded": "Protegido",
+    "cursed": "Amaldiçoado",
+    "cursedPoints": "+{{points}} no fim da ronda",
+    "peeked": "Consegues ver esta mão",
+    "peeking": "A ver a mão de {{name}}",
+    "drew": "{{name}} recebeu {{powerup}}",
+    "youDrew": "Recebeste {{powerup}}",
+    "used": "{{name}} usou {{powerup}}",
+    "usedOn": "{{name}} usou {{powerup}} em {{target}}"
   }
 }
