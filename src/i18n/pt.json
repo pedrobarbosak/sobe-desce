@@ -493,6 +493,7 @@
     "log": "Registo de jogadas",
     "trumpBy": "Trunfo",
     "seat": "Lugar {{n}}",
+    "leftSitting": "Saiu da sessão",
     "empty": "Ainda não há sessões.",
     "tricks": "vazas",
     "abandoned": "abandonada",

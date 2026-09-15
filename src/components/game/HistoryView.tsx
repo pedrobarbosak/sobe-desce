@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../../convex/_generated/api";
@@ -82,13 +82,25 @@ export function HistoryView({ gameId }: { gameId: Id<"games"> }) {
   );
 }
 
-function SessionRounds({ sessionId, players }: { sessionId: Id<"sessions">; players: { playerId: string; name: string }[] }) {
+/**
+ * One sitting, round by round. Columns are the sitting's whole line-up and each cell is
+ * looked up by player, never by seat index: seats are renumbered the moment somebody
+ * leaves, so a round played before that has its seats in different places from the round
+ * after it, and reading them positionally put everybody's points under the wrong name.
+ */
+function SessionRounds({
+  sessionId,
+  players,
+}: {
+  sessionId: Id<"sessions">;
+  players: { playerId: string; name: string; left: boolean }[];
+}) {
   const { t } = useTranslation();
   const rounds = useQuery(api.history.rounds, { sessionId });
   const [openRound, setOpenRound] = useState<Id<"rounds"> | null>(null);
   if (rounds === undefined) return <Loading />;
   if (rounds.length === 0) return <p className="px-4 pb-4 text-sm text-cream-100/60">{t("history.noRounds")}</p>;
-  const nameOf = (seat: number) => players[seat]?.name ?? t("history.seat", { n: seat + 1 });
+  const nameById = new Map(players.map((p) => [p.playerId, p.name]));
   return (
     <div className="overflow-x-auto border-t border-white/10">
       <table className="w-full text-sm">
@@ -97,17 +109,22 @@ function SessionRounds({ sessionId, players }: { sessionId: Id<"sessions">; play
             <th className="px-4 py-2">#</th>
             <th className="px-2 py-2">{t("history.trumpBy")}</th>
             {players.map((p) => (
-              <th key={p.playerId} className="px-2 py-2 text-right">
+              <th key={p.playerId} className={`px-2 py-2 text-right ${p.left ? "opacity-50" : ""}`} title={p.left ? t("history.leftSitting") : undefined}>
                 {p.name}
+                {p.left && <span className="ml-1">↩</span>}
               </th>
             ))}
             <th className="px-2 py-2" />
           </tr>
         </thead>
         <tbody>
-          {rounds.map((r) => (
-            <>
-              <tr key={r._id} className="border-t border-white/5">
+          {rounds.map((r) => {
+            const byPlayer = new Map(r.participants.map((p) => [p.gamePlayerId as string, p]));
+            const seatNames = new Map(r.participants.map((p) => [p.seat, nameById.get(p.gamePlayerId) ?? null]));
+            const nameOf = (seat: number) => seatNames.get(seat) ?? t("history.seat", { n: seat + 1 });
+            return (
+            <Fragment key={r._id}>
+              <tr className="border-t border-white/5">
                 <td className="px-4 py-1.5 font-mono text-cream-100/60">{r.index + 1}</td>
                 <td className="px-2 py-1.5">
                   {r.trump ? (
@@ -117,9 +134,13 @@ function SessionRounds({ sessionId, players }: { sessionId: Id<"sessions">; play
                   )}
                   {r.phase !== "scored" && <span className="ml-1 text-[10px] text-cream-100/50">…</span>}
                 </td>
-                {r.participants.map((p) => (
-                  <td key={p.seat} className="px-2 py-1.5 text-right">
-                    {p.decision === "out" ? (
+                {players.map((col) => {
+                  const p = byPlayer.get(col.playerId);
+                  return (
+                  <td key={col.playerId} className="px-2 py-1.5 text-right">
+                    {p === undefined ? (
+                      <span className="text-cream-100/25">·</span>
+                    ) : p.decision === "out" ? (
                       <span className="text-cream-100/40">{t("table.out")}</span>
                     ) : (
                       <>
@@ -130,7 +151,8 @@ function SessionRounds({ sessionId, players }: { sessionId: Id<"sessions">; play
                       </>
                     )}
                   </td>
-                ))}
+                  );
+                })}
                 <td className="px-2 py-1.5 text-right">
                   <button type="button" className="text-xs text-cream-100/50 hover:text-gold-400" onClick={() => setOpenRound(openRound === r._id ? null : r._id)}>
                     {t("history.log")}
@@ -138,14 +160,15 @@ function SessionRounds({ sessionId, players }: { sessionId: Id<"sessions">; play
                 </td>
               </tr>
               {openRound === r._id && (
-                <tr key={`${r._id}-log`}>
+                <tr>
                   <td colSpan={players.length + 3} className="bg-black/20 px-4 py-2">
                     <ActionLog roundId={r._id} nameOf={nameOf} />
                   </td>
                 </tr>
               )}
-            </>
-          ))}
+            </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

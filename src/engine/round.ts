@@ -127,6 +127,9 @@ export function rulesFor(state: Pick<RoundState, "party">): RoundRules {
 
 function dealCards(state: RoundState, perPlayer: number): void {
   for (const seat of playOrder(state.dealerSeat, state.seatCount)) {
+    // A seat that gave up on the round before the deal was finished is not dealt into:
+    // its first three cards already went back under the stock. See withdrawSeat.
+    if (state.seats[seat]!.decision === "out") continue;
     for (let i = 0; i < perPlayer; i++) {
       const card = state.drawPile.pop();
       if (!card) throw new Error("Stock ran dry while dealing");
@@ -287,7 +290,9 @@ function finishTrumpPhase(state: RoundState, events: RoundEvent[]): void {
   dealCards(state, HAND_SIZE - 3);
   events.push({ type: "dealt", count: HAND_SIZE - 3 });
   state.phase = "discard";
-  state.turnSeat = leftOf(state.dealerSeat, state.seatCount);
+  // Left of the dealer decides first, which is where advanceDiscardTurn starts looking.
+  // Going straight there would sit the turn on a seat that gave up during the trump phase.
+  advanceDiscardTurn(state, events);
 }
 
 function fail(code: EngineError["code"], message?: string): ApplyResult {
@@ -468,4 +473,42 @@ export function applyAction(
       return { ok: true, state, events };
     }
   }
+}
+
+/**
+ * A seat gives up mid-round, and the round carries on without it.
+ *
+ * Dealing again was the old answer, and at a table where somebody drops every few rounds
+ * it meant nobody ever got to play one out. So the cards go back under the stock -- under,
+ * not on top, so nobody draws a card the person who left has already seen -- and the seat
+ * simply sits this round out. If the table was waiting on it, the turn moves along: the
+ * trump choice passes to the next seat round from the dealer, and a pending decision is
+ * skipped exactly as a sit-out would be.
+ *
+ * A seat already committed to the round is left alone: its cards have to be played out,
+ * and that is somebody else's job.
+ */
+export function withdrawSeat(prev: RoundState, seat: number): RoundState {
+  if (prev.phase === "scored") return prev;
+  if (!Number.isInteger(seat) || seat < 0 || seat >= prev.seatCount) return prev;
+  if (prev.seats[seat]!.decision !== "pending") return prev;
+  const state = clone(prev);
+  const events: RoundEvent[] = [];
+  state.drawPile.unshift(...state.hands[seat]!);
+  state.hands[seat] = [];
+  state.seats[seat]!.decision = "out";
+  state.seats[seat]!.discardCount = 0;
+  if (state.turnSeat !== seat) return state;
+  if (state.phase === "trump") {
+    // The trump is always settled by the first seat still in play order, so the first one
+    // left pending is the one the choice falls to.
+    const next = playOrder(state.dealerSeat, state.seatCount).find(
+      (s) => state.seats[s]!.decision === "pending",
+    );
+    if (next === undefined) scoreRound(state, events);
+    else state.turnSeat = next;
+    return state;
+  }
+  advanceDiscardTurn(state, events);
+  return state;
 }

@@ -1,7 +1,6 @@
 import { discardCapFor } from "../../src/engine";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { deleteRoundDeep } from "./cleanup";
 
 /**
  * Score a round in progress as a blank: nobody played it out, so inventing a result would
@@ -19,12 +18,6 @@ export async function voidRound(ctx: MutationCtx, round: Doc<"rounds">): Promise
     deltas: round.participants.map(() => 0),
     scoredAt: Date.now(),
   });
-}
-
-/** Throw a round away as if it had never been dealt: hands, secrets, log and all. */
-export async function discardRound(ctx: MutationCtx, round: Doc<"rounds">): Promise<void> {
-  await deleteRoundDeep(ctx, round._id);
-  await ctx.db.patch(round.sessionId, { currentRoundId: undefined });
 }
 
 /**

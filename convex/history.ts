@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { rosterOf } from "./games";
 
-/** Sessions of a game, newest first, with a short summary each. */
+/**
+ * Sessions of a game, newest first, with a short summary each. `players` is the sitting's
+ * whole line-up, in seating order, including anyone who walked out halfway through: their
+ * rounds are still on the record, so the record still has to be able to name them.
+ */
 export const sessions = query({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => {
@@ -25,10 +29,12 @@ export const sessions = query({
         startedAt: s.startedAt,
         endedAt: s.endedAt,
         note: s.note,
-        players: s.seats.map((id) => ({
+        players: (s.lineup ?? s.seats).map((id) => ({
           playerId: id,
           name: names.get(id)?.name ?? "?",
           avatarSeed: names.get(id)?.avatarSeed ?? "x",
+          /** Dealt into the sitting but not at the table any more. */
+          left: !s.seats.includes(id),
         })),
       }));
   },
@@ -85,7 +91,11 @@ export const standings = query({
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
     if (!game) return null;
-    const roster = (await rosterOf(ctx, gameId)).filter((p) => p.status === "active" || (p.status === "left" && p.roundsPlayed > 0));
+    // Anyone who ever sat down stays in the classification, whether or not they are still
+    // on the roster: walking out mid-sitting must not erase the night that was played.
+    const roster = (await rosterOf(ctx, gameId)).filter(
+      (p) => p.status === "active" || (p.status === "left" && (p.roundsPlayed > 0 || p.sessionsPlayed > 0)),
+    );
     const sessions = (
       await ctx.db
         .query("sessions")

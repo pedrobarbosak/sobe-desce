@@ -246,7 +246,9 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                     )}
                   </div>
                 </div>
-                {isCampaign && rosterOpen && !seatedNow.has(p._id) && (p.isMe || (isOwner && !p.userId)) && (
+                {/* Your own hand is yours to raise or lower; the organizer's covers the whole
+                    roster, because people put their name down and then go home. */}
+                {isCampaign && rosterOpen && !seatedNow.has(p._id) && (p.isMe || isOwner) && (
                   <Button
                     variant={p.checkedIn ? "ghost" : p.isMe ? "primary" : "secondary"}
                     className={`px-3 py-1.5 text-xs ${p.isMe && !p.checkedIn ? "want-to-play" : ""}`}

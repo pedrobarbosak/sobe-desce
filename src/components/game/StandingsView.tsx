@@ -136,13 +136,31 @@ export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games"
   );
 }
 
-function RoundMatrix({ sessionId, players }: { sessionId: Id<"sessions">; players: { playerId: string; name: string; avatarSeed: string }[] }) {
+/**
+ * The sitting as a grid: one column per player who was dealt into it, one row per scored
+ * round. Cells are found by player, not by seat: a seat that leaves is taken out of the
+ * seating and every seat behind it shifts down one, so the same index means a different
+ * person before and after.
+ */
+function RoundMatrix({
+  sessionId,
+  players,
+}: {
+  sessionId: Id<"sessions">;
+  players: { playerId: string; name: string; avatarSeed: string; left: boolean }[];
+}) {
   const { t } = useTranslation();
   const rounds = useQuery(api.history.rounds, { sessionId });
   if (rounds === undefined) return <Loading />;
   const scored = rounds.filter((r) => r.phase === "scored");
   if (scored.length === 0) return <p className="border-t border-white/10 px-4 py-4 text-sm text-cream-100/60">{t("standings.noRounds")}</p>;
-  const last = scored[scored.length - 1]!;
+  const cells = scored.map((r) => new Map(r.participants.map((p) => [p.gamePlayerId as string, p])));
+  // Where each player finished the night: their last round, which for somebody who walked
+  // out halfway is not the last round of the sitting.
+  const finalScore = new Map<string, number>();
+  for (const row of cells) {
+    for (const [id, p] of row) if (p.scoreAfter !== null) finalScore.set(id, p.scoreAfter);
+  }
   return (
     <div className="overflow-x-auto border-t border-white/10">
       <table className="w-full text-sm">
@@ -150,38 +168,42 @@ function RoundMatrix({ sessionId, players }: { sessionId: Id<"sessions">; player
           <tr>
             <th className="px-4 py-2 text-left">#</th>
             {players.map((p) => (
-              <th key={p.playerId} className="px-2 py-2 text-right">
+              <th key={p.playerId} className={`px-2 py-2 text-right ${p.left ? "opacity-50" : ""}`} title={p.left ? t("history.leftSitting") : undefined}>
                 <span className="inline-flex items-center gap-1.5">
                   <Avatar seed={p.avatarSeed} size={20} />
                   {p.name}
+                  {p.left && <span>↩</span>}
                 </span>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {scored.map((r) => (
+          {scored.map((r, i) => (
             <tr key={r._id} className="border-t border-white/5">
               <td className="whitespace-nowrap px-4 py-1.5 text-left font-mono text-cream-100/70">
                 {r.index + 1}
                 {r.trump && <span className={`ml-1 ${r.trump === "H" || r.trump === "D" ? "text-heart" : "text-cream-50"}`}>{SUIT_SYMBOLS[r.trump as Suit]}</span>}
               </td>
-              {r.participants.map((p) => (
-                <td
-                  key={p.seat}
-                  className={`px-2 py-1.5 text-right font-semibold ${p.decision === "out" ? "text-cream-100/35" : (p.delta ?? 0) < 0 ? "text-emerald-300" : (p.delta ?? 0) > 0 ? "text-heart" : "text-cream-100/50"}`}
-                  title={p.decision === "out" ? t("table.out") : `${p.tricksWon} ${t("table.tricks")}`}
-                >
-                  {p.decision === "out" ? "–" : p.delta === null ? "" : p.delta > 0 ? `+${p.delta}` : p.delta}
-                </td>
-              ))}
+              {players.map((col) => {
+                const p = cells[i]!.get(col.playerId);
+                return (
+                  <td
+                    key={col.playerId}
+                    className={`px-2 py-1.5 text-right font-semibold ${p === undefined ? "text-cream-100/25" : p.decision === "out" ? "text-cream-100/35" : (p.delta ?? 0) < 0 ? "text-emerald-300" : (p.delta ?? 0) > 0 ? "text-heart" : "text-cream-100/50"}`}
+                    title={p === undefined ? t("history.leftSitting") : p.decision === "out" ? t("table.out") : `${p.tricksWon} ${t("table.tricks")}`}
+                  >
+                    {p === undefined ? "·" : p.decision === "out" ? "–" : p.delta === null ? "" : p.delta > 0 ? `+${p.delta}` : p.delta}
+                  </td>
+                );
+              })}
             </tr>
           ))}
           <tr className="border-t-2 border-gold-400/40 bg-black/30">
             <td className="px-4 py-2 text-left text-xs text-cream-100/60">{t("standings.total")}</td>
-            {last.participants.map((p) => (
-              <td key={p.seat} className="px-2 py-2 text-right font-mono text-base font-bold text-cream-50">
-                {p.scoreAfter ?? ""}
+            {players.map((col) => (
+              <td key={col.playerId} className="px-2 py-2 text-right font-mono text-base font-bold text-cream-50">
+                {finalScore.get(col.playerId) ?? ""}
               </td>
             ))}
           </tr>

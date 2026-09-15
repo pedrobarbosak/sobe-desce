@@ -493,6 +493,7 @@
     "log": "Action log",
     "trumpBy": "Trump",
     "seat": "Seat {{n}}",
+    "leftSitting": "Left the sitting",
     "empty": "No sittings yet.",
     "tricks": "tricks",
     "abandoned": "abandoned",

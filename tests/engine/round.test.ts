@@ -13,6 +13,7 @@ import {
   redact,
   suitOf,
   viewFor,
+  withdrawSeat,
 } from "@/engine";
 
 const ctx: RoundContext = { scores: [20, 20, 20, 20], sitOutStreak: [0, 0, 0, 0], forcedPlayThreshold: 5 };
@@ -253,5 +254,56 @@ describe("redaction", () => {
     const view = viewFor(s, 2);
     expect(view.hand).toEqual(s.hands[2]);
     expect(view).not.toHaveProperty("hands");
+  });
+});
+
+describe("withdrawSeat", () => {
+  it("passes the trump choice on and keeps the deal", () => {
+    const s = make(11, 4, 0);
+    expect(s.turnSeat).toBe(1);
+    const stock = s.drawPile.length;
+    const gone = withdrawSeat(s, 1);
+
+    expect(gone.phase).toBe("trump");
+    expect(gone.turnSeat).toBe(2);
+    expect(gone.seats[1]!.decision).toBe("out");
+    expect(gone.hands[1]).toEqual([]);
+    // Their three cards go back under the stock, where nobody draws them next.
+    expect(gone.drawPile).toHaveLength(stock + 3);
+    expect(gone.drawPile.slice(3)).toEqual(s.drawPile);
+    expect(s.seats[1]!.decision).toBe("pending"); // the input is untouched
+  });
+
+  it("is not dealt into when the rest of the hands go out", () => {
+    const s = withdrawSeat(make(12, 4, 0), 1);
+    const dealt = step(s, { type: "nameTrump", seat: 2, suit: "S" });
+    expect(dealt.phase).toBe("discard");
+    expect(dealt.hands[1]).toEqual([]);
+    expect(dealt.hands.filter((_, seat) => seat !== 1).every((h) => h.length === 5)).toBe(true);
+    // The seat is skipped over rather than asked to decide.
+    expect(dealt.turnSeat).toBe(2);
+  });
+
+  it("hands the decision along mid-discard, and scores the round when it was the last one", () => {
+    let s = step(make(13, 4, 0), { type: "nameTrump", seat: 1, suit: "S" });
+    s = step(s, { type: "discard", seat: 1, cards: [] });
+    s = step(s, { type: "sitOut", seat: 2 });
+    expect(s.turnSeat).toBe(3);
+
+    const midway = withdrawSeat(s, 3);
+    expect(midway.turnSeat).toBe(0);
+    expect(midway.seats[3]!.decision).toBe("out");
+
+    // Only seat 1 is left in: it takes every trick and the round is over.
+    const done = withdrawSeat(step(midway, { type: "sitOut", seat: 0 }), 0);
+    expect(done.phase).toBe("scored");
+    expect(done.seats[1]!.tricksWon).toBe(5);
+  });
+
+  it("leaves a seat that is already committed to the round alone", () => {
+    let s = step(make(14, 4, 0), { type: "nameTrump", seat: 1, suit: "S" });
+    s = step(s, { type: "discard", seat: 1, cards: [] });
+    expect(withdrawSeat(s, 1)).toBe(s);
+    expect(withdrawSeat(s, 9)).toBe(s);
   });
 });

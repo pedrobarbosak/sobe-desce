@@ -80,6 +80,13 @@ export default defineSchema({
     /** Who opened this sitting. Not always the table owner: campaigns run without them. */
     hostPlayerId: v.optional(v.id("gamePlayers")),
     seats: v.array(v.id("gamePlayers")),
+    /**
+     * Everyone dealt into this sitting, in the order they were seated at the start. `seats`
+     * shrinks as people leave and its indices shift with it, so nothing that has to line up
+     * with a round played earlier in the night can be read off it. Absent on sittings that
+     * predate the field: `seats` is the whole line-up there.
+     */
+    lineup: v.optional(v.array(v.id("gamePlayers"))),
     /** Campaign: seated players who have left; they drop out of `seats` at the next deal. */
     leaving: v.optional(v.array(v.id("gamePlayers"))),
     seatCount: v.number(),

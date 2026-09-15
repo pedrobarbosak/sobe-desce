@@ -233,6 +233,16 @@ describe("campaign", () => {
     await as(t, "eva").mutation(api.games.setCheckedIn, { gameId, checkedIn: false });
     await expect(as(t, "bruno").mutation(api.sessions.start, { gameId })).rejects.toThrow(/notEnoughPlayers/);
 
+    // People put their name down and then go home, so the organizer can lower any hand on
+    // the roster -- and only the organizer.
+    const carlaId = (await as(t, "ana").query(api.games.get, { gameId }))!.players.find((p) => p.name === "carla")!._id;
+    await expect(
+      as(t, "bruno").mutation(api.games.setCheckedIn, { gameId, playerId: carlaId, checkedIn: false }),
+    ).rejects.toThrow(/notOwner/);
+    await as(t, "ana").mutation(api.games.setCheckedIn, { gameId, playerId: carlaId, checkedIn: false });
+    expect((await as(t, "ana").query(api.games.get, { gameId }))!.players.find((p) => p._id === carlaId)!.checkedIn).toBe(false);
+    await as(t, "ana").mutation(api.games.setCheckedIn, { gameId, playerId: carlaId, checkedIn: true });
+
     await as(t, "eva").mutation(api.games.setCheckedIn, { gameId, checkedIn: true });
     await as(t, "bruno").mutation(api.sessions.start, { gameId });
     const view = (await as(t, "bruno").query(api.games.get, { gameId }))!;
@@ -505,27 +515,89 @@ describe("campaign", () => {
     const tableFor = (t: ReturnType<typeof setup>, name: string, gameId: Id<"games">) =>
       as(t, name).query(api.game.table.get, { gameId }).then((v) => v!);
 
-    it("before committing to the round: the round is dealt again without them, no bot", async () => {
+    it("before committing to the round: they sit it out and the deal is not thrown away", async () => {
       const t = setup();
       const gameId = await sitting(t);
       const before = await tableFor(t, "ana", gameId);
       const firstRound = before.round!._id;
+      const stock = await t.run(async (ctx) => (await ctx.db.query("roundSecrets").collect())[0]!.drawPile.length);
       const leaver = before.seats.find((s) => s.name !== before.seats[before.round!.turnSeat!]!.name && s.name !== "ana")!.name;
 
       await as(t, leaver).mutation(api.games.abandonSeat, { gameId });
 
       const after = await tableFor(t, "ana", gameId);
-      expect(after.session!.seatCount).toBe(4);
-      expect(after.seats.map((s) => s.name)).not.toContain(leaver);
-      expect(after.seats.every((s) => !s.botControlled)).toBe(true);
-      expect(after.round!._id).not.toBe(firstRound);
+      // The same deal, the same seating: the seat only drops at the next deal.
+      expect(after.round!._id).toBe(firstRound);
       expect(after.round!.index).toBe(0);
-      expect(after.session!.maxDiscard).toBe(5); // 40 cards, 4 seated
       expect(after.round!.phase).toBe("trump");
+      expect(after.round!.turnSeat).toBe(before.round!.turnSeat);
+      expect(after.session!.seatCount).toBe(5);
+      const seat = after.seats.find((s) => s.name === leaver)!;
+      expect(seat.left).toBe(true);
+      expect(seat.botControlled).toBe(false);
+      expect(seat.decision).toBe("out");
+      expect(seat.handSize).toBe(0);
+      // Their three cards went back under the stock rather than out of the game.
+      expect(await t.run(async (ctx) => (await ctx.db.query("roundSecrets").collect())[0]!.drawPile.length)).toBe(stock + 3);
       expect((await as(t, leaver).query(api.games.get, { gameId }))!.me!.checkedIn).toBe(false);
-      // The thrown-away round left nothing behind.
       const rounds = await t.run(async (ctx) => (await ctx.db.query("rounds").collect()).length);
       expect(rounds).toBe(1);
+    });
+
+    it("the seat with the trump choice hands it to the next one, and the blind window closes", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      const before = await tableFor(t, "ana", gameId);
+      const firstRound = before.round!._id;
+      const decider = before.seats[before.round!.turnSeat!]!;
+      expect(before.round!.darkUntil).not.toBeNull();
+
+      await as(t, decider.name).mutation(api.games.abandonSeat, { gameId });
+
+      const after = await tableFor(t, "ana", gameId);
+      expect(after.round!._id).toBe(firstRound);
+      expect(after.round!.phase).toBe("trump");
+      expect(after.round!.turnSeat).not.toBe(decider.seat);
+      expect(after.seats[after.round!.turnSeat!]!.decision).toBe("pending");
+      // Whoever inherits the choice has been holding their cards, so hearts in the dark
+      // is off the table.
+      expect(after.round!.darkUntil).toBeNull();
+      const roundId = firstRound as Id<"rounds">;
+      await expect(as(t, decider.name).mutation(api.game.actions.nameTrump, { roundId, suit: "S" })).rejects.toThrow(/leftSitting/);
+      // The round plays on from there, one seat short.
+      await as(t, after.seats[after.round!.turnSeat!]!.name).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+      const dealt = await tableFor(t, "ana", gameId);
+      expect(dealt.round!.phase).toBe("discard");
+      expect(dealt.seats.find((s) => s.name === decider.name)!.handSize).toBe(0);
+      expect(dealt.seats.filter((s) => s.name !== decider.name).every((s) => s.handSize === 5)).toBe(true);
+    });
+
+    it("the last seat still deciding walking out scores the round and deals the next", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      let table = await tableFor(t, "ana", gameId);
+      const roundId = table.round!._id as Id<"rounds">;
+      const namer = table.seats[table.round!.turnSeat!]!.name;
+      await as(t, namer).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+      await as(t, namer).mutation(api.game.actions.discard, { roundId, cards: [] });
+      // The dealer decides last, so everyone in between passes and the namer is in alone.
+      const lastSeat = table.round!.dealerSeat;
+      for (let i = 0; i < 10; i++) {
+        table = await tableFor(t, "ana", gameId);
+        if (table.round!.phase !== "discard" || table.round!.turnSeat === lastSeat) break;
+        await as(t, table.seats[table.round!.turnSeat!]!.name).mutation(api.game.actions.sitOut, { roundId });
+      }
+      expect(table.round!.phase).toBe("discard");
+      expect(table.round!.turnSeat).toBe(lastSeat);
+      const last = table.seats[lastSeat]!;
+
+      await as(t, last.name).mutation(api.games.abandonSeat, { gameId });
+
+      table = await tableFor(t, "ana", gameId);
+      // Nobody left to decide: the round is scored, and the lone player took every trick.
+      expect(table.round!._id).toBe(roundId);
+      expect(table.round!.phase).toBe("scored");
+      expect(table.seats.find((s) => s.name === namer)!.tricksWon).toBe(5);
     });
 
     it("already in the round: the hand is played out once, then the seat drops at the next deal", async () => {
@@ -573,6 +645,54 @@ describe("campaign", () => {
       expect(table.seats.every((s) => !s.botControlled && !s.left)).toBe(true);
     });
 
+    it("keeps everyone who sat down in the sitting's record, seat shuffling and all", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      const before = await tableFor(t, "ana", gameId);
+      const leaver = before.seats.find((s) => s.name !== before.seats[before.round!.turnSeat!]!.name && s.name !== "ana")!;
+
+      await as(t, leaver.name).mutation(api.games.abandonSeat, { gameId });
+      // Score the round and deal the next one: only now does the seat leave the seating.
+      const round = await t.run(async (ctx) => {
+        const r = (await ctx.db.query("rounds").collect())[0]!;
+        await ctx.db.patch(r._id, { phase: "scored", turnSeat: null });
+        await ctx.db.patch(r.sessionId, { roundsPlayed: 1 });
+        return r;
+      });
+      await t.mutation(internal.game.advance.nextRound, { sessionId: round.sessionId, afterRoundId: round._id });
+
+      const table = await tableFor(t, "ana", gameId);
+      expect(table.session!.seatCount).toBe(4);
+      expect(table.seats.map((s) => s.name)).not.toContain(leaver.name);
+
+      // The record still knows all five, so the first round's columns still have names on
+      // them. Reading them off the shrunken seating put the points under the wrong player.
+      const [record] = await as(t, "ana").query(api.history.sessions, { gameId });
+      expect(record!.players).toHaveLength(5);
+      const listed = record!.players.find((p) => p.playerId === leaver.playerId)!;
+      expect(listed.name).toBe(leaver.name);
+      expect(listed.left).toBe(true);
+      expect(record!.players.filter((p) => p.left)).toHaveLength(1);
+      const rounds = await as(t, "ana").query(api.history.rounds, { sessionId: round.sessionId });
+      expect(rounds[0]!.participants.map((p) => p.gamePlayerId)).toContain(leaver.playerId);
+    });
+
+    it("someone who leaves the league outright still shows up in the classification", async () => {
+      const t = setup();
+      const gameId = await sitting(t);
+      const before = await tableFor(t, "ana", gameId);
+      const leaver = before.seats.find((s) => s.name !== before.seats[before.round!.turnSeat!]!.name && s.name !== "ana")!;
+
+      await as(t, leaver.name).mutation(api.games.leave, { gameId });
+
+      const standings = (await as(t, "ana").query(api.history.standings, { gameId }))!;
+      const row = standings.players.find((p) => p.playerId === leaver.playerId)!;
+      expect(row.left).toBe(true);
+      expect(row.sessionsPlayed).toBe(1);
+      // Off the roster, so out of the lobby, but not out of the record.
+      expect((await as(t, "ana").query(api.games.get, { gameId }))!.players.map((p) => p.name)).not.toContain(leaver.name);
+    });
+
     it("a tab that goes quiet leaves the sitting instead of turning into a bot, and too few seats end it", async () => {
       const t = setup();
       const gameId = await sitting(t);
@@ -581,8 +701,10 @@ describe("campaign", () => {
       for (const n of NAMES.slice(1)) await as(t, n).mutation(api.presence.heartbeat, { gameId });
       await t.mutation(internal.presence.sweep, { sessionId });
       const table = await tableFor(t, "bruno", gameId);
-      expect(table.session!.seatCount).toBe(4);
-      expect(table.seats.map((s) => s.name)).not.toContain("ana");
+      // Still seated until the next deal, but out of the round and out of the sitting.
+      expect(table.session!.seatCount).toBe(5);
+      expect(table.seats.find((s) => s.name === "ana")!.left).toBe(true);
+      expect(table.seats.find((s) => s.name === "ana")!.decision).toBe("out");
       expect(table.seats.every((s) => !s.botControlled)).toBe(true);
 
       // Four left: one more gone and it is not a table any more.
