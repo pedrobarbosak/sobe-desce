@@ -28,5 +28,14 @@ describe("Portuguese translations", () => {
     expect(i18n.t("join.players", { count: 1 })).toBe("1 jogador");
     expect(i18n.t("standings.sessionsPlayed", { count: 1 })).toBe("1 sessão");
     expect(i18n.t("table.discardN", { count: 1 })).toBe("Trocar 1 carta");
+    expect(i18n.t("party.passNames.left", { count: 1 })).toBe("Passa 1 carta à esquerda");
+    expect(i18n.t("party.passNames.left", { count: 2 })).toBe("Passa 2 cartas à esquerda");
+  });
+
+  it("pluralizes Party pass titles in English", async () => {
+    const i18n = createInstance();
+    await i18n.init({ lng: "en", fallbackLng: "en", resources: { en: { translation: en } } });
+    expect(i18n.t("party.passNames.right", { count: 1 })).toBe("Pass 1 card right");
+    expect(i18n.t("party.passNames.right", { count: 2 })).toBe("Pass 2 cards right");
   });
 });

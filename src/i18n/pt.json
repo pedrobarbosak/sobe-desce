@@ -564,19 +564,19 @@
     "twists": {
       "desce": {
         "name": "Desce",
-        "desc": "Ganha a carta mais baixa. Se puderes ir por baixo, tens de ir, e sai-se com o trunfo mais baixo."
+        "desc": "A ordem das cartas inverte-se: as mais baixas batem as mais altas. Se puderes ganhar jogando abaixo, tens de o fazer. Se te couber sair e tiveres o trunfo mais baixo, tens de o jogar."
       },
       "golden": {
-        "name": "Naipe de ouro",
-        "desc": "{{suit}} conta a dobrar se for o trunfo."
+        "name": "Naipe de ouro: {{suit}}",
+        "desc": "Se {{suit}} for escolhido como trunfo, as vazas e a penalização por não fazer nenhuma contam a dobrar nesta ronda."
       },
       "lastTrick": {
         "name": "Última vaza ×5",
-        "desc": "A quinta vaza vale por cinco: uma ronda perfeita numa só carta."
+        "desc": "Quem ganhar a quinta e última vaza conta-a como cinco vazas em vez de uma."
       },
       "blankPays": {
-        "name": "Zero paga",
-        "desc": "Não fazer vazas tira a penalização em vez de a somar. Toda a gente joga para perder."
+        "name": "Prémio de zero vazas",
+        "desc": "Se jogares e não fizeres nenhuma vaza, a penalização habitual é subtraída dos teus pontos em vez de somada. As vazas contam normalmente."
       },
       "noTrump": {
         "name": "Sem trunfo",
@@ -592,51 +592,51 @@
       },
       "lightning": {
         "name": "Relâmpago",
-        "desc": "Jogadas de {{seconds}} segundos. Pensa depressa."
+        "desc": "Cada jogada dura apenas {{seconds}} segundos."
       },
       "asDealt": {
         "name": "Como calhou",
-        "desc": "Sem trocas e ninguém passa: jogas exatamente o que te saiu."
+        "desc": "Toda a gente joga e não há trocas: as cinco cartas que te calharam são a tua mão nesta ronda."
       },
       "pass": {
         "name": "Passa",
-        "desc": "Depois das trocas, quem está em jogo passa {{count}} carta(s) à volta da mesa."
+        "desc": "Depois das trocas, cada jogador em jogo escolhe cartas da mão e passa-as na direção indicada."
       },
       "swap": {
         "name": "Troca de mãos",
-        "desc": "Cara ou coroa: depois de todos trocarem ou passarem, as mãos de quem ficou em jogo rodam todas à volta da mesa, ou ficam onde estão. Só se sabe no fim."
+        "desc": "Depois de todos decidirem, uma moeda determina se as mãos de quem joga rodam à volta da mesa ou ficam no lugar."
       },
       "guardian": {
-        "name": "Padrinho",
-        "desc": "Cada um apadrinha em segredo outro jogador: vês a mão dele e ficas com o resultado dele, bom ou mau. Quem apadrinhou quem revela-se no fim. Só em mesas com um número par de lugares."
+        "name": "Padrinho secreto",
+        "desc": "Apadrinhas em segredo outro jogador e vês a mão dele. Recebes a alteração de pontos dele nesta ronda em vez da tua. Quem apadrinhou quem revela-se no fim. Só em mesas com um número par de lugares."
       },
       "freeForAll": {
         "name": "Vale-tudo",
-        "desc": "Não há assistir nem subir: qualquer carta, a qualquer altura. Mandam os trunfos e os ases."
+        "desc": "Joga qualquer carta a qualquer altura: não tens de assistir nem de bater a carta que está a ganhar. O trunfo, depois o naipe de saída e a ordem normal das cartas, continuam a decidir cada vaza."
       },
       "wildRank": {
         "name": "{{rank}} selvagem",
-        "desc": "Todos os {{rank}} batem tudo, trunfo incluído. O primeiro a sair fica a ganhar. Nunca és obrigado a jogá-lo."
+        "desc": "Joga um {{rank}} a qualquer altura para bater todas as outras cartas, incluindo trunfos. Se saírem vários, ganha o primeiro {{rank}} jogado."
       },
       "carousel": {
         "name": "Rodízio",
-        "desc": "Depois de cada vaza, o que resta na tua mão passa um lugar para a esquerda."
+        "desc": "Depois de cada vaza, as cartas que restam a cada jogador passam um lugar para a esquerda. As vazas que já ganhaste continuam a ser tuas."
       },
       "market": {
         "name": "Feira",
-        "desc": "Depois das trocas, cada um põe uma carta à vista no meio e depois leva uma. Quem está mais longe do 0 escolhe primeiro."
+        "desc": "Depois das trocas, cada jogador em jogo põe uma carta à vista e depois leva uma. Quem tiver mais pontos escolhe primeiro."
       },
       "dummy": {
-        "name": "Mão do morto",
-        "desc": "Há sete cartas extra à vista no meio. Por ordem, cada jogador pode trocar uma carta com elas."
+        "name": "Mão extra",
+        "desc": "Ficam à vista até sete cartas extra. Por ordem, cada jogador em jogo pode trocar uma carta por uma delas ou não trocar."
       },
       "faceUp": {
-        "name": "Carta virada",
-        "desc": "Uma carta ao calhas de cada mão fica à vista durante toda a ronda."
+        "name": "Carta à vista",
+        "desc": "Uma carta ao calhas da mão de cada jogador fica visível para todos até ser jogada."
       },
       "inverted": {
-        "name": "Ao contrário",
-        "desc": "A contagem vira: cada vaza que fazes soma um ponto, e não fazer nenhuma tira a penalização. Joga para perder."
+        "name": "Pontuação ao contrário",
+        "desc": "As vazas somam pontos em vez de os subtrair; não fazer nenhuma subtrai a penalização habitual. Os multiplicadores do trunfo continuam a aplicar-se."
       }
     },
     "golden": "×2 ouro",
@@ -668,15 +668,21 @@
     "used": "{{name}} usou {{powerup}}",
     "usedOn": "{{name}} usou {{powerup}} em {{target}}",
     "passNames": {
-      "left": "Passa {{count}} à esquerda",
-      "right": "Passa {{count}} à direita",
-      "across": "Passa {{count}} em frente"
+      "left": "Passa {{count}} cartas à esquerda",
+      "left_one": "Passa {{count}} carta à esquerda",
+      "left_other": "Passa {{count}} cartas à esquerda",
+      "right": "Passa {{count}} cartas à direita",
+      "right_one": "Passa {{count}} carta à direita",
+      "right_other": "Passa {{count}} cartas à direita",
+      "across": "Passa {{count}} cartas em frente",
+      "across_one": "Passa {{count}} carta em frente",
+      "across_other": "Passa {{count}} cartas em frente"
     },
     "ward": "Teu",
-    "wardHint": "Apadrinhas este jogador: vês a mão dele e ficas com o resultado dele.",
+    "wardHint": "Apadrinhas este jogador: vês a mão dele e recebes a alteração de pontos dele nesta ronda.",
     "guarding": "padrinho de {{name}}",
     "guarded": "{{name}} apadrinhou {{ward}}",
-    "faceUpCard": "À vista durante toda a ronda",
+    "faceUpCard": "Visível para todos até ser jogada",
     "swapped": "As mãos rodaram mesmo.",
     "notSwapped": "As mãos ficaram onde estavam."
   }

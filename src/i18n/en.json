@@ -563,20 +563,20 @@
     "twistOfRound": "This round's twist",
     "twists": {
       "desce": {
-        "name": "Desce",
-        "desc": "Lowest card wins the trick. Go under if you can, and the lowest trump leads."
+        "name": "Low card wins",
+        "desc": "Card rank is reversed: lower cards beat higher cards. If you can win by playing lower, you must. If you lead while holding the lowest trump, you must play it."
       },
       "golden": {
-        "name": "Golden suit",
-        "desc": "{{suit}} doubles the round if it becomes trump."
+        "name": "Golden suit: {{suit}}",
+        "desc": "If {{suit}} is chosen as trump, tricks and the no-trick penalty count double this round."
       },
       "lastTrick": {
-        "name": "Last trick ×5",
-        "desc": "The fifth trick is worth five: a whole perfect round on one card."
+        "name": "Final trick ×5",
+        "desc": "Whoever wins the fifth and final trick scores it as five tricks instead of one."
       },
       "blankPays": {
-        "name": "Blank pays",
-        "desc": "Winning no tricks pays the penalty out instead of in. Everybody plays to lose."
+        "name": "Zero-trick bonus",
+        "desc": "If you play and win no tricks, the usual penalty is subtracted from your score instead of added. Tricks score normally."
       },
       "noTrump": {
         "name": "No trump",
@@ -592,51 +592,51 @@
       },
       "lightning": {
         "name": "Lightning",
-        "desc": "{{seconds}}-second turns. Think fast."
+        "desc": "Each turn lasts only {{seconds}} seconds."
       },
       "asDealt": {
         "name": "As dealt",
-        "desc": "No discards and nobody sits out: you play exactly what you were dealt."
+        "desc": "Everyone must play with no discards: your five dealt cards are your hand for the round."
       },
       "pass": {
         "name": "Pass",
-        "desc": "After the discards, everyone still in passes {{count}} card(s) round the table."
+        "desc": "After discarding, each active player chooses cards from their hand and passes them in the direction shown."
       },
       "swap": {
         "name": "Swap hands",
-        "desc": "Heads or tails: once everyone has discarded or sat out, the hands of those still in may all move round the table, or stay put. Nobody knows which until the end."
+        "desc": "After everyone decides, a coin flip either rotates all active players’ hands or leaves them in place."
       },
       "guardian": {
-        "name": "Guardian",
-        "desc": "Everyone secretly guards one other player: you see their hand and you take their result, good or bad. Who guarded whom is revealed at the end. Even tables only."
+        "name": "Secret guardian",
+        "desc": "You secretly guard another player and see their hand. You receive their score change for the round instead of your own. Assignments are revealed at the end. Even tables only."
       },
       "freeForAll": {
         "name": "Free-for-all",
-        "desc": "No follow-suit and no climb rule: any card, any time. Trumps and Aces rule."
+        "desc": "Play any card at any time: you do not have to follow suit or beat the current winner. Trump, then the led suit and normal card order, still decide each trick."
       },
       "wildRank": {
         "name": "Wild {{rank}}s",
-        "desc": "Every {{rank}} beats everything, trump included. The first one played holds. You never have to play it."
+        "desc": "Play a {{rank}} at any time to beat every other card, including trump. If several are played, the first {{rank}} wins."
       },
       "carousel": {
         "name": "Carousel",
-        "desc": "After every trick, whatever is left in your hand moves one seat to the left."
+        "desc": "After each trick, every active player’s remaining cards move one seat to the left. You keep the tricks you already won."
       },
       "market": {
         "name": "Market",
-        "desc": "After the discards, everyone lays one card face up in the middle, then takes one back. Furthest from zero picks first."
+        "desc": "After discarding, each active player contributes one card face up, then takes one back. The player with the highest score picks first."
       },
       "dummy": {
-        "name": "Dummy hand",
-        "desc": "Seven spare cards lie face up in the middle. In turn, each player may swap one card with them."
+        "name": "Spare hand",
+        "desc": "Up to seven extra cards are revealed. In turn, each active player may swap one card with one of them, or skip."
       },
       "faceUp": {
-        "name": "One face up",
-        "desc": "One random card of every hand is face up for the whole round."
+        "name": "Revealed card",
+        "desc": "One random card in each active player’s hand stays visible to everyone until it is played."
       },
       "inverted": {
-        "name": "Upside down",
-        "desc": "Scoring flips: every trick you win costs a point, and winning none pays the penalty out. Play to lose."
+        "name": "Reverse scoring",
+        "desc": "Tricks add points instead of subtracting them; winning none subtracts the usual penalty. Trump multipliers still apply."
       }
     },
     "golden": "×2 golden",
@@ -668,15 +668,21 @@
     "used": "{{name}} used {{powerup}}",
     "usedOn": "{{name}} used {{powerup}} on {{target}}",
     "passNames": {
-      "left": "Pass {{count}} left",
-      "right": "Pass {{count}} right",
-      "across": "Pass {{count}} across"
+      "left": "Pass {{count}} cards left",
+      "left_one": "Pass {{count}} card left",
+      "left_other": "Pass {{count}} cards left",
+      "right": "Pass {{count}} cards right",
+      "right_one": "Pass {{count}} card right",
+      "right_other": "Pass {{count}} cards right",
+      "across": "Pass {{count}} cards across",
+      "across_one": "Pass {{count}} card across",
+      "across_other": "Pass {{count}} cards across"
     },
     "ward": "Yours",
-    "wardHint": "You guard this player: you see their hand and take their result.",
+    "wardHint": "You guard this player: you see their hand and receive their score change for the round.",
     "guarding": "guarding {{name}}",
     "guarded": "{{name}} guarded {{ward}}",
-    "faceUpCard": "Face up for the whole round",
+    "faceUpCard": "Visible to everyone until played",
     "swapped": "The hands did move.",
     "notSwapped": "The hands stayed where they were."
   }

@@ -305,7 +305,7 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[]): void {
   }
   if (rules.dummy) {
     // The spare hand comes off what is left of the stock, which a big table may have
-    // nearly emptied: it is "up to five" cards.
+    // nearly emptied: it is "up to seven" cards.
     const party = state.party!;
     party.dummy = state.drawPile.splice(Math.max(0, state.drawPile.length - DUMMY_SIZE));
     party.dummyTurn = 0;
