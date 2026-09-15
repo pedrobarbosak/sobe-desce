@@ -604,11 +604,11 @@
       },
       "swap": {
         "name": "Swap hands",
-        "desc": "As soon as everyone holds five, the hands move round the table. You play someone else's deal."
+        "desc": "Heads or tails: once everyone has discarded or sat out, the hands of those still in may all move round the table, or stay put. Nobody knows which until the end."
       },
       "guardian": {
         "name": "Guardian",
-        "desc": "Everyone secretly guards one other player: you see their hand and you take their result, good or bad. Who guarded whom is revealed at the end."
+        "desc": "Everyone secretly guards one other player: you see their hand and you take their result, good or bad. Who guarded whom is revealed at the end. Even tables only."
       },
       "freeForAll": {
         "name": "Free-for-all",
@@ -628,7 +628,7 @@
       },
       "dummy": {
         "name": "Dummy hand",
-        "desc": "A spare hand lies face up in the middle. In turn, each player may swap one card with it."
+        "desc": "Seven spare cards lie face up in the middle. In turn, each player may swap one card with them."
       },
       "faceUp": {
         "name": "One face up",
@@ -676,6 +676,8 @@
     "wardHint": "You guard this player: you see their hand and take their result.",
     "guarding": "guarding {{name}}",
     "guarded": "{{name}} guarded {{ward}}",
-    "faceUpCard": "Face up for the whole round"
+    "faceUpCard": "Face up for the whole round",
+    "swapped": "The hands did move.",
+    "notSwapped": "The hands stayed where they were."
   }
 }

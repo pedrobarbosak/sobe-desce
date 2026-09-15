@@ -327,8 +327,8 @@ describe("dummy", () => {
     for (const seat of [1, 2, 3]) s = step(s, { type: "discard", seat, cards: [] });
     s = step(s, { type: "sitOut", seat: 0 });
     expect(s.phase).toBe("dummy");
-    expect(s.party!.dummy).toHaveLength(5);
-    expect(s.drawPile).toHaveLength(40 - 20 - 5);
+    expect(s.party!.dummy).toHaveLength(7);
+    expect(s.drawPile).toHaveLength(40 - 20 - 7);
     expect(s.turnSeat).toBe(1);
     const mine = s.hands[1]![0]!;
     const theirs = s.party!.dummy[0]!;
@@ -339,7 +339,7 @@ describe("dummy", () => {
     expect(s.hands[1]).toContain(theirs);
     expect(s.hands[1]).not.toContain(mine);
     expect(s.party!.dummy).toContain(mine);
-    expect(s.party!.dummy).toHaveLength(5);
+    expect(s.party!.dummy).toHaveLength(7);
     expect(s.turnSeat).toBe(2);
     s = step(s, { type: "dummy", seat: 2 });
     expect(s.turnSeat).toBe(3);
@@ -362,19 +362,48 @@ describe("dummy", () => {
 });
 
 describe("swap, carousel, face up", () => {
-  it("swap: every hand moves round the table as soon as everyone holds five", () => {
-    const fresh = make(seedFor("swap"));
+  it("swap: after the discards, a coin decides whether the hands still in move round", () => {
+    // Both outcomes are reachable, and neither shows before the round is scored.
+    let moved: RoundState | null = null;
+    let stayed: RoundState | null = null;
+    for (let i = 0; i < 3000 && !(moved && stayed); i++) {
+      const s = make(i);
+      if (s.party!.twist !== "swap") continue;
+      if (s.party!.swapOffset > 0) moved ??= s;
+      else stayed ??= s;
+    }
+    expect(moved).not.toBeNull();
+    expect(stayed).not.toBeNull();
+    expect(redact(moved!).party).not.toHaveProperty("swapOffset");
+    const still = inTricks(stayed!);
+    const stayedDealt = step(stayed!, { type: "nameTrump", seat: 1, suit: "S" }).hands;
+    for (const seat of [0, 1, 2, 3]) expect(still.hands[seat]).toEqual(stayedDealt[seat]);
+
+    const fresh = moved!;
     const offset = fresh.party!.swapOffset;
     expect(offset).toBeGreaterThanOrEqual(1);
     expect(offset).toBeLessThanOrEqual(3);
-    const s = step(fresh, { type: "nameTrump", seat: 1, suit: "S" });
-    // The first three cards of what each seat was dealt are now `offset` seats along.
+    // Nothing moves while people are still deciding: you discard your own hand.
+    const dealt = step(fresh, { type: "nameTrump", seat: 1, suit: "S" });
+    let s = step(dealt, { type: "discard", seat: 1, cards: [] });
+    expect(s.hands).toEqual(dealt.hands);
+    s = step(s, { type: "discard", seat: 2, cards: [] });
+    s = step(s, { type: "discard", seat: 3, cards: [] });
+    s = step(s, { type: "discard", seat: 0, cards: [] });
+    expect(s.phase).toBe("tricks");
     const ring = [1, 2, 3, 0];
-    ring.forEach((seat, i) => {
-      const receiver = ring[(i + offset) % 4]!;
-      expect(s.hands[receiver]!.slice(0, 3)).toEqual(fresh.hands[seat]);
-    });
+    ring.forEach((seat, i) => expect(s.hands[ring[(i + offset) % 4]!]).toEqual(dealt.hands[seat]));
     expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+
+    // With one seat out, the step folds into the three who stayed and skips the absentee.
+    let t = step(dealt, { type: "discard", seat: 1, cards: [] });
+    t = step(t, { type: "discard", seat: 2, cards: [] });
+    t = step(t, { type: "discard", seat: 3, cards: [] });
+    t = step(t, { type: "sitOut", seat: 0 });
+    expect(t.hands[0]).toEqual(dealt.hands[0]);
+    const three = [1, 2, 3];
+    const fold = 1 + ((offset - 1) % 2);
+    three.forEach((seat, i) => expect(t.hands[three[(i + fold) % 3]!]).toEqual(dealt.hands[seat]));
   });
 
   it("carousel: after each trick but the last, the remaining hands move one seat left", () => {
@@ -460,6 +489,14 @@ describe("free-for-all and wild rank", () => {
 });
 
 describe("guardian", () => {
+  it("only turns up at a table with an even number of seats", () => {
+    for (let i = 0; i < 600; i++) {
+      const odd = createRound({ deck: 40, seatCount: 5, dealerSeat: 0, maxDiscard: 3, blankPenalty: 5, seed: String(i), variant: "party" });
+      expect(odd.party!.twist).not.toBe("guardian");
+    }
+    expect(seedFor("guardian")).toBeDefined();
+  });
+
   it("assigns one big cycle and hands every seat its ward's delta", () => {
     const fresh = make(seedFor("guardian"));
     const g = fresh.party!.guardians!;

@@ -156,8 +156,10 @@ export const get = query({
                   marketOrder: round.party.marketOrder ?? [],
                   dummy: round.party.dummy ?? [],
                   dummyTurn: round.party.dummyTurn ?? 0,
-                  // Who guarded whom is the round's reveal: it stays hidden until scored.
+                  // Who guarded whom, and whether the hands really moved, are the round's
+                  // reveals: they stay hidden until scored.
                   guardians: round.phase === "scored" ? round.party.guardians ?? null : null,
+                  swapped: round.phase === "scored" && round.party.twist === "swap" ? (round.party.swapOffset ?? 0) > 0 : null,
                   shielded: round.party.shielded,
                   curses: round.party.curses,
                   peeks: round.party.peeks,

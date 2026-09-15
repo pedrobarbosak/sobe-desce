@@ -604,11 +604,11 @@
       },
       "swap": {
         "name": "Troca de mãos",
-        "desc": "Assim que todos têm cinco cartas, as mãos rodam à volta da mesa. Jogas a mão que saiu a outro."
+        "desc": "Cara ou coroa: depois de todos trocarem ou passarem, as mãos de quem ficou em jogo rodam todas à volta da mesa, ou ficam onde estão. Só se sabe no fim."
       },
       "guardian": {
         "name": "Padrinho",
-        "desc": "Cada um apadrinha em segredo outro jogador: vês a mão dele e ficas com o resultado dele, bom ou mau. Quem apadrinhou quem revela-se no fim."
+        "desc": "Cada um apadrinha em segredo outro jogador: vês a mão dele e ficas com o resultado dele, bom ou mau. Quem apadrinhou quem revela-se no fim. Só em mesas com um número par de lugares."
       },
       "freeForAll": {
         "name": "Vale-tudo",
@@ -628,7 +628,7 @@
       },
       "dummy": {
         "name": "Mão do morto",
-        "desc": "Há uma mão extra à vista no meio. Por ordem, cada jogador pode trocar uma carta com ela."
+        "desc": "Há sete cartas extra à vista no meio. Por ordem, cada jogador pode trocar uma carta com elas."
       },
       "faceUp": {
         "name": "Carta virada",
@@ -676,6 +676,8 @@
     "wardHint": "Apadrinhas este jogador: vês a mão dele e ficas com o resultado dele.",
     "guarding": "padrinho de {{name}}",
     "guarded": "{{name}} apadrinhou {{ward}}",
-    "faceUpCard": "À vista durante toda a ronda"
+    "faceUpCard": "À vista durante toda a ronda",
+    "swapped": "As mãos rodaram mesmo.",
+    "notSwapped": "As mãos ficaram onde estavam."
   }
 }

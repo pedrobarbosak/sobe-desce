@@ -191,7 +191,6 @@ export function createRound(input: CreateRoundInput): RoundState {
   if (rules.noTrump) {
     // Nothing to name: everyone gets a full hand and the deciding starts at once.
     dealCards(state, HAND_SIZE - 3);
-    afterFullDeal(state);
     state.phase = "discard";
   }
   return state;
@@ -205,11 +204,14 @@ function rotateHands(state: RoundState, ring: readonly number[], offset: number)
   });
 }
 
-/** Everyone holds five: a party twist may shuffle the hands round the table right now. */
-function afterFullDeal(state: RoundState): void {
-  if (rulesFor(state).swapHands) {
-    rotateHands(state, playOrder(state.dealerSeat, state.seatCount), state.party!.swapOffset);
-  }
+/**
+ * Party "swap": once everyone has discarded or sat out, the hands of those still in may
+ * all move round. The step drawn with the deal is folded into however many stayed in.
+ */
+function swapAfterDiscards(state: RoundState, players: readonly number[]): void {
+  const step = state.party!.swapOffset;
+  if (step <= 0 || players.length < 2) return;
+  rotateHands(state, players, 1 + ((step - 1) % (players.length - 1)));
 }
 
 function clone(state: RoundState): RoundState {
@@ -295,6 +297,7 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[]): void {
     return;
   }
   const rules = rulesFor(state);
+  if (rules.swapHands) swapAfterDiscards(state, players);
   if (rules.pass || rules.market) {
     state.phase = "pass";
     state.turnSeat = players[0]!;
@@ -407,7 +410,6 @@ export function applyAction(
       state.trumpSeat = action.seat;
       events.push({ type: "trumpNamed", seat: action.seat, suit: action.suit });
       finishTrumpPhase(state, events);
-      afterFullDeal(state);
       return { ok: true, state, events };
     }
 
@@ -425,7 +427,6 @@ export function applyAction(
       state.darkHearts = true;
       events.push({ type: "darkHeartsCalled", seat: action.seat });
       finishTrumpPhase(state, events);
-      afterFullDeal(state);
       return { ok: true, state, events };
     }
 
@@ -443,7 +444,6 @@ export function applyAction(
       state.flipped = card;
       events.push({ type: "trumpFlipped", seat: action.seat, suit: state.trump, card });
       finishTrumpPhase(state, events);
-      afterFullDeal(state);
       return { ok: true, state, events };
     }
 

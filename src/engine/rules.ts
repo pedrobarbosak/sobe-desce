@@ -30,7 +30,7 @@ export type RoundRules = {
   market: boolean;
   /** A spare face-up hand that each player may swap one card with before the tricks. */
   dummy: boolean;
-  /** Hands rotate between seats as soon as everyone holds five. */
+  /** After the discards, the hands of the seats still in may rotate. */
   swapHands: boolean;
   /** After every trick, each remaining hand moves one seat to the left. */
   carousel: boolean;

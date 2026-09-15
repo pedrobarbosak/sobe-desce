@@ -35,7 +35,7 @@ export type Twist =
   | "lightning"
   /** No discards and nobody sits out: you play exactly what you were dealt. */
   | "asDealt"
-  /** Hands move round the table as soon as everyone holds five: you play someone else's deal. */
+  /** Once everyone has decided, the hands of those still in may all move round. */
   | "swap"
   /** Everyone secretly guards one other player: sees their hand and takes their result. */
   | "guardian"
@@ -82,7 +82,7 @@ export const TWISTS: readonly Twist[] = [
 export const LIGHTNING_SECONDS = 8;
 export const LAST_TRICK_WEIGHT = 5;
 export const MAX_PASS_COUNT = 2;
-export const DUMMY_SIZE = 5;
+export const DUMMY_SIZE = 7;
 export const PASS_DIRECTIONS: readonly PassDirection[] = ["left", "right", "across"];
 
 /**
@@ -114,7 +114,10 @@ export type PartyState = {
   pass: PassSpec | null;
   /** `wildRank`: the rank that beats everything. */
   wildRank: Rank | null;
-  /** `swap`: how many seats to the left every hand travels. Drawn with the deal. */
+  /**
+   * `swap`: how many seats to the left every hand travels, or 0 when the coin came up
+   * "stay put". Nobody at the table can tell which until the round is scored.
+   */
   swapOffset: number;
   /** `faceUp`: which card of each hand (by index, at the start of the tricks) shows. */
   faceUpIndex: number[];
@@ -176,7 +179,8 @@ export function createPartyState(
   inventory: readonly (readonly Powerup[])[],
   previousTwist: Twist | null = null,
 ): PartyState {
-  const pool = TWISTS.filter((t) => t !== previousTwist);
+  // Guardian wants an even table; the previous twist is never dealt twice running.
+  const pool = TWISTS.filter((t) => t !== previousTwist && (t !== "guardian" || seatCount % 2 === 0));
   const twist = pick(pool.length > 0 ? pool : TWISTS, rng);
   // Hearts already doubles on its own; a golden hearts would change nothing. The Ace is
   // already the top card, so a wild Ace would change nothing either.
@@ -184,7 +188,10 @@ export function createPartyState(
   const pass: PassSpec | null =
     twist === "pass" ? { count: 1 + Math.floor(rng() * MAX_PASS_COUNT), direction: pick(PASS_DIRECTIONS, rng) } : null;
   const wildRank = twist === "wildRank" ? pick(ranksFor(deck).filter((r) => r !== "A"), rng) : null;
-  const swapOffset = twist === "swap" ? 1 + Math.floor(rng() * (seatCount - 1)) : 0;
+  // Heads the hands move, tails they stay. Draw both so the seed stream is stable.
+  const swapCoin = rng() < 0.5;
+  const swapStep = 1 + Math.floor(rng() * (seatCount - 1));
+  const swapOffset = twist === "swap" && swapCoin ? swapStep : 0;
   const faceUpIndex = Array.from({ length: seatCount }, () => Math.floor(rng() * 5));
   const guardians = twist === "guardian" ? guardianCycle(seatCount, rng) : null;
   const seats = <T,>(make: () => T) => Array.from({ length: seatCount }, make);
@@ -439,15 +446,18 @@ export function awardPowerups(input: AwardInput): { inventory: Powerup[][]; awar
   return { inventory, awards };
 }
 
-export type PublicPartyState = Omit<PartyState, "inventory" | "passes" | "guardians"> & {
+export type PublicPartyState = Omit<PartyState, "inventory" | "passes" | "guardians" | "swapOffset"> & {
   inventorySizes: number[];
   /** Who has already chosen their cards to pass. */
   passed: boolean[];
 };
 
-/** Everything but the private bits. The guardian cycle stays out until the round is scored. */
+/**
+ * Everything but the private bits. The guardian cycle and whether the hands moved are
+ * the round's reveals: they stay out until the round is scored.
+ */
 export function redactParty(p: PartyState): PublicPartyState {
-  const { inventory, passes, guardians: _guardians, ...rest } = p;
+  const { inventory, passes, guardians: _guardians, swapOffset: _swapOffset, ...rest } = p;
   return { ...rest, inventorySizes: inventory.map((i) => i.length), passed: passes.map((c) => c !== null) };
 }
 

@@ -25,6 +25,12 @@ describe("party tables", () => {
     let table = await tableFor("ana");
     expect(table.game.config.variant).toBe("party");
     expect(TWISTS).toContain(table.round!.party!.twist);
+    // Pin the deal to a twist that changes nothing (golden with no suit), so the trump
+    // phase exists and the scoring below is the classic one.
+    await t.run(async (ctx) => {
+      const round = (await ctx.db.get(table.round!._id as Id<"rounds">))!;
+      await ctx.db.patch(round._id, { party: { ...round.party!, twist: "golden", goldenSuit: undefined } });
+    });
     expect(table.myPowerups).toEqual([]);
     const roundId = table.round!._id as Id<"rounds">;
     const nameAtSeat = (seat: number) => table.seats[seat]!.name;
@@ -35,9 +41,12 @@ describe("party tables", () => {
     expect((await tableFor("ana")).myPowerups).toEqual(["peek", "curse", "shield"]);
     expect((await tableFor("bruno")).myPowerups).toEqual([]);
 
-    // Not while the trump is still open.
-    await expect(as(t, "ana").mutation(api.game.actions.usePowerup, { roundId, powerup: "shield" })).rejects.toThrow();
-    await as(t, nameAtSeat(table.round!.turnSeat!)).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+    // Not while the trump is still open. A no-trump deal has no trump phase at all, and
+    // the pin above cannot bring one back, so that case goes straight to the discards.
+    if (table.round!.phase === "trump") {
+      await expect(as(t, "ana").mutation(api.game.actions.usePowerup, { roundId, powerup: "shield" })).rejects.toThrow();
+      await as(t, nameAtSeat(table.round!.turnSeat!)).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+    }
     table = await tableFor("ana");
     expect(table.round!.phase).toBe("discard");
 
@@ -88,7 +97,8 @@ describe("party tables", () => {
     });
     for (let i = 0; i < 3; i++) await as(t, "ana").mutation(api.games.addBot, { gameId });
     await as(t, "ana").mutation(api.sessions.start, { gameId });
-    await t.finishAllScheduledFunctions(vi.runAllTimers, 8_000);
+    // Upside-down and guardian rounds can push scores up for a while: give it room.
+    await t.finishAllScheduledFunctions(vi.runAllTimers, 30_000);
     const view = (await as(t, "ana").query(api.games.get, { gameId }))!;
     expect(view.game.status).toBe("finished");
     const winner = view.players.find((p) => p._id === view.game.winnerPlayerId)!;

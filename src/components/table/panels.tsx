@@ -102,6 +102,8 @@ export type PartyView = {
   dummyTurn: number;
   /** Only sent once the round is scored. */
   guardians: number[] | null;
+  /** `swap`, once scored: did the hands actually move? */
+  swapped: boolean | null;
   shielded: boolean[];
   curses: number[];
   peeks: { seat: number; target: number }[];
@@ -554,6 +556,9 @@ export function RoundResult({
         <p className="mt-1 text-xs text-purple-200">
           🎲 {twistName(party, t as unknown as T)}
         </p>
+      )}
+      {party?.swapped !== null && party?.swapped !== undefined && (
+        <p className="mt-1 text-xs text-cream-100/80">🔀 {party.swapped ? t("party.swapped") : t("party.notSwapped")}</p>
       )}
       {party?.guardians && (
         <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
