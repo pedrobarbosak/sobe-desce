@@ -8,7 +8,7 @@ import type { SeatView } from "./Seat";
 type Props = {
   /** Seat on turn, or the trick winner while the table holds a finished trick. */
   actor: SeatView | undefined;
-  kind: "trump" | "discard" | "pass" | "tricks" | "trickWon" | null;
+  kind: "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null;
   isMe: boolean;
   deadline: number | null;
   totalMs: number;
@@ -37,7 +37,11 @@ export function TableStatus({ actor, kind, isMe, deadline, totalMs, skewMs, comp
             ? t("table.deciding", { name: actor.name })
             : kind === "pass"
               ? t("table.passing", { name: actor.name })
-              : t("table.waitingFor", { name: actor.name });
+              : kind === "market"
+                ? t("table.taking", { name: actor.name })
+                : kind === "dummy"
+                  ? t("table.swapping", { name: actor.name })
+                  : t("table.waitingFor", { name: actor.name });
 
   return (
     <motion.div

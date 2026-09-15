@@ -141,7 +141,7 @@
     "randomName": "Random name",
     "variant": "Rules",
     "variantClassicHint": "The classic rules, nothing added.",
-    "variantPartyHint": "Every round flips a public twist: low card wins, no trump, open hands, pass a card left, lightning turns and more. Shorter, louder games."
+    "variantPartyHint": "Every round flips a public twist: low card wins, no trump, pass cards round, swap hands, a secret guardian, a wild rank, a market in the middle and more. Shorter, louder games."
   },
   "join": {
     "title": "Join table",
@@ -322,7 +322,11 @@
     "alreadyPeeked": "You are already looking at that hand.",
     "alreadyShielded": "You are already shielded this round.",
     "sitOutAllIn": "Nobody sits out this round.",
-    "alreadyPassed": "You already passed a card."
+    "alreadyPassed": "You already passed a card.",
+    "wrongPassCount": "Pick the right number of cards.",
+    "cardNotInMarket": "That card is not in the middle.",
+    "cardNotInDummy": "That card is not in the dummy hand.",
+    "dummyNeedsBoth": "Pick one card to give and one to take."
   },
   "table": {
     "round": "Round {{n}}",
@@ -452,12 +456,25 @@
     "kickConfirmCampaign": "{{name}} leaves tonight's sitting. Nobody plays for them; if they had already joined the round, their cards are played out for this round only. Continue?",
     "leaving": "leaving",
     "passing": "{{name}} is passing a card…",
-    "passTitle": "Pass one card to {{name}}",
-    "passHint": "Pick a card from your hand. It is theirs for the rest of the round.",
-    "passCard": "Pass {{card}}",
-    "passPick": "Pick a card",
+    "passTitle": "Pass {{count}} card(s) to {{name}}",
+    "passHint": "Pick from your hand. They are theirs for the rest of the round.",
+    "passPick": "Pick {{count}} more",
     "noDiscards": "No discards this round: play what you were dealt",
-    "playAsDealt": "Play as dealt"
+    "playAsDealt": "Play as dealt",
+    "passCards": "Pass {{cards}}",
+    "layTitle": "Lay one card in the middle",
+    "layHint": "Everyone will see it, and someone will take it.",
+    "layCard": "Lay {{card}}",
+    "taking": "{{name}} is taking a card…",
+    "takeTitle": "Take one card back",
+    "marketWaiting": "Waiting for the others to take…",
+    "swapping": "{{name}} is looking at the dummy hand…",
+    "dummyTitle": "Swap one card, or leave it",
+    "dummyHint": "Pick one card in your hand and one on the table.",
+    "dummyPick": "Pick one of each",
+    "dummySwap": "Swap {{give}} for {{take}}",
+    "dummySkip": "Leave it",
+    "dummyWaiting": "Waiting for the others…"
   },
   "standings": {
     "title": "Standings",
@@ -554,8 +571,8 @@
         "desc": "{{suit}} doubles the round if it becomes trump."
       },
       "lastTrick": {
-        "name": "Last trick ×3",
-        "desc": "The fifth trick is worth three."
+        "name": "Last trick ×5",
+        "desc": "The fifth trick is worth five: a whole perfect round on one card."
       },
       "blankPays": {
         "name": "Blank pays",
@@ -569,10 +586,6 @@
         "name": "Open hands",
         "desc": "Every hand is face up once the trump is settled."
       },
-      "passLeft": {
-        "name": "Pass left",
-        "desc": "After the discards, everyone still in passes one card to the player on their left."
-      },
       "allIn": {
         "name": "All in",
         "desc": "Nobody may sit this round out."
@@ -584,6 +597,42 @@
       "asDealt": {
         "name": "As dealt",
         "desc": "No discards and nobody sits out: you play exactly what you were dealt."
+      },
+      "pass": {
+        "name": "Pass",
+        "desc": "After the discards, everyone still in passes {{count}} card(s) round the table."
+      },
+      "swap": {
+        "name": "Swap hands",
+        "desc": "As soon as everyone holds five, the hands move round the table. You play someone else's deal."
+      },
+      "guardian": {
+        "name": "Guardian",
+        "desc": "Everyone secretly guards one other player: you see their hand and you take their result, good or bad. Who guarded whom is revealed at the end."
+      },
+      "freeForAll": {
+        "name": "Free-for-all",
+        "desc": "No follow-suit and no climb rule: any card, any time. Trumps and Aces rule."
+      },
+      "wildRank": {
+        "name": "Wild {{rank}}s",
+        "desc": "Every {{rank}} beats everything, trump included. The first one played holds. You never have to play it."
+      },
+      "carousel": {
+        "name": "Carousel",
+        "desc": "After every trick, whatever is left in your hand moves one seat to the left."
+      },
+      "market": {
+        "name": "Market",
+        "desc": "After the discards, everyone lays one card face up in the middle, then takes one back. Furthest from zero picks first."
+      },
+      "dummy": {
+        "name": "Dummy hand",
+        "desc": "A spare hand lies face up in the middle. In turn, each player may swap one card with it."
+      },
+      "faceUp": {
+        "name": "One face up",
+        "desc": "One random card of every hand is face up for the whole round."
       }
     },
     "golden": "×2 golden",
@@ -613,6 +662,16 @@
     "drew": "{{name}} drew {{powerup}}",
     "youDrew": "You drew {{powerup}}",
     "used": "{{name}} used {{powerup}}",
-    "usedOn": "{{name}} used {{powerup}} on {{target}}"
+    "usedOn": "{{name}} used {{powerup}} on {{target}}",
+    "passNames": {
+      "left": "Pass {{count}} left",
+      "right": "Pass {{count}} right",
+      "across": "Pass {{count}} across"
+    },
+    "ward": "Yours",
+    "wardHint": "You guard this player: you see their hand and take their result.",
+    "guarding": "guarding {{name}}",
+    "guarded": "{{name}} guarded {{ward}}",
+    "faceUpCard": "Face up for the whole round"
   }
 }

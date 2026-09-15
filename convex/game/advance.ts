@@ -6,7 +6,6 @@ import {
   awardPowerups,
   canCallDarkHearts,
   createRound,
-  partyRules,
   playOrder,
   rngFromSeed,
   variantOf,
@@ -16,7 +15,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, internalMutation } from "../_generated/server";
 import { DARK_WINDOW_MS } from "./dark";
 import { applyLeaving, isLeaving } from "./session";
-import { type LoadedRound, partyDoc } from "./state";
+import { type LoadedRound, partyDoc, rulesOfDoc } from "./state";
 import type { RoundState } from "../../src/engine";
 
 export const BOT_DELAY_MS = 900;
@@ -58,7 +57,7 @@ export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">): Promise<
     return;
   }
   // A party twist may shorten the clock for the round.
-  const seconds = (round.party ? partyRules(round.party).turnSeconds : null) ?? game.config.turnSeconds;
+  const seconds = rulesOfDoc(round.party)?.turnSeconds ?? game.config.turnSeconds;
   const ms = seconds * 1000;
   const timerId = await ctx.scheduler.runAfter(ms, internal.game.timer.onTimeout, { roundId, nonce });
   await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: Date.now() + ms, timerId });

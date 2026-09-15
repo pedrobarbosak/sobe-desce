@@ -1,5 +1,5 @@
 import type { Card } from "./cards";
-import { type PublicPartyState, redactParty, visibleThroughPeeks } from "./party";
+import { type PublicPartyState, redactParty, visibleHands } from "./party";
 import type { RoundState } from "./round";
 
 export type PublicRoundState = Omit<RoundState, "hands" | "drawPile" | "party"> & {
@@ -23,7 +23,7 @@ export type SeatView = PublicRoundState & {
   hand: Card[];
   /** Party: this seat's unused powerups. */
   inventory: string[];
-  /** Party: hands this seat has peeked at. */
+  /** Party: other hands this seat may see, through a peek or as a guardian. */
   peeked: { seat: number; cards: Card[] }[];
 };
 
@@ -33,6 +33,6 @@ export function viewFor(state: RoundState, seat: number): SeatView {
     ...redact(state),
     hand: [...(state.hands[seat] ?? [])],
     inventory: [...(state.party?.inventory[seat] ?? [])],
-    peeked: state.party ? visibleThroughPeeks(state.party, seat, state.hands) : [],
+    peeked: state.party ? visibleHands(state.party, seat, state.hands) : [],
   };
 }

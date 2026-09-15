@@ -41,6 +41,8 @@ export const phase = v.union(
   v.literal("trump"),
   v.literal("discard"),
   v.literal("pass"),
+  v.literal("market"),
+  v.literal("dummy"),
   v.literal("tricks"),
   v.literal("scored"),
 );
@@ -71,17 +73,39 @@ export const twist = v.union(
   v.literal("blankPays"),
   v.literal("noTrump"),
   v.literal("openHands"),
+  v.literal("pass"),
+  /** Legacy id of `pass`, kept so stored rounds still validate. */
   v.literal("passLeft"),
   v.literal("allIn"),
   v.literal("lightning"),
   v.literal("asDealt"),
+  v.literal("swap"),
+  v.literal("guardian"),
+  v.literal("freeForAll"),
+  v.literal("wildRank"),
+  v.literal("carousel"),
+  v.literal("market"),
+  v.literal("dummy"),
+  v.literal("faceUp"),
 );
+export const passDirection = v.union(v.literal("left"), v.literal("right"), v.literal("across"));
 export const powerup = v.union(v.literal("peek"), v.literal("curse"), v.literal("shield"));
 
 /** The public half of a party round. Inventories live on `gamePlayers.powerups`. */
 export const partyRound = v.object({
   twist,
   goldenSuit: v.optional(suit),
+  pass: v.optional(v.object({ count: v.number(), direction: passDirection })),
+  wildRank: v.optional(v.string()),
+  swapOffset: v.optional(v.number()),
+  faceUpIndex: v.optional(v.array(v.number())),
+  /** The guardian cycle. Public on the document; the table query filters it per viewer. */
+  guardians: v.optional(v.array(v.number())),
+  faceUp: v.optional(v.array(v.union(v.string(), v.null()))),
+  market: v.optional(v.array(v.string())),
+  marketOrder: v.optional(v.array(v.number())),
+  dummy: v.optional(v.array(v.string())),
+  dummyTurn: v.optional(v.number()),
   shielded: v.array(v.boolean()),
   curses: v.array(v.number()),
   peeks: v.array(v.object({ seat: v.number(), target: v.number() })),

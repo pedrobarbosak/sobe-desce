@@ -1,4 +1,4 @@
-import { type Card, type DeckSize, type Suit, makeCard, ranksFor, suitOf } from "./cards";
+import { type Card, type DeckSize, type Suit, makeCard, rankOf, ranksFor, suitOf } from "./cards";
 import { MAX_CONSECUTIVE_SIT_OUTS } from "./config";
 import { CLASSIC_RULES, type RoundRules } from "./rules";
 import { type TrickInProgress, beats, currentWinner, ledSuit } from "./trick";
@@ -30,7 +30,9 @@ export function unbeatableTrump(trump: Suit | null, deck: DeckSize, rules: Round
  * 4. Nothing that can beat the winning card: anything goes.
  *
  * Under `rules.lowWins` every "beats" above reads the other way round, and the card you
- * must lead is the lowest trump rather than the Ace.
+ * must lead is the lowest trump rather than the Ace. Under `rules.freeForAll` none of it
+ * applies. A card of `rules.wildRank` may always be played and is never forced: it beats
+ * everything, so the climb rule would otherwise make you spend it at once.
  */
 export function legalPlays(
   hand: readonly Card[],
@@ -40,23 +42,25 @@ export function legalPlays(
   rules: RoundRules = CLASSIC_RULES,
 ): Card[] {
   if (hand.length === 0) return [];
+  if (rules.freeForAll) return [...hand];
+  const wilds = rules.wildRank === null ? [] : hand.filter((c) => rankOf(c) === rules.wildRank);
+  const withWilds = (cards: Card[]) => [...cards, ...wilds.filter((w) => !cards.includes(w))];
   const led = ledSuit(trick.plays);
   if (!led) {
     const top = unbeatableTrump(trump, deck, rules);
-    return top && hand.includes(top) ? [top] : [...hand];
+    return top && hand.includes(top) ? withWilds([top]) : [...hand];
   }
-  const winning = currentWinner(trick.plays, trump, deck, rules.lowWins)!;
+  const winning = currentWinner(trick.plays, trump, deck, rules.lowWins, rules.wildRank)!;
+  const canBeat = (c: Card) => !wilds.includes(c) && beats(c, winning.card, trump, deck, rules.lowWins, rules.wildRank);
 
   const ofLed = hand.filter((c) => suitOf(c) === led);
   if (ofLed.length > 0) {
-    const climbers = ofLed.filter((c) => beats(c, winning.card, trump, deck, rules.lowWins));
-    return climbers.length > 0 ? climbers : ofLed;
+    const climbers = ofLed.filter(canBeat);
+    return withWilds(climbers.length > 0 ? climbers : ofLed);
   }
 
-  const climbers = hand.filter(
-    (c) => suitOf(c) === trump && beats(c, winning.card, trump, deck, rules.lowWins),
-  );
-  if (climbers.length > 0) return climbers;
+  const climbers = hand.filter((c) => suitOf(c) === trump && canBeat(c));
+  if (climbers.length > 0) return withWilds(climbers);
 
   return [...hand];
 }

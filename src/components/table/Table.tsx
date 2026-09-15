@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
-import { CLASSIC_RULES, LIGHTNING_SECONDS, POWERUPS_ENABLED, type Card as CardT, type Powerup, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, partyRules, sitOutBlockedReason } from "@/engine";
+import { CLASSIC_RULES, POWERUPS_ENABLED, type Card as CardT, type Powerup, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, partyRules, sitOutBlockedReason } from "@/engine";
 import { errorCode } from "@/lib/errors";
 import { useTrickDisplay } from "@/hooks/useTrickDisplay";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -25,7 +25,7 @@ import { TableStatus } from "./TableStatus";
 import { DarkCall } from "./DarkCall";
 import { type PlayedTrick, TrickHistory } from "./TrickHistory";
 import { Drawer } from "./Drawer";
-import { type PartyView, type PendingChoice, DiscardPanel, PassPanel, PowerupTray, RoundResult, TrumpPicker, TrumpReveal, TwistBanner } from "./panels";
+import { type PartyView, type PendingChoice, DiscardPanel, DummyPanel, MarketPanel, PassPanel, PowerupTray, RoundResult, TrumpPicker, TrumpReveal, TwistBanner, twistName, twistVars } from "./panels";
 import { type Ellipse, ringLayout, ringPlacer } from "./geometry";
 
 export type TableData = NonNullable<FunctionReturnType<typeof api.game.table.get>>;
@@ -42,6 +42,8 @@ const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
  */
 export function Table({ data }: { data: TableData }) {
   const { t } = useTranslation();
+  // Twist names and descriptions are built from dynamic keys, which the typed `t` rejects.
+  const tr = t as unknown as (key: string, opts?: Record<string, unknown>) => string;
   const navigate = useNavigate();
   const { game, session, round, seats: seatRows, mySeat, myHand } = data;
   // Presence is its own subscription so a heartbeat cannot invalidate the table query
@@ -61,7 +63,10 @@ export function Table({ data }: { data: TableData }) {
   const discard = useMutation(api.game.actions.discard);
   const sitOut = useMutation(api.game.actions.sitOut);
   const playCard = useMutation(api.game.actions.playCard);
-  const passCard = useMutation(api.game.actions.passCard);
+  const passCards = useMutation(api.game.actions.passCards);
+  const takeCard = useMutation(api.game.actions.takeCard);
+  const dummySwap = useMutation(api.game.actions.dummySwap);
+  const [dummyTake, setDummyTake] = useState<CardT | null>(null);
   const spendPowerup = useMutation(api.game.actions.usePowerup);
   const rematch = useMutation(api.games.rematch);
   const abandonSeat = useMutation(api.games.abandonSeat);
@@ -74,7 +79,7 @@ export function Table({ data }: { data: TableData }) {
   const [feltRef, felt] = useElementSize<HTMLDivElement>();
 
   // Party: the round's twist and the public trace of powerups. Null on a classic table.
-  const party: PartyView | null = (round?.party as PartyView | null | undefined) ?? null;
+  const party: PartyView | null = (round?.party as unknown as PartyView | null | undefined) ?? null;
   const rules = party ? partyRules(party) : CLASSIC_RULES;
   const goldenTrump = party !== null && party.twist === "golden" && party.goldenSuit !== null && party.goldenSuit === round?.trump;
 
@@ -86,6 +91,7 @@ export function Table({ data }: { data: TableData }) {
   useEffect(() => {
     setSelected(new Set());
     setPending(null);
+    setDummyTake(null);
   }, [roundId, roundPhase]);
 
   // Big reveal when the trump gets named by someone else.
@@ -303,8 +309,9 @@ export function Table({ data }: { data: TableData }) {
     })();
   }, [pending, isMyTurn, roundPhase, roundId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Passing left takes exactly one card; discarding takes up to the cap.
-  const selectLimit = roundPhase === "pass" ? 1 : maxDiscardNow;
+  // Passing takes exactly the twist's count (one for the market), a dummy swap one card,
+  // and discarding up to the cap.
+  const selectLimit = roundPhase === "pass" ? (rules.market ? 1 : rules.pass?.count ?? 1) : roundPhase === "dummy" ? 1 : maxDiscardNow;
   const toggle = useCallback(
     (card: CardT) => {
       setSelected((prev) => {
@@ -331,6 +338,7 @@ export function Table({ data }: { data: TableData }) {
     [roundId, run, spendPowerup],
   );
   const peekedSeats = useMemo(() => new Set(party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []), [party, mySeat]);
+  const myWard = data.myWard ?? null;
 
   const openBySeat = useMemo(() => {
     const map = new Map<number, string[]>();
@@ -340,7 +348,7 @@ export function Table({ data }: { data: TableData }) {
   const iAmOut = me?.decision === "out";
   // Who the status card is about: the trick winner while the table holds, else the turn.
   const statusActor = display.holding && display.winnerSeat !== null ? seats[display.winnerSeat] : turnSeat;
-  const statusKind: "trump" | "discard" | "pass" | "tricks" | "trickWon" | null =
+  const statusKind: "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null =
     display.holding && display.winnerSeat !== null
       ? "trickWon"
       : phase === "scored" || !turnSeat
@@ -349,8 +357,8 @@ export function Table({ data }: { data: TableData }) {
           ? "trump"
           : phase === "discard"
             ? "discard"
-            : phase === "pass"
-              ? "pass"
+            : phase === "pass" || phase === "market" || phase === "dummy"
+              ? phase
               : "tricks";
   // Discard phase, my decision still open, somebody else on the clock.
   // Before anyone decides, the seat on turn in the trump phase is the one about to.
@@ -366,7 +374,7 @@ export function Table({ data }: { data: TableData }) {
   const satOut = tricksStarted ? seats.filter((s) => s.decision === "out") : [];
   const liveLeader =
     round && !display.holding && round.currentTrick.plays.length > 0
-      ? (currentWinner(round.currentTrick.plays as { seat: number; card: CardT }[], trump, game.config.deck, rules.lowWins)?.seat ?? null)
+      ? (currentWinner(round.currentTrick.plays as { seat: number; card: CardT }[], trump, game.config.deck, rules.lowWins, rules.wildRank)?.seat ?? null)
       : null;
   const leadingSeat = display.holding ? display.winnerSeat : liveLeader;
   // Trump/discard panels: centred in the ellipse on wide screens; on compact/portrait
@@ -442,10 +450,10 @@ export function Table({ data }: { data: TableData }) {
           {party && (
             <span
               className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
-              title={t(`party.twists.${party.twist}.desc`, { suit: party.goldenSuit ? t(`suits.${party.goldenSuit}`).split(" ")[0] : "", seconds: LIGHTNING_SECONDS })}
+              title={tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}
             >
               🎲
-              <span className="hidden sm:inline">{t(`party.twists.${party.twist}.name`)}</span>
+              <span className="hidden sm:inline">{twistName(party, tr)}</span>
               {party.twist === "golden" && party.goldenSuit && (
                 <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
               )}
@@ -548,6 +556,8 @@ export function Table({ data }: { data: TableData }) {
                   cursed={party?.curses[s.seat] ?? 0}
                   shielded={party?.shielded[s.seat] ?? false}
                   peeked={peekedSeats.has(s.seat)}
+                  ward={myWard === s.seat}
+                  faceUp={phase === "tricks" ? party?.faceUp[s.seat] ?? null : null}
                 />
               );
             })}
@@ -673,24 +683,57 @@ export function Table({ data }: { data: TableData }) {
               />
             </div>
           )}
-          {isMyTurn && phase === "pass" && session && (
+          {isMyTurn && phase === "pass" && party && (
             <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
               <PassPanel
                 compact={compact}
-                leftName={(() => {
-                  // The card goes to the next seat still in the round, clockwise.
-                  for (let i = 1; i < n; i++) {
-                    const s = seats[(mySeat + i) % n];
-                    if (s && s.decision === "in") return s.name;
+                market={rules.market}
+                spec={rules.pass ?? { count: 1, direction: "left" }}
+                targetName={(() => {
+                  // The cards travel round the ring of seats still in, clockwise from the
+                  // dealer's left, by the twist's offset.
+                  const ring: number[] = [];
+                  for (let i = 1; i <= n; i++) {
+                    const seat = (round.dealerSeat + i) % n;
+                    if (seats[seat]?.decision === "in") ring.push(seat);
                   }
-                  return "";
+                  const at = ring.indexOf(mySeat);
+                  if (at < 0 || !rules.pass) return "";
+                  const off = rules.pass.direction === "left" ? 1 : rules.pass.direction === "right" ? ring.length - 1 : Math.floor(ring.length / 2);
+                  return seats[ring[(at + off) % ring.length]!]?.name ?? "";
                 })()}
-                selected={[...selected][0] ?? null}
+                selected={[...selected]}
                 busy={busy}
-                onPass={() => {
-                  const card = [...selected][0];
-                  if (card) void run(() => passCard({ roundId: round._id, card }));
+                onPass={() => void run(() => passCards({ roundId: round._id, cards: [...selected] }))}
+              />
+            </div>
+          )}
+          {phase === "market" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
+            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+              <MarketPanel
+                compact={compact}
+                cards={party.market as CardT[]}
+                mine={isMyTurn}
+                busy={busy}
+                onTake={(card) => void run(() => takeCard({ roundId: round._id, card }))}
+              />
+            </div>
+          )}
+          {phase === "dummy" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
+            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+              <DummyPanel
+                compact={compact}
+                cards={party.dummy as CardT[]}
+                mine={isMyTurn}
+                give={[...selected][0] ?? null}
+                take={dummyTake}
+                busy={busy}
+                onPickTake={(card) => setDummyTake((cur) => (cur === card ? null : card))}
+                onSwap={() => {
+                  const give = [...selected][0];
+                  if (give && dummyTake) void run(() => dummySwap({ roundId: round._id, give, take: dummyTake }));
                 }}
+                onSkip={() => void run(() => dummySwap({ roundId: round._id }))}
               />
             </div>
           )}
@@ -745,6 +788,11 @@ export function Table({ data }: { data: TableData }) {
                     <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}>☠</span>
                   )}
                   {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}>🛡</span>}
+                  {myWard !== null && seats[myWard] && (
+                    <span className="rounded bg-gold-400 px-1 text-[10px] font-semibold text-ink-900" title={t("party.wardHint")}>
+                      🛡 {t("party.guarding", { name: seats[myWard]!.name })}
+                    </span>
+                  )}
                   {me.decision === "out" && phase !== "scored" && <span className="text-cream-100/70">{t("table.out")}</span>}
                   {phase === "scored" && me.delta !== undefined && (
                     <span className={`rounded px-1 font-bold ${me.delta < 0 ? "bg-emerald-400 text-ink-900" : me.delta > 0 ? "bg-heart text-white" : "bg-black/40"}`}>
@@ -781,7 +829,7 @@ export function Table({ data }: { data: TableData }) {
                 trump={trump}
                 trick={(round?.currentTrick as TrickInProgress | undefined) ?? null}
                 canPlay={isMyTurn && phase === "tricks" && me?.decision === "in"}
-                selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || (phase === "pass" && isMyTurn)}
+                selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || ((phase === "pass" || phase === "dummy") && isMyTurn)}
                 selected={selected}
                 onToggle={toggle}
                 onPlay={onPlay}

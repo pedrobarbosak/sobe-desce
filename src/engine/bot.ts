@@ -1,14 +1,32 @@
-import { type Card, type Suit, SUITS, ranksFor, rankValue, suitOf } from "./cards";
+import { type Card, type Suit, SUITS, rankOf, ranksFor, rankValue, suitOf } from "./cards";
 import { canSitOut, legalPlays } from "./legal";
 import { type PowerupAction } from "./party";
 import { type Action, type RoundContext, type RoundState, rulesFor } from "./round";
 import type { RoundRules } from "./rules";
 import { beats, currentWinner } from "./trick";
 
-/** How strong a card is this round: rank, or its mirror image when the low card wins. */
+/**
+ * How strong a card is this round: rank, or its mirror image when the low card wins. A
+ * wild card sits above everything.
+ */
 function power(card: Card, state: RoundState, rules: RoundRules): number {
+  const top = ranksFor(state.deck).length;
+  if (rules.wildRank !== null && rankOf(card) === rules.wildRank) return top + 2;
   const v = rankValue(card, state.deck);
-  return rules.lowWins ? ranksFor(state.deck).length + 1 - v : v;
+  return rules.lowWins ? top + 1 - v : v;
+}
+
+function weakestN(cards: readonly Card[], n: number, state: RoundState, rules: RoundRules): Card[] {
+  return [...cards].sort((a, b) => power(a, state, rules) - power(b, state, rules)).slice(0, n);
+}
+
+function strongestN(cards: readonly Card[], n: number, state: RoundState, rules: RoundRules): Card[] {
+  return [...cards].sort((a, b) => power(b, state, rules) - power(a, state, rules)).slice(0, n);
+}
+
+/** How many cards this seat has to give away in the pass phase. */
+function passCount(rules: RoundRules): number {
+  return rules.market ? 1 : rules.pass?.count ?? 1;
 }
 
 function weakest(cards: readonly Card[], state: RoundState, rules: RoundRules): Card {
@@ -46,7 +64,11 @@ export function autoPlay(state: RoundState, seat: number): Action {
     case "discard":
       return { type: "discard", seat, cards: [] };
     case "pass":
-      return { type: "pass", seat, card: weakest(hand, state, rules) };
+      return { type: "pass", seat, cards: weakestN(hand, passCount(rules), state, rules) };
+    case "market":
+      return { type: "take", seat, card: weakest(state.party!.market, state, rules) };
+    case "dummy":
+      return { type: "dummy", seat };
     case "tricks": {
       const legal = legalPlays(hand, state.currentTrick, state.trump, state.deck, rules);
       return { type: "play", seat, card: weakest(legal, state, rules) };
@@ -100,23 +122,41 @@ export function chooseAction(state: RoundState, seat: number, ctx: RoundContext)
     }
 
     case "pass": {
-      // Spite where it costs nothing: the weakest non-trump goes left. When the round
-      // pays for losing, the strongest card is the one to get rid of.
-      const trump = state.trump;
-      if (rules.avoidTricks) return { type: "pass", seat, card: strongest(hand, state, rules) };
-      const nonTrump = hand.filter((c) => suitOf(c) !== trump);
-      return { type: "pass", seat, card: weakest(nonTrump.length > 0 ? nonTrump : hand, state, rules) };
+      // Spite where it costs nothing: the weakest non-trumps go. When the round pays for
+      // losing, the strongest cards are the ones to get rid of.
+      const n = passCount(rules);
+      if (rules.avoidTricks) return { type: "pass", seat, cards: strongestN(hand, n, state, rules) };
+      const nonTrump = hand.filter((c) => suitOf(c) !== state.trump);
+      const pool = nonTrump.length >= n ? nonTrump : hand;
+      return { type: "pass", seat, cards: weakestN(pool, n, state, rules) };
+    }
+
+    case "market": {
+      const market = state.party!.market;
+      return { type: "take", seat, card: rules.avoidTricks ? weakest(market, state, rules) : strongest(market, state, rules) };
+    }
+
+    case "dummy": {
+      // Trade the worst card in hand for the best on the table, if that is an upgrade.
+      const dummy = state.party!.dummy;
+      if (dummy.length === 0) return { type: "dummy", seat };
+      const give = rules.avoidTricks ? strongest(hand, state, rules) : weakest(hand, state, rules);
+      const take = rules.avoidTricks ? weakest(dummy, state, rules) : strongest(dummy, state, rules);
+      const better = rules.avoidTricks
+        ? power(take, state, rules) < power(give, state, rules)
+        : power(take, state, rules) > power(give, state, rules);
+      return better ? { type: "dummy", seat, give, take } : { type: "dummy", seat };
     }
 
     case "tricks": {
       const trump = state.trump;
       const legal = legalPlays(hand, state.currentTrick, trump, state.deck, rules);
-      const winning = currentWinner(state.currentTrick.plays, trump, state.deck, rules.lowWins);
+      const winning = currentWinner(state.currentTrick.plays, trump, state.deck, rules.lowWins, rules.wildRank);
       if (rules.avoidTricks) {
         // Playing to lose: never take a trick you can duck, and when you cannot, shed
         // the strongest card since it is winning anyway.
         if (!winning) return { type: "play", seat, card: weakest(legal, state, rules) };
-        const losers = legal.filter((c) => !beats(c, winning.card, trump, state.deck, rules.lowWins));
+        const losers = legal.filter((c) => !beats(c, winning.card, trump, state.deck, rules.lowWins, rules.wildRank));
         if (losers.length > 0) return { type: "play", seat, card: strongest(losers, state, rules) };
         return { type: "play", seat, card: strongest(legal, state, rules) };
       }
@@ -126,7 +166,7 @@ export function chooseAction(state: RoundState, seat: number, ctx: RoundContext)
         if (nonTrump.length > 0) return { type: "play", seat, card: strongest(nonTrump, state, rules) };
         return { type: "play", seat, card: weakest(legal, state, rules) };
       }
-      const winners = legal.filter((c) => beats(c, winning.card, trump, state.deck, rules.lowWins));
+      const winners = legal.filter((c) => beats(c, winning.card, trump, state.deck, rules.lowWins, rules.wildRank));
       if (winners.length > 0) return { type: "play", seat, card: weakest(winners, state, rules) };
       return { type: "play", seat, card: weakest(legal, state, rules) };
     }

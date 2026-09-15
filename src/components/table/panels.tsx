@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { CURSE_POINTS, LIGHTNING_SECONDS, MAX_POWERUPS, type Card as CardT, type Powerup, SUITS, SUIT_SYMBOLS, type Suit, type SitOutBlock, type Twist } from "@/engine";
+import { CURSE_POINTS, LIGHTNING_SECONDS, MAX_POWERUPS, type Card as CardT, type PassSpec, type Powerup, type Rank, SUITS, SUIT_SYMBOLS, type Suit, type SitOutBlock, type Twist } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { CardBack, CardFace } from "./Card";
 import type { SeatView } from "./Seat";
@@ -70,29 +70,72 @@ export const POWERUP_ICONS: Record<Powerup, string> = { peek: "👁", curse: "�
 const TWIST_ICONS: Record<Twist, string> = {
   desce: "⬇",
   golden: "★",
-  lastTrick: "×3",
+  lastTrick: "×5",
   blankPays: "0",
   noTrump: "∅",
   openHands: "👁",
-  passLeft: "↰",
+  pass: "⇄",
   allIn: "!",
   lightning: "⚡",
   asDealt: "🎴",
+  swap: "🔀",
+  guardian: "🛡",
+  freeForAll: "✱",
+  wildRank: "🃏",
+  carousel: "🎠",
+  market: "🏪",
+  dummy: "🂠",
+  faceUp: "👁",
 };
+const PASS_ARROWS: Record<PassSpec["direction"], string> = { left: "↰", right: "↱", across: "↕" };
 
 export type PartyView = {
   twist: Twist;
   goldenSuit: Suit | null;
+  pass: PassSpec | null;
+  wildRank: Rank | null;
+  faceUp: (string | null)[];
+  market: string[];
+  marketOrder: number[];
+  dummy: string[];
+  dummyTurn: number;
+  /** Only sent once the round is scored. */
+  guardians: number[] | null;
   shielded: boolean[];
   curses: number[];
   peeks: { seat: number; target: number }[];
   awards: { seat: number; powerup: Powerup }[];
 };
 
+type T = (key: string, opts?: Record<string, unknown>) => string;
+
+/** Interpolation values every twist description may use. */
+export function twistVars(party: PartyView, t: T): Record<string, unknown> {
+  return {
+    suit: party.goldenSuit ? t(`suits.${party.goldenSuit}`).split(" ")[0] : "",
+    seconds: LIGHTNING_SECONDS,
+    rank: party.wildRank ?? "",
+    count: party.pass?.count ?? 1,
+  };
+}
+
+/** The twist's name with its drawn parameter filled in, for chips and banners. */
+export function twistName(party: PartyView, t: T): string {
+  if (party.twist === "pass" && party.pass) return t(`party.passNames.${party.pass.direction}`, { count: party.pass.count });
+  return t(`party.twists.${party.twist}.name`, twistVars(party, t));
+}
+
+function twistIcon(party: PartyView): string {
+  if (party.twist === "golden" && party.goldenSuit) return SUIT_SYMBOLS[party.goldenSuit];
+  if (party.twist === "pass" && party.pass) return PASS_ARROWS[party.pass.direction];
+  if (party.twist === "wildRank" && party.wildRank) return party.wildRank;
+  return TWIST_ICONS[party.twist];
+}
+
 /** The round's twist, flipped face up for everyone before a card is played. */
 export function TwistBanner({ party, compact = false }: { party: PartyView; compact?: boolean }) {
   const { t } = useTranslation();
-  const suit = party.goldenSuit ? t(`suits.${party.goldenSuit}`).split(" ")[0] : "";
+  const tr = t as unknown as T;
   return (
     <motion.div
       initial={{ x: -20, opacity: 0 }}
@@ -102,11 +145,11 @@ export function TwistBanner({ party, compact = false }: { party: PartyView; comp
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🎲 {t("party.twistOfRound")}</p>
       <p className={`font-display font-bold ${compact ? "text-sm" : "text-base"}`}>
         <span className="mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-purple-400/30 px-1 text-xs">
-          {party.twist === "golden" && party.goldenSuit ? SUIT_SYMBOLS[party.goldenSuit] : TWIST_ICONS[party.twist]}
+          {twistIcon(party)}
         </span>
-        {t(`party.twists.${party.twist}.name`)}
+        {twistName(party, tr)}
       </p>
-      {!compact && <p className="max-w-[16rem] text-xs text-cream-100/75">{t(`party.twists.${party.twist}.desc`, { suit, seconds: LIGHTNING_SECONDS })}</p>}
+      {!compact && <p className="max-w-[16rem] text-xs text-cream-100/75">{tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}</p>}
     </motion.div>
   );
 }
@@ -298,35 +341,159 @@ export function DiscardPanel({
   );
 }
 
-/** Party "passLeft": pick one card for the neighbour on the left. */
+/** Party "pass" and "market": pick the cards to give away. */
 export function PassPanel({
-  leftName,
+  spec,
+  market = false,
+  targetName,
   selected,
   busy,
   onPass,
   compact = false,
 }: {
-  leftName: string;
-  selected: CardT | null;
+  spec: PassSpec;
+  /** The cards go to the middle rather than to a seat. */
+  market?: boolean;
+  targetName: string;
+  selected: CardT[];
   busy: boolean;
   onPass: () => void;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
+  const ready = selected.length === spec.count;
   return (
     <motion.div
       initial={{ y: 30, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">↰ {t("party.twists.passLeft.name")}</p>
-      <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>{t("table.passTitle", { name: leftName })}</p>
-      <p className="mt-1 text-xs text-cream-100/60">{t("table.passHint")}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+        {market ? `🏪 ${t("party.twists.market.name")}` : `${PASS_ARROWS[spec.direction]} ${t(`party.passNames.${spec.direction}`, { count: spec.count })}`}
+      </p>
+      <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
+        {market ? t("table.layTitle") : t("table.passTitle", { count: spec.count, name: targetName })}
+      </p>
+      <p className="mt-1 text-xs text-cream-100/60">{market ? t("table.layHint") : t("table.passHint")}</p>
       <div className="mt-3">
-        <Button disabled={busy || selected === null} onClick={onPass}>
-          {selected ? t("table.passCard", { card: selected }) : t("table.passPick")}
+        <Button disabled={busy || !ready} onClick={onPass}>
+          {ready
+            ? market
+              ? t("table.layCard", { card: selected[0] })
+              : t("table.passCards", { cards: selected.join(" ") })
+            : t("table.passPick", { count: spec.count - selected.length })}
         </Button>
       </div>
+    </motion.div>
+  );
+}
+
+/** Party "market": the face-up cards in the middle; the seat on turn takes one back. */
+export function MarketPanel({
+  cards,
+  mine,
+  busy,
+  onTake,
+  compact = false,
+}: {
+  cards: CardT[];
+  /** True while it is the viewer's turn to take. */
+  mine: boolean;
+  busy: boolean;
+  onTake: (card: CardT) => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const width = compact ? 44 : 60;
+  return (
+    <motion.div
+      initial={{ y: 30, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🏪 {t("party.twists.market.name")}</p>
+      <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
+        {mine ? t("table.takeTitle") : t("table.marketWaiting")}
+      </p>
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {cards.map((card) => (
+          <button
+            key={card}
+            type="button"
+            disabled={!mine || busy}
+            onClick={() => onTake(card)}
+            className={`rounded-lg transition ${mine ? "hover:-translate-y-1.5" : "cursor-default"} disabled:opacity-90`}
+            aria-label={card}
+          >
+            <CardFace card={card} width={width} className="shadow-md" />
+          </button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+/** Party "dummy": the spare hand; the seat on turn may swap one card with it or leave it. */
+export function DummyPanel({
+  cards,
+  mine,
+  give,
+  take,
+  busy,
+  onPickTake,
+  onSwap,
+  onSkip,
+  compact = false,
+}: {
+  cards: CardT[];
+  mine: boolean;
+  /** The card selected in the viewer's own hand, if any. */
+  give: CardT | null;
+  /** The card selected on the table, if any. */
+  take: CardT | null;
+  busy: boolean;
+  onPickTake: (card: CardT) => void;
+  onSwap: () => void;
+  onSkip: () => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const width = compact ? 44 : 60;
+  return (
+    <motion.div
+      initial={{ y: 30, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🂠 {t("party.twists.dummy.name")}</p>
+      <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
+        {mine ? t("table.dummyTitle") : t("table.dummyWaiting")}
+      </p>
+      {mine && <p className="mt-1 text-xs text-cream-100/60">{t("table.dummyHint")}</p>}
+      <div className="mt-3 flex flex-wrap justify-center gap-2">
+        {cards.map((card) => (
+          <button
+            key={card}
+            type="button"
+            disabled={!mine || busy}
+            onClick={() => onPickTake(card)}
+            className={`rounded-lg transition ${mine ? "hover:-translate-y-1.5" : "cursor-default"} ${take === card ? "-translate-y-2 ring-2 ring-gold-400" : ""}`}
+            aria-label={card}
+          >
+            <CardFace card={card} width={width} className="shadow-md" />
+          </button>
+        ))}
+      </div>
+      {mine && (
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <Button disabled={busy || give === null || take === null} onClick={onSwap}>
+            {give && take ? t("table.dummySwap", { give, take }) : t("table.dummyPick")}
+          </Button>
+          <Button variant="ghost" disabled={busy} onClick={onSkip}>
+            {t("table.dummySkip")}
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -384,8 +551,17 @@ export function RoundResult({
       )}
       {party && (
         <p className="mt-1 text-xs text-purple-200">
-          🎲 {t(`party.twists.${party.twist}.name`)}
+          🎲 {twistName(party, t as unknown as T)}
         </p>
+      )}
+      {party?.guardians && (
+        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
+          {party.guardians.map((ward, seat) => (
+            <li key={seat} className={seats[seat]?.isMe ? "font-semibold text-gold-400" : ""}>
+              🛡 {t("party.guarded", { name: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", ward: seats[ward]?.isMe ? t("common.you") : seats[ward]?.name ?? "?" })}
+            </li>
+          ))}
+        </ul>
       )}
       {party && party.awards.length > 0 && !gameOver && (
         <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">

@@ -141,7 +141,7 @@
     "randomName": "Nome aleatório",
     "variant": "Regras",
     "variantClassicHint": "As regras clássicas, sem acrescentos.",
-    "variantPartyHint": "Em cada ronda vira-se uma reviravolta à vista de todos: ganha a carta baixa, sem trunfo, cartas à vista, passar uma carta à esquerda, jogadas relâmpago e mais. Jogos mais curtos e mais barulhentos."
+    "variantPartyHint": "Em cada ronda vira-se uma reviravolta à vista de todos: ganha a carta baixa, sem trunfo, passar cartas, trocar mãos, um padrinho secreto, uma carta selvagem, uma feira no meio e mais. Jogos mais curtos e mais barulhentos."
   },
   "join": {
     "title": "Entrar na mesa",
@@ -322,7 +322,11 @@
     "alreadyPeeked": "Já estás a ver essa mão.",
     "alreadyShielded": "Já estás protegido nesta ronda.",
     "sitOutAllIn": "Ninguém passa esta ronda.",
-    "alreadyPassed": "Já passaste uma carta."
+    "alreadyPassed": "Já passaste uma carta.",
+    "wrongPassCount": "Escolhe o número certo de cartas.",
+    "cardNotInMarket": "Essa carta não está no meio.",
+    "cardNotInDummy": "Essa carta não está na mão do morto.",
+    "dummyNeedsBoth": "Escolhe uma carta para dar e uma para levar."
   },
   "table": {
     "round": "Ronda {{n}}",
@@ -452,12 +456,25 @@
     "kickConfirmCampaign": "{{name}} sai da sessão de hoje. Ninguém joga por ele; se já tinha entrado na ronda, as cartas são jogadas até ao fim desta ronda. Continuar?",
     "leaving": "a sair",
     "passing": "{{name}} está a passar uma carta…",
-    "passTitle": "Passa uma carta a {{name}}",
-    "passHint": "Escolhe uma carta da tua mão. Fica com ela até ao fim da ronda.",
-    "passCard": "Passar {{card}}",
-    "passPick": "Escolhe uma carta",
+    "passTitle": "Passa {{count}} carta(s) a {{name}}",
+    "passHint": "Escolhe da tua mão. Ficam com elas até ao fim da ronda.",
+    "passPick": "Falta escolher {{count}}",
     "noDiscards": "Sem trocas nesta ronda: jogas o que te saiu",
-    "playAsDealt": "Jogar como calhou"
+    "playAsDealt": "Jogar como calhou",
+    "passCards": "Passar {{cards}}",
+    "layTitle": "Põe uma carta no meio",
+    "layHint": "Toda a gente a vai ver, e alguém a vai levar.",
+    "layCard": "Pôr {{card}}",
+    "taking": "{{name}} está a levar uma carta…",
+    "takeTitle": "Leva uma carta",
+    "marketWaiting": "À espera que os outros levem…",
+    "swapping": "{{name}} está a ver a mão do morto…",
+    "dummyTitle": "Troca uma carta, ou deixa estar",
+    "dummyHint": "Escolhe uma carta na tua mão e uma na mesa.",
+    "dummyPick": "Escolhe uma de cada",
+    "dummySwap": "Trocar {{give}} por {{take}}",
+    "dummySkip": "Deixar estar",
+    "dummyWaiting": "À espera dos outros…"
   },
   "standings": {
     "title": "Classificação",
@@ -554,8 +571,8 @@
         "desc": "{{suit}} conta a dobrar se for o trunfo."
       },
       "lastTrick": {
-        "name": "Última vaza ×3",
-        "desc": "A quinta vaza vale por três."
+        "name": "Última vaza ×5",
+        "desc": "A quinta vaza vale por cinco: uma ronda perfeita numa só carta."
       },
       "blankPays": {
         "name": "Zero paga",
@@ -569,10 +586,6 @@
         "name": "Cartas à vista",
         "desc": "Todas as mãos ficam à vista assim que o trunfo está decidido."
       },
-      "passLeft": {
-        "name": "Passa à esquerda",
-        "desc": "Depois das trocas, quem está em jogo passa uma carta ao jogador da sua esquerda."
-      },
       "allIn": {
         "name": "Todos jogam",
         "desc": "Ninguém pode passar esta ronda."
@@ -584,6 +597,42 @@
       "asDealt": {
         "name": "Como calhou",
         "desc": "Sem trocas e ninguém passa: jogas exatamente o que te saiu."
+      },
+      "pass": {
+        "name": "Passa",
+        "desc": "Depois das trocas, quem está em jogo passa {{count}} carta(s) à volta da mesa."
+      },
+      "swap": {
+        "name": "Troca de mãos",
+        "desc": "Assim que todos têm cinco cartas, as mãos rodam à volta da mesa. Jogas a mão que saiu a outro."
+      },
+      "guardian": {
+        "name": "Padrinho",
+        "desc": "Cada um apadrinha em segredo outro jogador: vês a mão dele e ficas com o resultado dele, bom ou mau. Quem apadrinhou quem revela-se no fim."
+      },
+      "freeForAll": {
+        "name": "Vale-tudo",
+        "desc": "Não há assistir nem subir: qualquer carta, a qualquer altura. Mandam os trunfos e os ases."
+      },
+      "wildRank": {
+        "name": "{{rank}} selvagem",
+        "desc": "Todos os {{rank}} batem tudo, trunfo incluído. O primeiro a sair fica a ganhar. Nunca és obrigado a jogá-lo."
+      },
+      "carousel": {
+        "name": "Rodízio",
+        "desc": "Depois de cada vaza, o que resta na tua mão passa um lugar para a esquerda."
+      },
+      "market": {
+        "name": "Feira",
+        "desc": "Depois das trocas, cada um põe uma carta à vista no meio e depois leva uma. Quem está mais longe do 0 escolhe primeiro."
+      },
+      "dummy": {
+        "name": "Mão do morto",
+        "desc": "Há uma mão extra à vista no meio. Por ordem, cada jogador pode trocar uma carta com ela."
+      },
+      "faceUp": {
+        "name": "Carta virada",
+        "desc": "Uma carta ao calhas de cada mão fica à vista durante toda a ronda."
       }
     },
     "golden": "×2 ouro",
@@ -613,6 +662,16 @@
     "drew": "{{name}} recebeu {{powerup}}",
     "youDrew": "Recebeste {{powerup}}",
     "used": "{{name}} usou {{powerup}}",
-    "usedOn": "{{name}} usou {{powerup}} em {{target}}"
+    "usedOn": "{{name}} usou {{powerup}} em {{target}}",
+    "passNames": {
+      "left": "Passa {{count}} à esquerda",
+      "right": "Passa {{count}} à direita",
+      "across": "Passa {{count}} em frente"
+    },
+    "ward": "Teu",
+    "wardHint": "Apadrinhas este jogador: vês a mão dele e ficas com o resultado dele.",
+    "guarding": "padrinho de {{name}}",
+    "guarded": "{{name}} apadrinhou {{ward}}",
+    "faceUpCard": "À vista durante toda a ronda"
   }
 }

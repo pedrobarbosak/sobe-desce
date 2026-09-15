@@ -33,7 +33,11 @@ function redactPayload(action: Action): unknown {
     case "play":
       return { card: action.card };
     case "pass":
-      return {}; // the card stays secret: it surfaces in the receiver's hand only
+      return { count: action.cards.length }; // the cards stay secret until they land
+    case "take":
+      return { card: action.card };
+    case "dummy":
+      return { give: action.give ?? null, take: action.take ?? null };
     case "usePowerup":
       return { powerup: action.powerup, target: action.target };
   }
@@ -174,16 +178,35 @@ export const playCard = mutation({
   },
 });
 
-/** Party "passLeft": hand one card to the seat on your left. */
-export const passCard = mutation({
+type CardArg = Action extends { card: infer C } ? C : never;
+
+/** Party "pass" and "market": give away the chosen cards. */
+export const passCards = mutation({
+  args: { roundId: v.id("rounds"), cards: v.array(v.string()) },
+  handler: async (ctx, { roundId, cards }) => {
+    const seat = await mySeat(ctx, roundId);
+    await applyInternal(ctx, { roundId, actor: "user", action: { type: "pass", seat, cards: cards as CardArg[] } });
+  },
+});
+
+/** Party "market": take one card back from the middle. */
+export const takeCard = mutation({
   args: { roundId: v.id("rounds"), card: v.string() },
   handler: async (ctx, { roundId, card }) => {
     const seat = await mySeat(ctx, roundId);
-    await applyInternal(ctx, {
-      roundId,
-      actor: "user",
-      action: { type: "pass", seat, card: card as Action extends { card: infer C } ? C : never },
-    });
+    await applyInternal(ctx, { roundId, actor: "user", action: { type: "take", seat, card: card as CardArg } });
+  },
+});
+
+/** Party "dummy": swap one card with the spare hand, or leave it alone. */
+export const dummySwap = mutation({
+  args: { roundId: v.id("rounds"), give: v.optional(v.string()), take: v.optional(v.string()) },
+  handler: async (ctx, { roundId, give, take }) => {
+    const seat = await mySeat(ctx, roundId);
+    const action: Action = { type: "dummy", seat };
+    if (give !== undefined) action.give = give as CardArg;
+    if (take !== undefined) action.take = take as CardArg;
+    await applyInternal(ctx, { roundId, actor: "user", action });
   },
 });
 

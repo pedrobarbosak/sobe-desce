@@ -1,4 +1,15 @@
-import { type Card, type PartyState, type Powerup, type RoundState, type TrickInProgress, type CompletedTrick, partyRules } from "../../src/engine";
+import {
+  type Card,
+  type PartyState,
+  type Powerup,
+  type Rank,
+  type RoundRules,
+  type RoundState,
+  type TrickInProgress,
+  type CompletedTrick,
+  type Twist,
+  partyRules,
+} from "../../src/engine";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { ConvexError } from "convex/values";
@@ -14,15 +25,38 @@ export type LoadedRound = {
   state: RoundState;
 };
 
+type PartyDoc = NonNullable<Doc<"rounds">["party"]>;
+
 /** The public half of a party round, as stored on the round document. */
-export function partyDoc(party: PartyState): NonNullable<Doc<"rounds">["party"]> {
+export function partyDoc(party: PartyState): PartyDoc {
   return {
     twist: party.twist,
     goldenSuit: party.goldenSuit ?? undefined,
+    pass: party.pass ?? undefined,
+    wildRank: party.wildRank ?? undefined,
+    swapOffset: party.swapOffset,
+    faceUpIndex: party.faceUpIndex,
+    guardians: party.guardians ?? undefined,
+    faceUp: party.faceUp,
+    market: party.market,
+    marketOrder: party.marketOrder,
+    dummy: party.dummy,
+    dummyTurn: party.dummyTurn,
     shielded: party.shielded,
     curses: party.curses,
     peeks: party.peeks,
   };
+}
+
+/** The twist as the engine knows it; `passLeft` is the old name of a one-card pass. */
+function twistOf(doc: PartyDoc): Pick<PartyState, "twist" | "pass" | "wildRank"> {
+  if (doc.twist === "passLeft") return { twist: "pass", pass: { count: 1, direction: "left" }, wildRank: null };
+  return { twist: doc.twist as Twist, pass: doc.pass ?? null, wildRank: (doc.wildRank as Rank | undefined) ?? null };
+}
+
+/** The rules a stored party round plays by. */
+export function rulesOfDoc(doc: PartyDoc | undefined): RoundRules | null {
+  return doc ? partyRules(twistOf(doc)) : null;
 }
 
 export function toEngineState(
@@ -36,7 +70,7 @@ export function toEngineState(
   const handBySeat: Card[][] = Array.from({ length: session.seatCount }, () => []);
   for (const h of hands) handBySeat[h.seat] = h.cards as Card[];
   // A twist may cap the discards for the round; the sitting's cap is the fallback.
-  const maxDiscard = (round.party ? partyRules(round.party).maxDiscard : null) ?? session.maxDiscard;
+  const maxDiscard = rulesOfDoc(round.party)?.maxDiscard ?? session.maxDiscard;
   return {
     deck: game.config.deck,
     seatCount: session.seatCount,
@@ -61,13 +95,26 @@ export function toEngineState(
     deltas: round.deltas ?? null,
     party: round.party
       ? {
-          twist: round.party.twist,
+          ...twistOf(round.party),
           goldenSuit: round.party.goldenSuit ?? null,
+          swapOffset: round.party.swapOffset ?? 0,
+          faceUpIndex: round.party.faceUpIndex ?? Array.from({ length: session.seatCount }, () => 0),
+          guardians: round.party.guardians ?? null,
+          faceUp: (round.party.faceUp as (Card | null)[] | undefined) ?? Array.from({ length: session.seatCount }, () => null),
+          market: (round.party.market as Card[] | undefined) ?? [],
+          marketOrder: round.party.marketOrder ?? [],
+          dummy: (round.party.dummy as Card[] | undefined) ?? [],
+          dummyTurn: round.party.dummyTurn ?? 0,
           inventory: Array.from({ length: session.seatCount }, (_, seat) => [...((players[seat]?.powerups ?? []) as Powerup[])]),
           shielded: round.party.shielded,
           curses: round.party.curses,
           peeks: round.party.peeks,
-          passes: Array.from({ length: session.seatCount }, (_, seat) => (secrets.passes?.[seat] as Card | null | undefined) ?? null),
+          passes: Array.from({ length: session.seatCount }, (_, seat) => {
+            const stored = secrets.passes?.[seat];
+            // Rounds from before passes could carry several cards stored one string.
+            if (stored === undefined || stored === null) return null;
+            return (typeof stored === "string" ? [stored] : stored) as Card[];
+          }),
         }
       : null,
   };
@@ -139,9 +186,9 @@ export async function persistRound(ctx: MutationCtx, loaded: LoadedRound, next: 
       await ctx.db.patch(h._id, { cards });
     }
   }
-  const passesBefore = secrets.passes ?? [];
+  const passesBefore = loaded.state.party?.passes ?? [];
   const passesAfter = next.party?.passes ?? [];
-  const passesChanged = passesAfter.some((c, i) => c !== (passesBefore[i] ?? null));
+  const passesChanged = passesAfter.some((c, i) => JSON.stringify(c) !== JSON.stringify(passesBefore[i] ?? null));
   if (next.drawPile.length !== secrets.drawPile.length || passesChanged) {
     await ctx.db.patch(secrets._id, { drawPile: next.drawPile, passes: next.party ? next.party.passes : undefined });
   }

@@ -1,3 +1,9 @@
+import type { Rank } from "./cards";
+
+export type PassDirection = "left" | "right" | "across";
+/** How many cards go, and which way round the ring of seats still in the round. */
+export type PassSpec = { count: number; direction: PassDirection };
+
 /**
  * What the core reducer asks about the round it is running. Classic play answers with
  * fixed defaults; the party variant derives its answers from the round's twist. Keeping
@@ -14,12 +20,28 @@ export type RoundRules = {
   allIn: boolean;
   /** Discard cap for the round; null keeps the table's. */
   maxDiscard: number | null;
-  /** After the discards, everyone still in passes one card to their left. */
-  passLeft: boolean;
   /** Seconds per turn; null keeps the table's clock. */
   turnSeconds: number | null;
   /** Every hand is face up once the trump is settled. Enforced by the server. */
   openHands: boolean;
+  /** After the discards, everyone still in passes cards around the ring. */
+  pass: PassSpec | null;
+  /** After the discards, everyone lays one card face up and then takes one back in turn. */
+  market: boolean;
+  /** A spare face-up hand that each player may swap one card with before the tricks. */
+  dummy: boolean;
+  /** Hands rotate between seats as soon as everyone holds five. */
+  swapHands: boolean;
+  /** After every trick, each remaining hand moves one seat to the left. */
+  carousel: boolean;
+  /** One random card of every hand is face up for the round. */
+  faceUp: boolean;
+  /** No follow-suit and no climb rule: any card, any time. */
+  freeForAll: boolean;
+  /** Cards of this rank beat everything, trump included; the first one played wins ties. */
+  wildRank: Rank | null;
+  /** Each seat is secretly assigned another and scores that seat's delta. */
+  guardian: boolean;
 };
 
 export const CLASSIC_RULES: RoundRules = {
@@ -28,7 +50,15 @@ export const CLASSIC_RULES: RoundRules = {
   noTrump: false,
   allIn: false,
   maxDiscard: null,
-  passLeft: false,
   turnSeconds: null,
   openHands: false,
+  pass: null,
+  market: false,
+  dummy: false,
+  swapHands: false,
+  carousel: false,
+  faceUp: false,
+  freeForAll: false,
+  wildRank: null,
+  guardian: false,
 };

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import { currentUser } from "../lib/auth";
+import { rulesOfDoc } from "./state";
 
 /**
  * Everything the live table needs, computed per caller. Other players' hands never leave
@@ -24,6 +25,7 @@ export const get = query({
         mySeat: -1,
         myHand: null,
         myPowerups: [],
+        myWard: null,
         inTheDark: false,
         openHands: null,
         serverNow: Date.now(),
@@ -64,10 +66,14 @@ export const get = query({
     // with a seated player one message away.
     const iAmOut = mySeat >= 0 && round?.participants[mySeat]?.decision === "out";
     const tricksVisible = round?.phase === "tricks" || round?.phase === "scored";
-    // Party: a peek opens one chosen hand to the peeker for the rest of the round, and the
-    // "openHands" twist opens every hand to every seated player once the trump is settled.
+    // Party: a peek opens one chosen hand to the peeker for the rest of the round, a
+    // guardian sees their ward's hand, and the "openHands" knob opens every hand to every
+    // seated player. All of it only once the trump is settled.
+    const rules = rulesOfDoc(round?.party);
     const peeked = new Set(round?.party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []);
-    const allOpen = round !== null && mySeat >= 0 && round.party?.twist === "openHands" && round.phase !== "trump";
+    const myWard = mySeat >= 0 ? round?.party?.guardians?.[mySeat] ?? null : null;
+    if (myWard !== null && myWard !== mySeat && round?.phase !== "trump") peeked.add(myWard);
+    const allOpen = round !== null && mySeat >= 0 && rules?.openHands === true && round.phase !== "trump";
     let openHands: { seat: number; cards: string[] }[] | null = null;
     if (round && ((iAmOut && tricksVisible) || peeked.size > 0 || allOpen)) {
       const all = await ctx.db
@@ -141,8 +147,17 @@ export const get = query({
             deltas: round.deltas ?? null,
             party: round.party
               ? {
-                  twist: round.party.twist,
+                  twist: round.party.twist === "passLeft" ? ("pass" as const) : round.party.twist,
                   goldenSuit: round.party.goldenSuit ?? null,
+                  pass: round.party.pass ?? (round.party.twist === "passLeft" ? { count: 1, direction: "left" as const } : null),
+                  wildRank: round.party.wildRank ?? null,
+                  faceUp: round.party.faceUp ?? [],
+                  market: round.party.market ?? [],
+                  marketOrder: round.party.marketOrder ?? [],
+                  dummy: round.party.dummy ?? [],
+                  dummyTurn: round.party.dummyTurn ?? 0,
+                  // Who guarded whom is the round's reveal: it stays hidden until scored.
+                  guardians: round.phase === "scored" ? round.party.guardians ?? null : null,
                   shielded: round.party.shielded,
                   curses: round.party.curses,
                   peeks: round.party.peeks,
@@ -158,6 +173,7 @@ export const get = query({
       mySeat,
       myHand,
       myPowerups,
+      myWard,
       inTheDark,
       openHands,
       serverNow: now,

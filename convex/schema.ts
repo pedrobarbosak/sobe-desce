@@ -161,8 +161,8 @@ export default defineSchema({
     /** Rounds dealt before the shuffle widened to 128 bits stored a number. */
     seed: v.union(v.string(), v.number()),
     drawPile: v.array(v.string()),
-    /** Party "passLeft": cards chosen but not yet delivered, by seat. */
-    passes: v.optional(v.array(v.union(v.string(), v.null()))),
+    /** Party "pass" and "market": cards chosen but not yet delivered, by seat. */
+    passes: v.optional(v.array(v.union(v.array(v.string()), v.string(), v.null()))),
   }).index("by_round", ["roundId"]),
 
   /** Per-round action log; payloads are redacted at write time. */

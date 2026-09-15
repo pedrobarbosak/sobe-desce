@@ -1,4 +1,4 @@
-import { type Card, type DeckSize, type Suit, rankValue, suitOf } from "./cards";
+import { type Card, type DeckSize, type Rank, type Suit, rankOf, rankValue, suitOf } from "./cards";
 
 export type Play = { seat: number; card: Card };
 export type TrickInProgress = { leader: number; plays: Play[] };
@@ -19,6 +19,7 @@ export function currentWinner(
   trump: Suit | null,
   deck: DeckSize,
   lowWins = false,
+  wildRank: Rank | null = null,
 ): Play | undefined {
   const led = ledSuit(plays);
   if (!led) return undefined;
@@ -28,7 +29,7 @@ export function currentWinner(
       best = play;
       continue;
     }
-    if (beats(play.card, best.card, trump, deck, lowWins)) best = play;
+    if (beats(play.card, best.card, trump, deck, lowWins, wildRank)) best = play;
   }
   return best;
 }
@@ -38,7 +39,19 @@ export function currentWinner(
  * suit the higher rank wins; a non-trump of a different suit never wins. With no trump
  * (party "Sem trunfo") only the led suit can win.
  */
-export function beats(candidate: Card, incumbent: Card, trump: Suit | null, deck: DeckSize, lowWins = false): boolean {
+export function beats(
+  candidate: Card,
+  incumbent: Card,
+  trump: Suit | null,
+  deck: DeckSize,
+  lowWins = false,
+  wildRank: Rank | null = null,
+): boolean {
+  if (wildRank !== null) {
+    // Party "wildRank": the rank beats everything, and the first one played holds.
+    if (rankOf(incumbent) === wildRank) return false;
+    if (rankOf(candidate) === wildRank) return true;
+  }
   const cs = suitOf(candidate);
   const is = suitOf(incumbent);
   if (cs === is) {
@@ -49,8 +62,14 @@ export function beats(candidate: Card, incumbent: Card, trump: Suit | null, deck
   return cs === trump;
 }
 
-export function trickWinner(plays: readonly Play[], trump: Suit | null, deck: DeckSize, lowWins = false): number {
-  const winner = currentWinner(plays, trump, deck, lowWins);
+export function trickWinner(
+  plays: readonly Play[],
+  trump: Suit | null,
+  deck: DeckSize,
+  lowWins = false,
+  wildRank: Rank | null = null,
+): number {
+  const winner = currentWinner(plays, trump, deck, lowWins, wildRank);
   if (!winner) throw new Error("Cannot resolve an empty trick");
   return winner.seat;
 }

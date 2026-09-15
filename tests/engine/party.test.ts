@@ -6,6 +6,7 @@ import {
   type RoundState,
   type Twist,
   CLASSIC_RULES,
+  LAST_TRICK_WEIGHT,
   LIGHTNING_SECONDS,
   POWERUPS_ENABLED,
   TWISTS,
@@ -17,6 +18,7 @@ import {
   createRound,
   legalPlays,
   partyDeltas,
+  partyRules,
   redact,
   rngFromSeed,
   rulesFor,
@@ -31,7 +33,7 @@ function make(seed: string | number = 1, inventory: PartyState["inventory"] = []
 
 /** The first seed whose round carries the twist, so each test pins its own weather. */
 function seedFor(twist: Twist): string {
-  for (let i = 0; i < 500; i++) if (make(i).party!.twist === twist) return String(i);
+  for (let i = 0; i < 3000; i++) if (make(i).party!.twist === twist) return String(i);
   throw new Error(`no seed draws ${twist}`);
 }
 
@@ -59,6 +61,16 @@ function party(over: Partial<PartyState> = {}): PartyState {
   return {
     twist: "golden",
     goldenSuit: null,
+    pass: null,
+    wildRank: null,
+    swapOffset: 0,
+    faceUpIndex: [0, 0, 0, 0],
+    guardians: null,
+    faceUp: [null, null, null, null],
+    market: [],
+    marketOrder: [],
+    dummy: [],
+    dummyTurn: 0,
     inventory: [[], [], [], []],
     shielded: [false, false, false, false],
     curses: [0, 0, 0, 0],
@@ -76,6 +88,13 @@ describe("party rounds", () => {
     expect(classic.party).toBeNull();
     expect(rulesFor(classic)).toEqual(CLASSIC_RULES);
     for (const twist of TWISTS) expect(make(seedFor(twist)).party!.twist).toBe(twist);
+  });
+
+  it("shelved twists keep their rules but are never drawn", () => {
+    expect(TWISTS).not.toContain("openHands");
+    expect(TWISTS).not.toContain("allIn");
+    expect(partyRules({ twist: "openHands", pass: null, wildRank: null }).openHands).toBe(true);
+    expect(partyRules({ twist: "allIn", pass: null, wildRank: null }).allIn).toBe(true);
   });
 
   it("deals the same cards as a classic round from the same seed", () => {
@@ -165,24 +184,42 @@ describe("no trump", () => {
   });
 });
 
-describe("pass left", () => {
-  it("adds a pass phase after the discards and delivers every card one seat clockwise", () => {
-    const fresh = make(seedFor("passLeft"));
-    let s = step(fresh, { type: "nameTrump", seat: 1, suit: "S" });
-    for (const seat of [1, 2, 3]) s = step(s, { type: "discard", seat, cards: [] });
-    s = step(s, { type: "sitOut", seat: 0 });
-    expect(s.phase).toBe("pass");
+/** Trump named, everybody in, and the pass phase reached with the given spec. */
+function inPass(seed: string, spec: { count: number; direction: "left" | "right" | "across" }, sitOut: number[] = []): RoundState {
+  let s = step(make(seed), { type: "nameTrump", seat: 1, suit: "S" });
+  s.party!.pass = spec;
+  for (const seat of [1, 2, 3, 0]) {
+    s = sitOut.includes(seat) ? step(s, { type: "sitOut", seat }) : step(s, { type: "discard", seat, cards: [] });
+  }
+  expect(s.phase).toBe("pass");
+  return s;
+}
+
+describe("pass", () => {
+  it("is drawn with a count and a direction", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 3000 && seen.size < 6; i++) {
+      const p = make(i).party!;
+      if (p.twist === "pass") seen.add(`${p.pass!.count}${p.pass!.direction}`);
+    }
+    expect([...seen].sort()).toEqual(["1across", "1left", "1right", "2across", "2left", "2right"]);
+  });
+
+  it("left: one card each, round the ring of seats still in, skipping whoever sat out", () => {
+    const seed = seedFor("pass");
+    let s = inPass(seed, { count: 1, direction: "left" }, [0]);
     expect(s.turnSeat).toBe(1);
     expectError(s, { type: "play", seat: 1, card: s.hands[1]![0]! }, "wrongPhase");
-    expectError(s, { type: "pass", seat: 2, card: s.hands[2]![0]! }, "notYourTurn");
+    expectError(s, { type: "pass", seat: 2, cards: [s.hands[2]![0]!] }, "notYourTurn");
+    expectError(s, { type: "pass", seat: 1, cards: s.hands[1]!.slice(0, 2) }, "wrongPassCount");
     const given = [s.hands[1]![0]!, s.hands[2]![0]!, s.hands[3]![0]!];
-    s = step(s, { type: "pass", seat: 1, card: given[0]! });
+    s = step(s, { type: "pass", seat: 1, cards: [given[0]!] });
     expect(s.hands[1]).toHaveLength(4);
     expect(redact(s).party!.passed).toEqual([false, true, false, false]);
     expect(redact(s).party).not.toHaveProperty("passes");
     expect(s.turnSeat).toBe(2);
-    s = step(s, { type: "pass", seat: 2, card: given[1]! });
-    s = step(s, { type: "pass", seat: 3, card: given[2]! });
+    s = step(s, { type: "pass", seat: 2, cards: [given[1]!] });
+    s = step(s, { type: "pass", seat: 3, cards: [given[2]!] });
     // Seat 0 sat out, so seat 3's card skips it and lands with seat 1.
     expect(s.phase).toBe("tricks");
     expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
@@ -193,19 +230,249 @@ describe("pass left", () => {
     expect(s.turnSeat).toBe(1);
   });
 
-  it("the timer passes the weakest card and bots pass their worst non-trump", () => {
-    const fresh = make(seedFor("passLeft"));
-    let s = step(fresh, { type: "nameTrump", seat: 1, suit: "S" });
-    for (const seat of [1, 2, 3, 0]) s = step(s, { type: "discard", seat, cards: [] });
+  it("right and across: two cards each, the other way and half the ring", () => {
+    const seed = seedFor("pass");
+    let s = inPass(seed, { count: 2, direction: "right" });
+    const given = [1, 2, 3, 0].map((seat) => s.hands[seat]!.slice(0, 2));
+    for (const [i, seat] of [1, 2, 3, 0].entries()) s = step(s, { type: "pass", seat, cards: given[i]! });
+    // Ring is 1,2,3,0: right of 1 is 0, right of 2 is 1, and so on.
+    expect(s.hands[0]).toEqual(expect.arrayContaining(given[0]!));
+    expect(s.hands[1]).toEqual(expect.arrayContaining(given[1]!));
+    expect(s.hands[2]).toEqual(expect.arrayContaining(given[2]!));
+    expect(s.hands[3]).toEqual(expect.arrayContaining(given[3]!));
+    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+
+    s = inPass(seed, { count: 2, direction: "across" });
+    const across = [1, 2, 3, 0].map((seat) => s.hands[seat]!.slice(0, 2));
+    for (const [i, seat] of [1, 2, 3, 0].entries()) s = step(s, { type: "pass", seat, cards: across[i]! });
+    expect(s.hands[3]).toEqual(expect.arrayContaining(across[0]!));
+    expect(s.hands[0]).toEqual(expect.arrayContaining(across[1]!));
+    expect(s.hands[1]).toEqual(expect.arrayContaining(across[2]!));
+    expect(s.hands[2]).toEqual(expect.arrayContaining(across[3]!));
+  });
+
+  it("across an odd ring is simply a longer step", () => {
+    const seed = seedFor("pass");
+    let s = inPass(seed, { count: 1, direction: "across" }, [0]);
+    const given = [1, 2, 3].map((seat) => s.hands[seat]![0]!);
+    for (const [i, seat] of [1, 2, 3].entries()) s = step(s, { type: "pass", seat, cards: [given[i]!] });
+    // Ring 1,2,3: floor(3/2) = 1 step.
+    expect(s.hands[2]).toContain(given[0]);
+    expect(s.hands[3]).toContain(given[1]);
+    expect(s.hands[1]).toContain(given[2]);
+  });
+
+  it("the timer passes the weakest cards and bots pass their worst non-trumps", () => {
+    const s = inPass(seedFor("pass"), { count: 2, direction: "left" });
     s.hands[1] = ["2S", "AH", "3D", "KC", "7H"];
-    expect(autoPlay(s, 1)).toEqual({ type: "pass", seat: 1, card: "2S" });
-    expect(chooseAction(s, 1, ctx)).toEqual({ type: "pass", seat: 1, card: "3D" });
+    expect(autoPlay(s, 1)).toEqual({ type: "pass", seat: 1, cards: ["2S", "3D"] });
+    expect(chooseAction(s, 1, ctx)).toEqual({ type: "pass", seat: 1, cards: ["3D", "KC"] });
+  });
+});
+
+describe("market", () => {
+  it("everyone lays one card face up, then takes one back, furthest from zero first", () => {
+    let s = step(make(seedFor("market")), { type: "nameTrump", seat: 1, suit: "S" });
+    for (const seat of [1, 2, 3, 0]) s = step(s, { type: "discard", seat, cards: [] });
+    expect(s.phase).toBe("pass");
+    const laid = [1, 2, 3, 0].map((seat) => s.hands[seat]![0]!);
+    const scores = { ...ctx, scores: [10, 20, 15, 5] };
+    for (const [i, seat] of [1, 2, 3, 0].entries()) s = step(s, { type: "pass", seat, cards: [laid[i]!] }, scores);
+    expect(s.phase).toBe("market");
+    expect(redact(s).party!.market).toEqual(expect.arrayContaining(laid));
+    expect(s.party!.marketOrder).toEqual([1, 2, 0, 3]);
+    expect(s.turnSeat).toBe(1);
+    expectError(s, { type: "take", seat: 1, card: s.hands[1]![0]! }, "cardNotInMarket");
+    expectError(s, { type: "take", seat: 2, card: laid[0]! }, "notYourTurn");
+    // Seat 1 takes back somebody else's card; the pile shrinks; seat 2 is next.
+    s = step(s, { type: "take", seat: 1, card: laid[3]! });
+    expect(s.hands[1]).toContain(laid[3]);
+    expect(s.party!.market).toHaveLength(3);
+    expect(s.turnSeat).toBe(2);
+    s = step(s, { type: "take", seat: 2, card: laid[0]! });
+    expect(s.turnSeat).toBe(0);
+    s = step(s, { type: "take", seat: 0, card: laid[1]! });
+    expect(s.turnSeat).toBe(3);
+    s = step(s, { type: "take", seat: 3, card: laid[2]! });
+    expect(s.phase).toBe("tricks");
+    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+    expect(s.party!.market).toEqual([]);
+  });
+
+  it("bots take the strongest card, the timer the weakest", () => {
+    let s = step(make(seedFor("market")), { type: "nameTrump", seat: 1, suit: "S" });
+    for (const seat of [1, 2, 3, 0]) s = step(s, { type: "discard", seat, cards: [] });
+    for (const seat of [1, 2, 3, 0]) s = step(s, { type: "pass", seat, cards: [s.hands[seat]![0]!] });
+    s.party!.market = ["2H", "AS", "5D", "KC"];
+    expect(chooseAction(s, s.turnSeat!, ctx)).toEqual({ type: "take", seat: s.turnSeat, card: "AS" });
+    expect(autoPlay(s, s.turnSeat!)).toEqual({ type: "take", seat: s.turnSeat, card: "2H" });
+  });
+});
+
+describe("dummy", () => {
+  it("deals a spare hand face up that each seat may swap one card with, in turn", () => {
+    let s = step(make(seedFor("dummy")), { type: "nameTrump", seat: 1, suit: "S" });
+    for (const seat of [1, 2, 3]) s = step(s, { type: "discard", seat, cards: [] });
+    s = step(s, { type: "sitOut", seat: 0 });
+    expect(s.phase).toBe("dummy");
+    expect(s.party!.dummy).toHaveLength(5);
+    expect(s.drawPile).toHaveLength(40 - 20 - 5);
+    expect(s.turnSeat).toBe(1);
+    const mine = s.hands[1]![0]!;
+    const theirs = s.party!.dummy[0]!;
+    expectError(s, { type: "dummy", seat: 1, give: mine }, "dummyNeedsBoth");
+    expectError(s, { type: "dummy", seat: 1, give: mine, take: mine }, "cardNotInDummy");
+    expectError(s, { type: "dummy", seat: 1, give: theirs, take: theirs }, "cardNotInHand");
+    s = step(s, { type: "dummy", seat: 1, give: mine, take: theirs });
+    expect(s.hands[1]).toContain(theirs);
+    expect(s.hands[1]).not.toContain(mine);
+    expect(s.party!.dummy).toContain(mine);
+    expect(s.party!.dummy).toHaveLength(5);
+    expect(s.turnSeat).toBe(2);
+    s = step(s, { type: "dummy", seat: 2 });
+    expect(s.turnSeat).toBe(3);
+    s = step(s, { type: "dummy", seat: 3 });
+    // Seat 0 sat out, so the tricks start after three goes.
+    expect(s.phase).toBe("tricks");
+    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+  });
+
+  it("bots upgrade their worst card when the table offers better; the timer leaves it", () => {
+    let s = step(make(seedFor("dummy")), { type: "nameTrump", seat: 1, suit: "S" });
+    for (const seat of [1, 2, 3, 0]) s = step(s, { type: "discard", seat, cards: [] });
+    s.hands[1] = ["2H", "3D", "4C", "5H", "6D"];
+    s.party!.dummy = ["AS", "2D", "3C", "4H", "5D"];
+    expect(chooseAction(s, 1, ctx)).toEqual({ type: "dummy", seat: 1, give: "2H", take: "AS" });
+    expect(autoPlay(s, 1)).toEqual({ type: "dummy", seat: 1 });
+    s.party!.dummy = ["2D", "2C"];
+    expect(chooseAction(s, 1, ctx)).toEqual({ type: "dummy", seat: 1 });
+  });
+});
+
+describe("swap, carousel, face up", () => {
+  it("swap: every hand moves round the table as soon as everyone holds five", () => {
+    const fresh = make(seedFor("swap"));
+    const offset = fresh.party!.swapOffset;
+    expect(offset).toBeGreaterThanOrEqual(1);
+    expect(offset).toBeLessThanOrEqual(3);
+    const s = step(fresh, { type: "nameTrump", seat: 1, suit: "S" });
+    // The first three cards of what each seat was dealt are now `offset` seats along.
+    const ring = [1, 2, 3, 0];
+    ring.forEach((seat, i) => {
+      const receiver = ring[(i + offset) % 4]!;
+      expect(s.hands[receiver]!.slice(0, 3)).toEqual(fresh.hands[seat]);
+    });
+    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+  });
+
+  it("carousel: after each trick but the last, the remaining hands move one seat left", () => {
+    let s = inTricks(make(seedFor("carousel")));
+    s.hands = [
+      ["5S", "AH", "KD", "QC", "6H"],
+      ["2S", "7H", "3H", "4D", "JC"],
+      ["AS", "QH", "5H", "6D", "KC"],
+      ["3S", "4H", "2H", "7D", "AC"],
+    ];
+    s = step(s, { type: "play", seat: 1, card: "7H" });
+    s = step(s, { type: "play", seat: 2, card: "QH" });
+    s = step(s, { type: "play", seat: 3, card: "4H" });
+    s = step(s, { type: "play", seat: 0, card: "AH" });
+    expect(s.completedTricks[0]!.winner).toBe(0);
+    // Ring is 1,2,3,0: seat 1's leftovers went to 2, 2's to 3, 3's to 0, 0's to 1.
+    expect(s.hands[2]).toEqual(["2S", "3H", "4D", "JC"]);
+    expect(s.hands[3]).toEqual(["AS", "5H", "6D", "KC"]);
+    expect(s.hands[0]).toEqual(["3S", "2H", "7D", "AC"]);
+    expect(s.hands[1]).toEqual(["5S", "KD", "QC", "6H"]);
+    expect(s.turnSeat).toBe(0);
+  });
+
+  it("face up: one card per hand shows from the first trick until it is played", () => {
+    let s = inTricks(make(seedFor("faceUp")));
+    const shown = s.party!.faceUp;
+    for (const seat of [0, 1, 2, 3]) expect(s.hands[seat]).toContain(shown[seat]);
+    expect(redact(s).party!.faceUp).toEqual(shown);
+    const leader = s.turnSeat!;
+    const legal = legalPlays(s.hands[leader]!, s.currentTrick, s.trump, 40, rulesFor(s));
+    if (legal.includes(shown[leader]!)) {
+      s = step(s, { type: "play", seat: leader, card: shown[leader]! });
+      expect(s.party!.faceUp[leader]).toBeNull();
+    }
+  });
+});
+
+describe("free-for-all and wild rank", () => {
+  it("free-for-all: any card, any time; the trick still goes to trump or the led suit", () => {
+    let s = inTricks(make(seedFor("freeForAll")));
+    s.hands = [
+      ["5S", "AH", "KD", "QC", "6H"],
+      ["2S", "7H", "3H", "4D", "JC"],
+      ["AS", "QH", "5H", "6D", "KC"],
+      ["3S", "4H", "2H", "7D", "AC"],
+    ];
+    s = step(s, { type: "play", seat: 1, card: "7H" });
+    expect(legalPlays(s.hands[2]!, s.currentTrick, "S", 40, rulesFor(s))).toHaveLength(5);
+    s = step(s, { type: "play", seat: 2, card: "6D" });
+    s = step(s, { type: "play", seat: 3, card: "AC" });
+    s = step(s, { type: "play", seat: 0, card: "5S" });
+    expect(s.completedTricks[0]!.winner).toBe(0);
+  });
+
+  it("wild rank: beats everything, first one played holds, never forced, always allowed", () => {
+    let s = inTricks(make(seedFor("wildRank")));
+    const rank = s.party!.wildRank!;
+    expect(rank).not.toBe("A");
+    s.party!.wildRank = "4";
+    s.hands = [
+      ["4S", "AH", "KD", "QC", "6H"],
+      ["4H", "7H", "3H", "4D", "JC"],
+      ["AS", "QH", "5H", "6D", "KC"],
+      ["3S", "4C", "2H", "7D", "AC"],
+    ];
+    // Leading: the Ace of trumps rule still binds, but a wild card may go instead.
+    expect(legalPlays(s.hands[2]!, { leader: 2, plays: [] }, "S", 40, rulesFor(s))).toEqual(["AS"]);
+    expect(legalPlays(["AS", "4H"], { leader: 2, plays: [] }, "S", 40, rulesFor(s))).toEqual(["AS", "4H"]);
+    s = step(s, { type: "play", seat: 1, card: "7H" });
+    // Seat 2 holds QH and 5H, neither above a 7, and no wilds: follow suit as usual.
+    expect(legalPlays(s.hands[2]!, s.currentTrick, "S", 40, rulesFor(s))).toEqual(["QH", "5H"]);
+    s = step(s, { type: "play", seat: 2, card: "QH" });
+    // Seat 3 has 2H (cannot climb) and a wild 4C: both allowed, the wild is not forced.
+    expect(legalPlays(s.hands[3]!, s.currentTrick, "S", 40, rulesFor(s))).toEqual(["2H", "4C"]);
+    s = step(s, { type: "play", seat: 3, card: "4C" });
+    // Seat 0 holds AH and the wild 4S: the Ace no longer beats a wild, so hearts are free,
+    // and a second wild cannot take the trick from the first.
+    expect(legalPlays(s.hands[0]!, s.currentTrick, "S", 40, rulesFor(s))).toEqual(["AH", "6H", "4S"]);
+    s = step(s, { type: "play", seat: 0, card: "4S" });
+    expect(s.completedTricks[0]!.winner).toBe(3);
+    expect(chooseAction(s, 3, ctx).type).toBe("play");
+  });
+});
+
+describe("guardian", () => {
+  it("assigns one big cycle and hands every seat its ward's delta", () => {
+    const fresh = make(seedFor("guardian"));
+    const g = fresh.party!.guardians!;
+    expect(g).toHaveLength(4);
+    g.forEach((ward, seat) => expect(ward).not.toBe(seat));
+    // One cycle: walking the assignments visits everyone before coming home.
+    const visited = new Set<number>();
+    for (let seat = 0, i = 0; i < 4; i++, seat = g[seat]!) visited.add(seat);
+    expect(visited.size).toBe(4);
+    // Hidden from the table at large, visible to the guardian as an open hand.
+    expect(redact(fresh).party).not.toHaveProperty("guardians");
+    expect(viewFor(fresh, 0).peeked).toEqual([{ seat: g[0], cards: fresh.hands[g[0]!] }]);
+
+    const p = party({ twist: "guardian", guardians: [1, 2, 3, 0] });
+    const seats = [...allIn([3, 0, 2]), { decision: "out" as const, tricksWon: 0 }];
+    // Own deltas would be [-3, 5, -2, 0]; each seat takes the next one's.
+    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([5, -2, 0, -3]);
   });
 });
 
 describe("all in, as dealt, lightning, open hands", () => {
   it("all in: nobody may sit out", () => {
-    let s = step(make(seedFor("allIn")), { type: "flipTrump", seat: 1 });
+    const fresh = make(seedFor("golden"));
+    fresh.party!.twist = "allIn";
+    let s = step(fresh, { type: "flipTrump", seat: 1 });
     expectError(s, { type: "sitOut", seat: 1 }, "sitOutAllIn");
     s = step(s, { type: "discard", seat: 1, cards: [] });
     expect(chooseAction(s, 2, ctx).type).toBe("discard");
@@ -222,7 +489,7 @@ describe("all in, as dealt, lightning, open hands", () => {
 
   it("lightning and open hands only answer the rules questions the server asks", () => {
     expect(rulesFor(make(seedFor("lightning")))).toEqual({ ...CLASSIC_RULES, turnSeconds: LIGHTNING_SECONDS });
-    expect(rulesFor(make(seedFor("openHands")))).toEqual({ ...CLASSIC_RULES, openHands: true });
+    expect(partyRules({ twist: "openHands", pass: null, wildRank: null })).toEqual({ ...CLASSIC_RULES, openHands: true });
     expect(rulesFor(make(seedFor("golden")))).toEqual(CLASSIC_RULES);
   });
 
@@ -240,11 +507,12 @@ describe("party scoring", () => {
     expect(partyDeltas({ ...base, party: p, trump: "D", seats: allIn([2, 3, 0, 0]) })).toEqual([-2, -3, 5, 5]);
   });
 
-  it("last trick: the fifth trick is worth three", () => {
+  it("last trick: the fifth trick is worth five", () => {
+    expect(LAST_TRICK_WEIGHT).toBe(5);
     const p = party({ twist: "lastTrick" });
     const fifth = { leader: 0, plays: [], winner: 2 };
     const tricks = [fifth, fifth, fifth, fifth, fifth];
-    expect(partyDeltas({ ...base, party: p, completedTricks: tricks, seats: allIn([0, 0, 5, 0]) })).toEqual([5, 5, -7, 5]);
+    expect(partyDeltas({ ...base, party: p, completedTricks: tricks, seats: allIn([0, 0, 5, 0]) })).toEqual([5, 5, -9, 5]);
     // Four tricks in: no bonus yet.
     expect(partyDeltas({ ...base, party: p, completedTricks: tricks.slice(0, 4), seats: allIn([0, 0, 4, 0]) })).toEqual([5, 5, -4, 5]);
   });

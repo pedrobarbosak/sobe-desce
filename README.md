@@ -7,9 +7,11 @@ Online, real-time multiplayer version of the Portuguese trick-taking game **Sobe
 - **Frontend**: Vite + React + TypeScript + TanStack Router + Tailwind v4 + Motion
 - **Rules engine**: pure TypeScript in `src/engine`, shared by server validation and client card-greying
 - **Variants**: *Classic* is the game as played at the table. *Party* flips a public twist every round:
-  Desce, Golden suit, Last trick ×3, Blank pays, No trump, Open hands, Pass left, All in, Lightning, As dealt.
-  Everything party-specific lives in `src/engine/party`. Powerups (Peek, Curse, Shield) are built and
-  tested there too but switched off behind `POWERUPS_ENABLED` until they earn their place.
+  Desce, Golden suit, Last trick ×5, Blank pays, No trump, Lightning, As dealt, Pass (1–2 cards, left/right/across),
+  Swap hands, Guardian, Free-for-all, Wild rank, Carousel, Market, Dummy hand, One face up.
+  Everything party-specific lives in `src/engine/party`; every hand-moving twist is count-preserving because
+  a round is always five cards and five tricks. Powerups (Peek, Curse, Shield) are built and tested there
+  too but switched off behind `POWERUPS_ENABLED` until they earn their place.
 
 ## Run locally
 
