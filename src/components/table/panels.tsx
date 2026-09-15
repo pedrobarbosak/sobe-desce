@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CURSE_POINTS, LIGHTNING_SECONDS, MAX_POWERUPS, type Card as CardT, type PassSpec, type Powerup, type Rank, SUITS, SUIT_SYMBOLS, type Suit, type SitOutBlock, type Twist } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { CardBack, CardFace } from "./Card";
+import { PARTY_TWIST_ICONS } from "./partyIcons";
 import type { SeatView } from "./Seat";
 
 const SUIT_TEXT: Record<Suit, string> = { H: "text-heart", D: "text-orange-500", C: "text-ink-900", S: "text-ink-900" };
@@ -67,27 +68,6 @@ export function TrumpPicker({
 }
 
 export const POWERUP_ICONS: Record<Powerup, string> = { peek: "👁", curse: "☠", shield: "🛡" };
-const TWIST_ICONS: Record<Twist, string> = {
-  desce: "⬇",
-  golden: "★",
-  lastTrick: "×5",
-  blankPays: "0",
-  noTrump: "∅",
-  openHands: "👁",
-  pass: "⇄",
-  allIn: "!",
-  lightning: "⚡",
-  asDealt: "🎴",
-  swap: "🔀",
-  guardian: "🛡",
-  freeForAll: "✱",
-  wildRank: "🃏",
-  carousel: "🎠",
-  market: "🏪",
-  dummy: "🂠",
-  faceUp: "👁",
-  inverted: "🙃",
-};
 const PASS_ARROWS: Record<PassSpec["direction"], string> = { left: "↰", right: "↱", across: "↕" };
 
 export type PartyView = {
@@ -128,13 +108,6 @@ export function twistName(party: PartyView, t: T): string {
   return t(`party.twists.${party.twist}.name`, twistVars(party, t));
 }
 
-function twistIcon(party: PartyView): string {
-  if (party.twist === "golden" && party.goldenSuit) return SUIT_SYMBOLS[party.goldenSuit];
-  if (party.twist === "pass" && party.pass) return PASS_ARROWS[party.pass.direction];
-  if (party.twist === "wildRank" && party.wildRank) return party.wildRank;
-  return TWIST_ICONS[party.twist];
-}
-
 /** The round's twist, flipped face up for everyone before a card is played. */
 export function TwistBanner({ party, compact = false }: { party: PartyView; compact?: boolean }) {
   const { t } = useTranslation();
@@ -148,7 +121,7 @@ export function TwistBanner({ party, compact = false }: { party: PartyView; comp
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🎲 {t("party.twistOfRound")}</p>
       <p className={`font-display font-bold ${compact ? "text-sm" : "text-base"}`}>
         <span className="mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-purple-400/30 px-1 text-xs">
-          {twistIcon(party)}
+          {PARTY_TWIST_ICONS[party.twist]}
         </span>
         {twistName(party, tr)}
       </p>

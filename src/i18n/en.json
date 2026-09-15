@@ -561,6 +561,8 @@
   "party": {
     "twist": "Twist",
     "twistOfRound": "This round's twist",
+    "eventCatalogTitle": "Party round events",
+    "eventCatalogHint": "One of these appears at the start of every round. Suit, rank, pass count, and direction are drawn each time; the examples below show one possible result.",
     "twists": {
       "desce": {
         "name": "Low card wins",

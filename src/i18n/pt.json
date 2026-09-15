@@ -561,6 +561,8 @@
   "party": {
     "twist": "Reviravolta",
     "twistOfRound": "Reviravolta desta ronda",
+    "eventCatalogTitle": "Eventos das rondas Festa",
+    "eventCatalogHint": "Um destes eventos aparece no início de cada ronda. O naipe, o valor, o número de cartas e a direção são sorteados de cada vez; os exemplos abaixo mostram um resultado possível.",
     "twists": {
       "desce": {
         "name": "Desce",
