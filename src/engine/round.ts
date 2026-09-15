@@ -1,5 +1,5 @@
 import { type Card, type DeckSize, type Suit, SUITS, buildDeck, isCard, suitOf } from "./cards";
-import { DUMMY_SIZE, passOffset } from "./party";
+import { DUMMY_SIZE, type Twist, passOffset } from "./party";
 import { HAND_SIZE, TRICKS_PER_ROUND, type Variant } from "./config";
 import { EngineError } from "./errors";
 import { legalPlays, sitOutBlockedReason } from "./legal";
@@ -118,6 +118,8 @@ export type CreateRoundInput = {
   variant?: Variant;
   /** Party only: what each seat brings to the round. */
   inventory?: readonly (readonly Powerup[])[];
+  /** Party only: the twist of the round before, which this one will not repeat. */
+  previousTwist?: Twist | null;
 };
 
 export function leftOf(seat: number, seatCount: number): number {
@@ -178,7 +180,10 @@ export function createRound(input: CreateRoundInput): RoundState {
     completedTricks: [],
     deltas: null,
     // Drawn after the shuffle so a classic and a party round from one seed deal alike.
-    party: input.variant === "party" ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? []) : null,
+    party:
+      input.variant === "party"
+        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null)
+        : null,
   };
   const rules = rulesFor(state);
   if (rules.maxDiscard !== null) state.maxDiscard = rules.maxDiscard;

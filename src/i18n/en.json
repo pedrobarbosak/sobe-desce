@@ -633,6 +633,10 @@
       "faceUp": {
         "name": "One face up",
         "desc": "One random card of every hand is face up for the whole round."
+      },
+      "inverted": {
+        "name": "Upside down",
+        "desc": "Scoring flips: every trick you win costs a point, and winning none pays the penalty out. Play to lose."
       }
     },
     "golden": "×2 golden",

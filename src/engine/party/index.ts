@@ -51,6 +51,8 @@ export type Twist =
   | "dummy"
   /** One random card of every hand is face up for the round. */
   | "faceUp"
+  /** Scoring upside down: every trick costs a point and a blank pays the penalty out. */
+  | "inverted"
   /** Shelved: every hand face up. The visibility knob stays for other twists. */
   | "openHands"
   /** Shelved: nobody may sit out. "asDealt" still uses the knob. */
@@ -74,6 +76,7 @@ export const TWISTS: readonly Twist[] = [
   "market",
   "dummy",
   "faceUp",
+  "inverted",
 ];
 
 export const LIGHTNING_SECONDS = 8;
@@ -161,14 +164,20 @@ function guardianCycle(seatCount: number, rng: Rng): number[] {
   return out;
 }
 
-/** Draw the round's twist from the same seed as the shuffle, so a round replays exactly. */
+/**
+ * Draw the round's twist from the same seed as the shuffle, so a round replays exactly.
+ * The previous round's twist is left out of the draw: the same weather twice running
+ * reads as a stuck table rather than luck.
+ */
 export function createPartyState(
   rng: Rng,
   seatCount: number,
   deck: DeckSize,
   inventory: readonly (readonly Powerup[])[],
+  previousTwist: Twist | null = null,
 ): PartyState {
-  const twist = pick(TWISTS, rng);
+  const pool = TWISTS.filter((t) => t !== previousTwist);
+  const twist = pick(pool.length > 0 ? pool : TWISTS, rng);
   // Hearts already doubles on its own; a golden hearts would change nothing. The Ace is
   // already the top card, so a wild Ace would change nothing either.
   const goldenSuit = twist === "golden" ? pick(SUITS.filter((s) => s !== "H"), rng) : null;
@@ -226,6 +235,7 @@ export function partyRules(p: Pick<PartyState, "twist" | "pass" | "wildRank">): 
       r.lowWins = true;
       break;
     case "blankPays":
+    case "inverted":
       r.avoidTricks = true;
       break;
     case "noTrump":
@@ -332,6 +342,8 @@ export function partyDeltas(input: PartyScoreInput): number[] {
       if (party.shielded[r.seat]) delta = 0;
       else if (party.twist === "blankPays") delta = -blank;
     }
+    // Upside down: tricks cost, a blank pays out, and the multiplier still applies.
+    if (party.twist === "inverted") delta = -delta;
     return delta + (party.curses[r.seat] ?? 0) * CURSE_POINTS;
   });
   if (!party.guardians) return own;

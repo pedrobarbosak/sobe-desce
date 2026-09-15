@@ -87,6 +87,7 @@ export const twist = v.union(
   v.literal("market"),
   v.literal("dummy"),
   v.literal("faceUp"),
+  v.literal("inverted"),
 );
 export const passDirection = v.union(v.literal("left"), v.literal("right"), v.literal("across"));
 export const powerup = v.union(v.literal("peek"), v.literal("curse"), v.literal("shield"));

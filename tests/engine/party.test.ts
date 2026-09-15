@@ -90,6 +90,18 @@ describe("party rounds", () => {
     for (const twist of TWISTS) expect(make(seedFor(twist)).party!.twist).toBe(twist);
   });
 
+  it("never deals the same twist two rounds running", () => {
+    for (let i = 0; i < 400; i++) {
+      const previous = make(i).party!.twist;
+      const next = createRound({ deck: 40, seatCount: 4, dealerSeat: 0, maxDiscard: 5, blankPenalty: 5, seed: String(i + 1), variant: "party", previousTwist: previous });
+      expect(next.party!.twist).not.toBe(previous);
+    }
+    // Still deterministic for a seed and a given predecessor.
+    const a = createRound({ deck: 40, seatCount: 4, dealerSeat: 0, maxDiscard: 5, blankPenalty: 5, seed: "7", variant: "party", previousTwist: "golden" });
+    const b = createRound({ deck: 40, seatCount: 4, dealerSeat: 0, maxDiscard: 5, blankPenalty: 5, seed: "7", variant: "party", previousTwist: "golden" });
+    expect(a).toEqual(b);
+  });
+
   it("shelved twists keep their rules but are never drawn", () => {
     expect(TWISTS).not.toContain("openHands");
     expect(TWISTS).not.toContain("allIn");
@@ -515,6 +527,15 @@ describe("party scoring", () => {
     expect(partyDeltas({ ...base, party: p, completedTricks: tricks, seats: allIn([0, 0, 5, 0]) })).toEqual([5, 5, -9, 5]);
     // Four tricks in: no bonus yet.
     expect(partyDeltas({ ...base, party: p, completedTricks: tricks.slice(0, 4), seats: allIn([0, 0, 4, 0]) })).toEqual([5, 5, -4, 5]);
+  });
+
+  it("upside down: tricks cost, a blank pays out, hearts still doubles, and bots play to lose", () => {
+    const p = party({ twist: "inverted" });
+    expect(partyDeltas({ ...base, party: p, seats: allIn([3, 2, 0, 0]) })).toEqual([3, 2, -5, -5]);
+    expect(partyDeltas({ ...base, party: p, trump: "H", seats: allIn([5, 0, 0, 0]) })).toEqual([10, -10, -10, -10]);
+    const seats = [...allIn([5, 0, 0]), { decision: "out" as const, tricksWon: 0 }];
+    expect(partyDeltas({ ...base, party: p, seats })).toEqual([5, -5, -5, 0]);
+    expect(partyRules({ twist: "inverted", pass: null, wildRank: null }).avoidTricks).toBe(true);
   });
 
   it("blank pays: winning nothing pays the penalty out, hearts and all", () => {

@@ -633,6 +633,10 @@
       "faceUp": {
         "name": "Carta virada",
         "desc": "Uma carta ao calhas de cada mão fica à vista durante toda a ronda."
+      },
+      "inverted": {
+        "name": "Ao contrário",
+        "desc": "A contagem vira: cada vaza que fazes soma um ponto, e não fazer nenhuma tira a penalização. Joga para perder."
       }
     },
     "golden": "×2 ouro",

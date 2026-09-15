@@ -48,7 +48,12 @@ export function partyDoc(party: PartyState): PartyDoc {
   };
 }
 
-/** The twist as the engine knows it; `passLeft` is the old name of a one-card pass. */
+/** The twist id as the engine knows it; `passLeft` is the old name of `pass`. */
+export function twistIdOf(doc: Pick<PartyDoc, "twist">): Twist {
+  return doc.twist === "passLeft" ? "pass" : (doc.twist as Twist);
+}
+
+/** The twist as the engine knows it, with the parameters it was drawn with. */
 function twistOf(doc: PartyDoc): Pick<PartyState, "twist" | "pass" | "wildRank"> {
   if (doc.twist === "passLeft") return { twist: "pass", pass: { count: 1, direction: "left" }, wildRank: null };
   return { twist: doc.twist as Twist, pass: doc.pass ?? null, wildRank: (doc.wildRank as Rank | undefined) ?? null };

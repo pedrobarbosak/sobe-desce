@@ -86,6 +86,7 @@ const TWIST_ICONS: Record<Twist, string> = {
   market: "🏪",
   dummy: "🂠",
   faceUp: "👁",
+  inverted: "🙃",
 };
 const PASS_ARROWS: Record<PassSpec["direction"], string> = { left: "↰", right: "↱", across: "↕" };
 

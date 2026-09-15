@@ -95,5 +95,15 @@ describe("party tables", () => {
     expect(winner.score).toBe(0);
     const sessions = await as(t, "ana").query(api.history.sessions, { gameId });
     expect(sessions[0]!.roundsPlayed).toBeGreaterThan(0);
+    // The deal leaves the previous twist out: never the same one two rounds running.
+    const rounds = await t.run((ctx) =>
+      ctx.db
+        .query("rounds")
+        .withIndex("by_game", (q) => q.eq("gameId", gameId))
+        .collect(),
+    );
+    const twists = rounds.sort((a, b) => a.index - b.index).map((r) => r.party!.twist);
+    expect(twists.length).toBe(sessions[0]!.roundsPlayed);
+    for (let i = 1; i < twists.length; i++) expect(twists[i]).not.toBe(twists[i - 1]);
   });
 });
