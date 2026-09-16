@@ -2,17 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import { CLASSIC_RULES, POWERUPS_ENABLED, type Card as CardT, type Powerup, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, partyRules, sitOutBlockedReason } from "@/engine";
 import { errorCode } from "@/lib/errors";
 import { useTrickDisplay } from "@/hooks/useTrickDisplay";
 import { useElementSize } from "@/hooks/useElementSize";
-import { useSoundSettings } from "@/hooks/useSound";
-import { sound } from "@/lib/sound";
+import { useReveals } from "@/hooks/useReveals";
+import { useTurnClock } from "@/hooks/useTurnClock";
+import { useTableSounds } from "@/hooks/useTableSounds";
+import { useFeltLayout } from "@/hooks/useFeltLayout";
 import { Avatar } from "@/components/ui/Avatar";
-import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { LobbyView } from "@/components/game/LobbyView";
 import { StandingsView } from "@/components/game/StandingsView";
 import { HistoryView } from "@/components/game/HistoryView";
@@ -25,8 +26,14 @@ import { TableStatus } from "./TableStatus";
 import { DarkCall } from "./DarkCall";
 import { type PlayedTrick, TrickHistory } from "./TrickHistory";
 import { Drawer } from "./Drawer";
-import { type PartyView, type PendingChoice, CoinFlip, DiscardPanel, DummyPanel, MarketPanel, PassPanel, PowerupTray, RoundResult, TrumpPicker, TrumpReveal, TwistBanner, TwistReveal, twistName, twistVars } from "./panels";
-import { type Ellipse, ringLayout, ringPlacer } from "./geometry";
+import { type DrawerName, TableBar } from "./TableBar";
+import type { PartyView } from "./party";
+import { TrumpPicker, TrumpReveal } from "./TrumpPanels";
+import { type PendingChoice, DiscardPanel } from "./DiscardPanel";
+import { CoinFlip, TwistBanner, TwistReveal } from "./PartyReveals";
+import { DummyPanel, MarketPanel, PassPanel, PowerupTray } from "./PartyPanels";
+import { RoundResult } from "./RoundResult";
+import { ringLayout, ringPlacer } from "./geometry";
 
 export type TableData = NonNullable<FunctionReturnType<typeof api.game.table.get>>;
 type SeatRow = TableData["seats"][number] & { online: boolean };
@@ -37,22 +44,16 @@ type SeatRow = TableData["seats"][number] & { online: boolean };
  */
 const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
 
-/** The announcements that take the middle of the felt for a beat, one at a time. */
-type Reveal =
-  | { kind: "twist"; roundId: string }
-  | { kind: "trump"; suit: Suit; roundId: string }
-  | { kind: "coin"; roundId: string; swapped: boolean };
-/** How long each one holds. The coin needs its flight, then a moment to read the verdict. */
-const REVEAL_MS: Record<Reveal["kind"], number> = { twist: 2800, trump: 2600, coin: 3600 };
-
 /**
  * Full-viewport table. A thin bar on top, the felt fills the rest; every size (cards,
  * avatars, ellipse) derives from the measured felt so it works from phones to ultrawides.
+ *
+ * What the table shows comes straight from the server's view of the round. What it adds
+ * on top lives in hooks of its own: the centre-felt announcements (useReveals), the turn
+ * clock (useTurnClock), the sound cues (useTableSounds) and the geometry (useFeltLayout).
  */
 export function Table({ data }: { data: TableData }) {
   const { t } = useTranslation();
-  // Twist names and descriptions are built from dynamic keys, which the typed `t` rejects.
-  const tr = t as unknown as (key: string, opts?: Record<string, unknown>) => string;
   const navigate = useNavigate();
   const { game, session, round, seats: seatRows, mySeat, myHand } = data;
   // Presence is its own subscription so a heartbeat cannot invalidate the table query
@@ -95,7 +96,7 @@ export function Table({ data }: { data: TableData }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingChoice | null>(null);
-  const [drawer, setDrawer] = useState<"lobby" | "standings" | "history" | null>(null);
+  const [drawer, setDrawer] = useState<DrawerName | null>(null);
   const [feltRef, felt] = useElementSize<HTMLDivElement>();
 
   // Party: the round's twist and the public trace of powerups. Null on a classic table.
@@ -114,155 +115,32 @@ export function Table({ data }: { data: TableData }) {
     setDummyTake(null);
   }, [roundId, roundPhase]);
 
-  // Big reveal when the trump gets named by someone else.
   const roundTrump = round?.trump ?? null;
   const namerSeat = round?.trumpSeat ?? (round && session ? (round.dealerSeat + 1) % session.seatCount : -1);
   const flippedCard = round?.flipped ?? null;
   const isDark = round?.darkHearts === true;
   // The server is still holding this seat's cards back, so the blind offer stands.
   const blindDeadline = data.inTheDark ? round?.darkUntil ?? null : null;
-  // The centre-felt announcements queue up rather than fight for the spot: the twist as
-  // the round is dealt, the trump as it is named, the swap coin as it is tossed.
-  const [reveals, setReveals] = useState<Reveal[]>([]);
-  const reveal = reveals[0] ?? null;
-  const announce = useCallback((r: Reveal) => setReveals((q) => [...q, r]), []);
-  const seenTrump = useRef<{ roundId: string | undefined; trump: string | null }>({ roundId: undefined, trump: null });
-  useEffect(() => {
-    const prev = seenTrump.current;
-    seenTrump.current = { roundId, trump: roundTrump };
-    if (!roundId || !roundTrump) return;
-    if (prev.roundId === roundId && prev.trump === null && (namerSeat !== mySeat || flippedCard !== null)) {
-      announce({ kind: "trump", suit: roundTrump as Suit, roundId });
-    }
-  }, [roundId, roundTrump, namerSeat, mySeat, flippedCard, announce]);
-  // The twist goes up as the round is dealt: once per round, and only while the round is
-  // still opening. Someone arriving mid-round has the banner in the corner instead.
-  const twistNow = party?.twist ?? null;
-  const roundOpening =
-    round !== null && (round.phase === "trump" || (round.phase === "discard" && seatRows.every((s) => s.decision === "pending")));
-  const seenTwist = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (!roundId || !twistNow || !roundOpening || seenTwist.current === roundId) return;
-    seenTwist.current = roundId;
-    // A fresh round makes anything still queued from the last one stale.
-    setReveals((q) => [...q.filter((r) => r.roundId === roundId), { kind: "twist", roundId }]);
-  }, [roundId, twistNow, roundOpening]);
-  // Party "swap": the coin is tossed the moment the deciding ends, and the server says
-  // which way it fell in the same update that moves the round on.
-  const swapped = party?.swapped ?? null;
-  const seenPhase = useRef<{ roundId: string | undefined; phase: string | undefined }>({ roundId: undefined, phase: undefined });
-  useEffect(() => {
-    const prev = seenPhase.current;
-    seenPhase.current = { roundId, phase: roundPhase };
-    if (!roundId || prev.roundId !== roundId || swapped === null) return;
-    if (prev.phase === "discard" && roundPhase !== "discard" && roundPhase !== "scored") announce({ kind: "coin", roundId, swapped });
-  }, [roundId, roundPhase, swapped, announce]);
-  // Clearing is its own effect: hanging it off the ones above meant a re-run could cancel
-  // the timer without re-arming it, leaving the reveal parked over the discard panel.
-  useEffect(() => {
-    if (!reveal) return;
-    const id = setTimeout(() => setReveals((q) => q.slice(1)), REVEAL_MS[reveal.kind]);
-    return () => clearTimeout(id);
-  }, [reveal]);
-
-  const soundSettings = useSoundSettings();
+  const reveal = useReveals({
+    roundId,
+    roundPhase,
+    roundOpening: round !== null && (round.phase === "trump" || (round.phase === "discard" && seatRows.every((s) => s.decision === "pending"))),
+    trump: roundTrump,
+    namerSeat,
+    mySeat,
+    flipped: flippedCard,
+    twist: party?.twist ?? null,
+    swapped: party?.swapped ?? null,
+  });
 
   const display = useTrickDisplay(
     round ? { _id: round._id, currentTrick: round.currentTrick as TrickInProgress, completedTricks: round.completedTricks as never } : null,
   );
 
-  // ---- sound cues, derived from state changes
-  const playCount = round?.currentTrick.plays.length ?? 0;
-  const trickCount = round?.completedTricks.length ?? 0;
-  const lastPlays = useRef({ roundId, playCount, trickCount });
-  useEffect(() => {
-    const prev = lastPlays.current;
-    lastPlays.current = { roundId, playCount, trickCount };
-    if (prev.roundId !== roundId) return;
-    if (playCount > prev.playCount || trickCount > prev.trickCount) sound.play("card");
-    if (trickCount > prev.trickCount) {
-      const last = round?.completedTricks[trickCount - 1];
-      const inTrick = last?.plays.some((p) => p.seat === mySeat) ?? false;
-      const cue = !inTrick ? "trick" : last?.winner === mySeat ? "trickWin" : "trickLose";
-      setTimeout(() => sound.play(cue), 250);
-    }
-  }, [roundId, playCount, trickCount]); // eslint-disable-line react-hooks/exhaustive-deps
-  const phaseForSound = round?.phase;
-  const winnerForSound = round?.winnerSeat ?? null;
-  // The round's cue waits, like its result card, for the last trick to be seen.
-  const holdingForSound = display.holding;
-  useEffect(() => {
-    if (phaseForSound !== "scored" || holdingForSound) return;
-    if (winnerForSound === null) sound.play("round");
-    else sound.play(winnerForSound === mySeat ? "win" : "lose");
-  }, [phaseForSound, winnerForSound, holdingForSound, roundId, mySeat]);
-  useEffect(() => {
-    if (reveal) sound.play(reveal.kind === "coin" ? "card" : "trump");
-  }, [reveal]);
-
-  // Clock skew between server and client, anchored on the turn deadline: it is written by
-  // the server the instant a turn starts and reaches us within network latency. (A "server
-  // now" on the query would go stale, since queries only re-run on data changes.)
   // A party twist may shorten the clock or cap the discards for this round only.
   const totalTurnMs = (rules.turnSeconds ?? game.config.turnSeconds) * 1000;
   const maxDiscardNow = rules.maxDiscard ?? session?.maxDiscard ?? 0;
-  const turnKey = round?.turnDeadline ? `${round._id}:${round.turnNonce}` : null;
-  /**
-   * Read once when the turn starts, never during render.
-   *
-   * `barMs` has to be frozen for the turn as well as measured once. The progress bar is a
-   * CSS animation, and patching its duration mid-flight does not restart it: the browser
-   * keeps the elapsed time and simply rescales, so a re-render part way through a turn
-   * made the bar jump forward. Holding the value steady for the turn leaves the animation
-   * alone, and the key below restarts it when the turn actually changes.
-   */
-  const [turnClock, setTurnClock] = useState<{ key: string; skewMs: number; barMs: number } | null>(null);
-  useEffect(() => {
-    if (!turnKey || !round?.turnDeadline) return;
-    const now = Date.now();
-    setTurnClock({ key: turnKey, skewMs: round.turnDeadline - totalTurnMs - now, barMs: Math.max(0, round.turnDeadline - now) });
-  }, [turnKey, totalTurnMs, round?.turnDeadline]);
-  const skewMs = turnClock?.skewMs ?? 0;
-  const turnBarMs = turnClock?.key === turnKey ? turnClock.barMs : totalTurnMs;
-
-  // ---- sizing from the measured felt
-  const W = felt.w || 800;
-  const H = felt.h || 500;
-  const compact = W < 640 || H < 520;
-  const cardWidth = Math.round(Math.max(60, Math.min(150, W / 7, H / 4.8)));
-  const avatarSize = Math.round(Math.max(36, Math.min(64, H / 10)));
-  const myBadge = Math.round(Math.max(20, avatarSize * 0.8 * 0.46));
-  const handHeight = cardWidth * 1.42 * 0.8;
-  // Whether this viewer has a hand along the bottom edge. Spectators and players who sat
-  // out do not, and they are the ones shown the other hands face up.
-  const sittingOut = mySeat >= 0 && seats[mySeat]?.decision === "out" && (round?.phase === "tricks" || round?.phase === "scored");
-  const handShown = mySeat >= 0 && myHand !== null && !sittingOut;
-  // The status card normally hangs from the top of the felt, right over the seat opposite.
-  // With face-up hands there that covers the cards, so it moves to the free bottom edge.
-  const statusBelow = !handShown && !data.inTheDark;
-  const statusHeight = compact ? 44 : 52;
-  // Above the one-line "spectating" / "you sat out" note that owns the very bottom.
-  const statusBottom = 34;
-  const hasOpenHands = (data.openHands?.length ?? 0) > 0;
-  // Party "faceUp": one card of each hand stands beside the backs, above the avatar.
-  const hasFaceUp = party?.twist === "faceUp" && round?.phase === "tricks";
-  // Cards meant to be read sit above the seat opposite, right where the status card hangs.
-  const cardsOnTop = hasOpenHands || hasFaceUp;
-  // Half a seat's height (it is centred on its point): a fan of cards above the avatar, a
-  // face-up card beside the backs, or just the backs, plus the name and score below.
-  const seatHalf = hasOpenHands ? avatarSize * 0.94 + 27 : hasFaceUp ? avatarSize * 0.86 + 27 : avatarSize * 0.5 + 39;
-  // Keep the ellipse clear of the top bar, the status card, and the hand at the bottom.
-  const ellipse: Ellipse = useMemo(() => {
-    // With readable cards up there the whole ring drops below the status card, so the
-    // one card that matters is never hidden under "who is playing".
-    const topPad = statusBelow ? seatHalf + 8 : cardsOnTop ? 8 + statusHeight + 12 + seatHalf : avatarSize * 1.4 + 26;
-    const bottomPad = statusBelow ? statusBottom + statusHeight + 6 + seatHalf : handHeight + avatarSize * 0.4;
-    const usable = Math.max(120, H - topPad - bottomPad);
-    const cy = ((topPad + usable / 2) / H) * 100;
-    const ry = ((usable / 2) / H) * 100;
-    const rx = Math.min(45, ((W / 2 - avatarSize * 1.2) / W) * 100);
-    return { cx: 50, cy, rx, ry };
-  }, [W, H, avatarSize, handHeight, statusBelow, statusHeight, statusBottom, seatHalf, cardsOnTop]);
+  const { skewMs, turnBarMs } = useTurnClock({ roundId, turnNonce: round?.turnNonce, turnDeadline: round?.turnDeadline, totalTurnMs });
 
   const n = session?.seatCount ?? seats.length;
   const me = mySeat >= 0 ? seats[mySeat] : undefined;
@@ -273,32 +151,34 @@ export function Table({ data }: { data: TableData }) {
   const trump = (round?.trump ?? null) as Suit | null;
   const turnSeat = round && round.turnSeat !== null ? seats[round.turnSeat] : undefined;
   const myDeadline = isMyTurn ? (round?.turnDeadline ?? null) : null;
-  // The seconds pill lives inside TableStatus; here we only make the clock audible.
-  useEffect(() => {
-    if (!myDeadline) return;
-    sound.play("turn");
-    const remaining = () => Math.max(0, myDeadline - (Date.now() + skewMs));
-    let cancelled = false;
-    // Ticks: silent for the first stretch, then faster and sharper the less time is left.
-    let tickId: number | undefined;
-    const schedule = () => {
-      const left = remaining();
-      if (cancelled || left <= 0) return;
-      const frac = left / totalTurnMs;
-      const delay = frac > 0.5 ? left - totalTurnMs * 0.5 : left > 10_000 ? 2000 : left > 5_000 ? 1000 : left > 2_000 ? 500 : 250;
-      tickId = window.setTimeout(() => {
-        if (cancelled) return;
-        const now = remaining();
-        if (now < left - 1) sound.play("tick", Math.min(1, Math.max(0, 1 - now / Math.min(totalTurnMs, 15_000))));
-        schedule();
-      }, Math.max(60, delay));
-    };
-    schedule();
-    return () => {
-      cancelled = true;
-      if (tickId) clearTimeout(tickId);
-    };
-  }, [myDeadline, totalTurnMs, skewMs]);
+  useTableSounds({
+    roundId,
+    playCount: round?.currentTrick.plays.length ?? 0,
+    trickCount: round?.completedTricks.length ?? 0,
+    lastTrick: round?.completedTricks[round.completedTricks.length - 1],
+    mySeat,
+    phase: round?.phase,
+    winnerSeat: round?.winnerSeat ?? null,
+    holding: display.holding,
+    reveal,
+    myDeadline,
+    totalTurnMs,
+    skewMs,
+  });
+
+  // Whether this viewer has a hand along the bottom edge. Spectators and players who sat
+  // out do not, and they are the ones shown the other hands face up.
+  const sittingOut = mySeat >= 0 && seats[mySeat]?.decision === "out" && (round?.phase === "tricks" || round?.phase === "scored");
+  const handShown = mySeat >= 0 && myHand !== null && !sittingOut;
+  // The status card normally hangs from the top of the felt, right over the seat opposite.
+  // With face-up hands there that covers the cards, so it moves to the free bottom edge.
+  const statusBelow = !handShown && !data.inTheDark;
+  const { W, compact, portrait, cardWidth, avatarSize, myBadge, handHeight, statusBottom, ellipse, panelStyle } = useFeltLayout({
+    felt,
+    statusBelow,
+    hasOpenHands: (data.openHands?.length ?? 0) > 0,
+    hasFaceUp: party?.twist === "faceUp" && round?.phase === "tricks",
+  });
 
   const sitOutBlock = useMemo(() => {
     if (!round || round.phase === "trump" || !me) return null;
@@ -432,13 +312,6 @@ export function Table({ data }: { data: TableData }) {
       ? (currentWinner(round.currentTrick.plays as { seat: number; card: CardT }[], trump, game.config.deck, rules.lowWins, rules.wildRank)?.seat ?? null)
       : null;
   const leadingSeat = display.holding ? display.winnerSeat : liveLeader;
-  // Trump/discard panels: centred in the ellipse on wide screens; on compact/portrait
-  // screens they sit just above the hand, where the side seats cannot be covered.
-  const portrait = H > W;
-  const panelStyle: React.CSSProperties =
-    compact || portrait
-      ? { bottom: handHeight + avatarSize * 0.35 }
-      : { top: `${ellipse.cy}%`, transform: "translateY(-50%)" };
   const goRematch = () =>
     void run(async () => {
       const { gameId: next } = await rematch({ gameId: game._id });
@@ -465,105 +338,25 @@ export function Table({ data }: { data: TableData }) {
       await navigate({ to: "/g/$gameId", params: { gameId: game._id } });
     });
   };
-
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-felt-900">
-      {/* top bar */}
-      <div className="flex h-11 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap border-b border-white/10 bg-black/40 px-2 text-xs text-cream-100/80 sm:gap-3 sm:px-3 sm:text-sm">
-        <Link to="/" className="rounded-md px-2 py-1 font-semibold text-gold-400 hover:bg-white/10" aria-label={t("table.home")} title={t("table.home")}>
-          ♠
-        </Link>
-        <button
-          type="button"
-          onClick={() => setDrawer("lobby")}
-          className="rounded-md px-2 py-1 font-semibold text-cream-50 hover:bg-white/10"
-          aria-label={t("table.backToLobby")}
-          title={t("table.backToLobby")}
-        >
-          ←
-        </button>
-        <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{game.name}</span>
-        {round && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: round.index + 1 })}</span>}
-        {session && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap: maxDiscardNow })}</span>}
-        {trump ? (
-          <span className={`flex items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
-            <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
-            <span className="hidden sm:inline">{t(`suits.${trump}`).split(" ")[0]}</span>
-            {flippedCard && <span className="rounded bg-ink-900 px-1 text-[10px] text-white" title={t("table.flippedCard")}>⤺</span>}
-            {trump === "H" && (
-              <span className={`rounded px-1 text-[10px] font-bold text-white ${isDark ? "bg-heart ring-1 ring-cream-50" : "bg-heart"}`}>
-                {isDark ? "×4" : "×2"}
-              </span>
-            )}
-            {trump === "C" && <span className="rounded bg-ink-900 px-1 text-[10px] text-white">!</span>}
-            {goldenTrump && <span className="rounded bg-gold-400 px-1 text-[10px] font-bold text-ink-900">×2</span>}
-          </span>
-        ) : (
-          <span className="whitespace-nowrap text-cream-100/50">{t("table.noTrump")}</span>
-        )}
-        {party && (
-          <span
-            className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
-            title={tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}
-          >
-            🎲
-            <span className="hidden sm:inline">{twistName(party, tr)}</span>
-            {party.twist === "golden" && party.goldenSuit && (
-              <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
-            )}
-          </span>
-        )}
-        <nav className="ml-auto flex shrink-0 items-center gap-1">
-          <button type="button" onClick={() => setDrawer("lobby")} className="rounded-md px-2 py-1 hover:bg-white/10">
-            {t("tabs.lobby")}
-          </button>
-          <button type="button" onClick={() => setDrawer("standings")} className="rounded-md px-2 py-1 hover:bg-white/10">
-            {t("tabs.standings")}
-          </button>
-          <button type="button" onClick={() => setDrawer("history")} className="hidden rounded-md px-2 py-1 hover:bg-white/10 sm:inline">
-            {t("tabs.history")}
-          </button>
-          {canEndSitting && (
-            <button
-              type="button"
-              onClick={goEndSitting}
-              disabled={busy}
-              className="hidden rounded-md px-2 py-1 text-cream-100/70 hover:bg-white/10 hover:text-gold-400 lg:inline"
-            >
-              {t("table.endSession")}
-            </button>
-          )}
-          {mySeat >= 0 && !standIn && game.status !== "finished" && (
-            <button
-              type="button"
-              onClick={goAbandon}
-              disabled={busy}
-              className="hidden rounded-md px-2 py-1 text-cream-100/60 hover:bg-white/10 hover:text-heart lg:inline"
-            >
-              {t(isCampaign ? "table.abandonCampaign" : "table.abandon")}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => soundSettings.setSfx(!soundSettings.sfx)}
-            aria-pressed={soundSettings.sfx}
-            title={t("table.sfx")}
-            className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.sfx ? "text-cream-50" : "text-cream-100/40"}`}
-          >
-            {soundSettings.sfx ? "🔊" : "🔇"}
-          </button>
-          <button
-            type="button"
-            onClick={() => soundSettings.setMusic(!soundSettings.music)}
-            aria-pressed={soundSettings.music}
-            title={t("table.music")}
-            className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.music ? "text-cream-50" : "text-cream-100/40"}`}
-          >
-            ♪
-          </button>
-          <LanguageToggle />
-        </nav>
-      </div>
+      <TableBar
+        gameName={game.name}
+        roundIndex={round ? round.index : null}
+        cap={session ? maxDiscardNow : null}
+        trump={trump}
+        flipped={flippedCard !== null}
+        dark={isDark}
+        goldenTrump={goldenTrump}
+        party={party}
+        busy={busy}
+        canEndSitting={canEndSitting}
+        onEndSitting={goEndSitting}
+        canAbandon={mySeat >= 0 && !standIn && game.status !== "finished"}
+        isCampaign={isCampaign}
+        onAbandon={goAbandon}
+        onOpen={setDrawer}
+      />
 
       {/* felt */}
       <div ref={feltRef} className="perspective relative flex-1 overflow-hidden">
