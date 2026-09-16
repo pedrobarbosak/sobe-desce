@@ -45,7 +45,7 @@ export type Twist =
   | "wildRank"
   /** After every trick, the remaining hands move one seat to the left. */
   | "carousel"
-  /** Everyone lays one card face up in the middle, then takes one back in turn. */
+  /** Shelved: everyone lays one card face up in the middle, then takes one back in turn. */
   | "market"
   /** A spare face-up hand in the middle; each player may swap one card with it. */
   | "dummy"
@@ -91,7 +91,6 @@ export const TWISTS: readonly Twist[] = [
   "freeForAll",
   "wildRank",
   "carousel",
-  "market",
   "dummy",
   "faceUp",
   "inverted",
@@ -184,6 +183,10 @@ export type PartyState = {
   markedCard: Card | null;
   /** PRIVATE: `voteTrump`, each seat's vote until everyone has voted. */
   votes: (Suit | null)[];
+  /** `pass`: which slots of each hand go, drawn with the deal so nobody chooses. */
+  passIndex: number[][];
+  /** `robinHood`, once scored: the two seats whose results were swapped. */
+  robinSwap: [number, number] | null;
 };
 
 export type PowerupAction = { type: "usePowerup"; seat: number; powerup: Powerup; target?: number };
@@ -234,10 +237,14 @@ export function createPartyState(
   previousTwist: Twist | null = null,
   /** The shuffled stock, top card last: the marked card is drawn from what will be dealt. */
   drawPile: readonly Card[] = [],
+  /** The last few twists dealt, kept out of the draw so the weather keeps changing. */
+  recentTwists: readonly Twist[] = [],
 ): PartyState {
-  // Guardian and team want an even table; the previous twist is never dealt twice running.
+  // Guardian and team want an even table; recent twists are not dealt again just yet.
   const pairs = seatCount % 2 === 0;
-  const pool = TWISTS.filter((t) => t !== previousTwist && ((t !== "guardian" && t !== "team") || pairs));
+  const pool = TWISTS.filter(
+    (t) => t !== previousTwist && !recentTwists.includes(t) && ((t !== "guardian" && t !== "team") || pairs),
+  );
   const twist = pick(pool.length > 0 ? pool : TWISTS, rng);
   // Hearts already doubles on its own; a golden hearts would change nothing. The Ace is
   // already the top card, so a wild Ace would change nothing either.
@@ -258,6 +265,8 @@ export function createPartyState(
   const dealt = drawPile.slice(Math.max(0, drawPile.length - HAND_SIZE * seatCount));
   const markedCard = twist === "markedCard" && dealt.length > 0 ? pick(dealt, rng) : null;
   const seats = <T,>(make: () => T) => Array.from({ length: seatCount }, make);
+  // Pass: the slots that will go, two distinct ones per seat, however many the twist takes.
+  const passIndex = twist === "pass" ? seats(() => shuffledSeats(HAND_SIZE, rng).slice(0, MAX_PASS_COUNT)) : [];
   return {
     twist,
     goldenSuit,
@@ -280,6 +289,8 @@ export function createPartyState(
     nemeses,
     markedCard,
     votes: seats(() => null),
+    passIndex,
+    robinSwap: null,
   };
 }
 
@@ -301,6 +312,8 @@ export function clonePartyState(p: PartyState): PartyState {
     teams: p.teams ? [...p.teams] : null,
     nemeses: p.nemeses ? [...p.nemeses] : null,
     votes: [...p.votes],
+    passIndex: p.passIndex.map((ix) => [...ix]),
+    robinSwap: p.robinSwap ? [p.robinSwap[0], p.robinSwap[1]] : null,
   };
 }
 
@@ -465,19 +478,33 @@ export function partyDeltas(input: PartyScoreInput): number[] {
   if (party.nemeses) return own.map((_, seat) => 0 - (own[party.nemeses![seat]!] ?? 0));
   // Mirror: my result goes to my left, so I receive the result of the seat on my right.
   if (party.twist === "mirror") return own.map((_, seat) => own[(seat - 1 + n) % n] ?? 0);
-  if (party.twist === "robinHood" && input.scores) {
-    const playing = results.filter((r) => r.participated).map((r) => r.seat);
-    const score = (s: number) => input.scores![s] ?? 0;
-    const far = playing.reduce<number | null>((a, b) => (a === null || score(b) > score(a) ? b : a), null);
-    const near = playing.reduce<number | null>((a, b) => (a === null || score(b) < score(a) ? b : a), null);
-    if (far !== null && near !== null && far !== near) {
+  if (party.twist === "robinHood") {
+    const pair = robinHoodPair(results, input.scores);
+    if (pair) {
       const out = [...own];
-      out[far] = own[near]!;
-      out[near] = own[far]!;
+      out[pair[0]] = own[pair[1]]!;
+      out[pair[1]] = own[pair[0]]!;
       return out;
     }
   }
   return own;
+}
+
+/**
+ * Robin Hood: the seat furthest from zero (most points, last in the standings) and the
+ * seat closest to it (fewest, leading), among those who played. Null when they are the
+ * same seat or the scores are not known.
+ */
+export function robinHoodPair(
+  results: readonly { seat: number; participated: boolean }[],
+  scores: readonly number[] | undefined,
+): [number, number] | null {
+  if (!scores) return null;
+  const playing = results.filter((r) => r.participated).map((r) => r.seat);
+  const score = (s: number) => scores[s] ?? 0;
+  const far = playing.reduce<number | null>((a, b) => (a === null || score(b) > score(a) ? b : a), null);
+  const near = playing.reduce<number | null>((a, b) => (a === null || score(b) < score(a) ? b : a), null);
+  return far !== null && near !== null && far !== near ? [far, near] : null;
 }
 
 export type PowerupContext = {

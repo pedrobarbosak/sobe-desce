@@ -44,7 +44,8 @@ export function legalPlays(
   rules: RoundRules = CLASSIC_RULES,
 ): Card[] {
   if (hand.length === 0) return [];
-  if (rules.freeForAll || (rules.blindLead && trick.plays.length > 0)) return [...hand];
+  // Cards nobody can see cannot bind anyone: blind lead hides the lead, fog hides them all.
+  if (rules.freeForAll || ((rules.blindLead || rules.fog) && trick.plays.length > 0)) return [...hand];
   const wilds = rules.wildRank === null ? [] : hand.filter((c) => rankOf(c) === rules.wildRank);
   const withWilds = (cards: Card[]) => [...cards, ...wilds.filter((w) => !cards.includes(w))];
   const led = ledSuit(trick.plays);
@@ -97,13 +98,16 @@ export type SitOutContext = {
   isTrumpNamer?: boolean;
   /** Party: the round's twist keeps everyone in. */
   allIn?: boolean;
+  /** Party "markedCard": the seat holds the marked card, which has to be played out. */
+  holdsMarkedCard?: boolean;
 };
 
-export type SitOutBlock = "belowThreshold" | "maxConsecutive" | "clubs" | "trumpNamer" | "allIn";
+export type SitOutBlock = "belowThreshold" | "maxConsecutive" | "clubs" | "trumpNamer" | "allIn" | "markedCard";
 
 export function sitOutBlockedReason(ctx: SitOutContext): SitOutBlock | null {
   if (ctx.isTrumpNamer) return "trumpNamer";
   if (ctx.allIn) return "allIn";
+  if (ctx.holdsMarkedCard) return "markedCard";
   if (ctx.trump === "C") return "clubs";
   if (ctx.score < ctx.forcedPlayThreshold) return "belowThreshold";
   if (ctx.consecutiveSitOuts >= MAX_CONSECUTIVE_SIT_OUTS) return "maxConsecutive";

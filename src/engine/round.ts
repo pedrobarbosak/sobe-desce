@@ -14,6 +14,7 @@ import {
   partyDeltas,
   partyRules,
   powerupBlockedReason,
+  robinHoodPair,
 } from "./party";
 import { rngFromSeed, shuffle } from "./rng";
 import { CLASSIC_RULES, type RoundRules } from "./rules";
@@ -124,6 +125,8 @@ export type CreateRoundInput = {
   inventory?: readonly (readonly Powerup[])[];
   /** Party only: the twist of the round before, which this one will not repeat. */
   previousTwist?: Twist | null;
+  /** Party only: the last few twists, none of which this round will repeat. */
+  recentTwists?: readonly Twist[];
 };
 
 export function leftOf(seat: number, seatCount: number): number {
@@ -187,7 +190,7 @@ export function createRound(input: CreateRoundInput): RoundState {
     // Drawn after the shuffle so a classic and a party round from one seed deal alike.
     party:
       input.variant === "party"
-        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null, drawPile)
+        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null, drawPile, input.recentTwists ?? [])
         : null,
   };
   const rules = rulesFor(state);
@@ -219,6 +222,37 @@ function swapAfterDiscards(state: RoundState, players: readonly number[]): void 
   const step = state.party!.swapOffset;
   if (step <= 0 || players.length < 2) return;
   rotateHands(state, players, 1 + ((step - 1) % (players.length - 1)));
+}
+
+/**
+ * Party "pass": the cards go by themselves. Which slots of each hand go was drawn with the
+ * deal, so nobody chooses and the seed decides. Every hand gives before any hand receives,
+ * which is what keeps the count at five all round.
+ */
+function passAtRandom(state: RoundState, players: readonly number[]): void {
+  const party = state.party!;
+  const spec = rulesFor(state).pass!;
+  if (players.length < 2) return;
+  const offset = passOffset(spec.direction, players.length);
+  const given = players.map((seat) => {
+    const hand = state.hands[seat]!;
+    const slots = new Set<number>();
+    for (const i of party.passIndex[seat] ?? []) {
+      if (slots.size >= spec.count) break;
+      slots.add(i % hand.length);
+    }
+    // A round dealt before the slots were drawn is topped up from the front.
+    for (let i = 0; slots.size < Math.min(spec.count, hand.length); i++) slots.add(i);
+    const cards = [...slots].map((i) => hand[i]!);
+    state.hands[seat] = hand.filter((c) => !cards.includes(c));
+    return cards;
+  });
+  players.forEach((_, i) => state.hands[players[(i + offset) % players.length]!]!.push(...given[i]!));
+}
+
+/** Who takes first from what lies in the middle: the seat furthest from zero, then on down. */
+function takeOrder(players: readonly number[], ctx: RoundContext | undefined): number[] {
+  return [...players].sort((a, b) => (ctx?.scores[b] ?? 0) - (ctx?.scores[a] ?? 0));
 }
 
 function clone(state: RoundState): RoundState {
@@ -260,6 +294,12 @@ function scoreRound(state: RoundState, events: RoundEvent[], scores?: readonly n
       darkHearts: state.darkHearts,
       scores,
     });
+    if (state.party.twist === "robinHood") {
+      state.party.robinSwap = robinHoodPair(
+        state.seats.map((s, seat) => ({ seat, participated: s.decision === "in" })),
+        scores,
+      );
+    }
   } else {
     const deltas = roundDeltas(
       state.seats.map((s, seat) => ({
@@ -307,7 +347,8 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[], ctx?: Round
   }
   const rules = rulesFor(state);
   if (rules.swapHands) swapAfterDiscards(state, players);
-  if (rules.pass || rules.market) {
+  if (rules.pass) passAtRandom(state, players);
+  if (rules.market) {
     state.phase = "pass";
     state.turnSeat = players[0]!;
     return;
@@ -318,8 +359,10 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[], ctx?: Round
     const party = state.party!;
     party.dummy = state.drawPile.splice(Math.max(0, state.drawPile.length - DUMMY_SIZE));
     party.dummyTurn = 0;
+    // The seat with the most points picks first, as at the market.
+    party.marketOrder = takeOrder(players, ctx);
     state.phase = "dummy";
-    state.turnSeat = players[0]!;
+    state.turnSeat = party.marketOrder[0]!;
     return;
   }
   startTricks(state);
@@ -510,6 +553,8 @@ export function applyAction(
         // Cannot happen with a valid discard cap, but never let the stock go negative.
         return fail("tooManyDiscards", "stock exhausted");
       }
+      // The marked card stays where it was dealt: it has to be played out.
+      if (state.party?.markedCard && action.cards.includes(state.party.markedCard)) return fail("markedCardStays");
       const kept = hand.filter((c) => !action.cards.includes(c));
       for (let i = 0; i < action.cards.length; i++) kept.push(state.drawPile.pop()!);
       state.hands[action.seat] = kept;
@@ -530,9 +575,11 @@ export function applyAction(
         trump: state.trump,
         isTrumpNamer: state.trumpSeat === action.seat && state.flipped === null,
         allIn: rulesFor(state).allIn,
+        holdsMarkedCard: state.party?.markedCard !== null && state.party?.markedCard !== undefined && hand.includes(state.party.markedCard),
       });
       if (blocked === "trumpNamer") return fail("sitOutTrumpNamer");
       if (blocked === "allIn") return fail("sitOutAllIn");
+      if (blocked === "markedCard") return fail("sitOutMarked");
       if (blocked === "clubs") return fail("sitOutClubs");
       if (blocked === "belowThreshold") return fail("sitOutBelowThreshold");
       if (blocked === "maxConsecutive") return fail("sitOutMaxConsecutive");
@@ -591,7 +638,7 @@ export function applyAction(
       party.dummyTurn += 1;
       const players = inSeats(state);
       if (party.dummyTurn >= players.length) startTricks(state);
-      else state.turnSeat = players[party.dummyTurn]!;
+      else state.turnSeat = party.marketOrder[party.dummyTurn] ?? players[party.dummyTurn]!;
       return { ok: true, state, events };
     }
 

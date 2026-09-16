@@ -337,6 +337,8 @@
     "alreadyPeeked": "Já estás a ver essa mão.",
     "alreadyShielded": "Já estás protegido nesta ronda.",
     "alreadyVoted": "Já votaste.",
+    "markedCardStays": "A carta marcada não pode ser trocada.",
+    "sitOutMarked": "Tens a carta marcada, por isso jogas esta ronda.",
     "sitOutAllIn": "Ninguém fica de fora nesta ronda.",
     "alreadyPassed": "Já passaste uma carta.",
     "wrongPassCount": "Escolhe o número certo de cartas.",
@@ -371,7 +373,8 @@
       "maxConsecutive": "Já ficaste de fora 2 rondas seguidas",
       "clubs": "O trunfo é paus: ninguém pode ficar de fora",
       "trumpNamer": "Escolheste o trunfo: tens de jogar esta ronda",
-      "allIn": "Todos jogam: ninguém fica de fora nesta ronda"
+      "allIn": "Todos jogam: ninguém fica de fora nesta ronda",
+      "markedCard": "Tens a carta marcada, por isso jogas esta ronda"
     },
     "waitingFor": "Vez de {{name}}",
     "yourTurn": "É a tua vez",
@@ -621,7 +624,7 @@
       },
       "pass": {
         "name": "Passa",
-        "desc": "Depois das trocas, cada jogador em jogo escolhe cartas da mão e passa-as na direção indicada."
+        "desc": "Depois das trocas, {{count}} cartas ao calhas da mão de cada jogador em jogo passam na direção indicada. Ninguém escolhe: o baralho decide."
       },
       "swap": {
         "name": "Troca de mãos",
@@ -649,7 +652,7 @@
       },
       "dummy": {
         "name": "Mão extra",
-        "desc": "Ficam à vista até sete cartas extra. Por ordem, cada jogador em jogo pode trocar uma carta por uma delas ou não trocar."
+        "desc": "Ficam à vista até sete cartas extra. Cada jogador em jogo pode trocar uma carta por uma delas ou não trocar. Quem tiver mais pontos escolhe primeiro."
       },
       "faceUp": {
         "name": "Carta à vista",
@@ -677,15 +680,15 @@
       },
       "robinHood": {
         "name": "Robin dos Bosques",
-        "desc": "No fim da ronda, quem estiver mais longe do zero troca de resultado com quem estiver mais perto."
+        "desc": "No fim da ronda, quem tiver mais pontos (o último da classificação) troca de resultado com quem tiver menos (o líder), entre quem jogou. O líder paga a ronda do último, e vice-versa."
       },
       "markedCard": {
         "name": "Carta marcada: {{card}}",
-        "desc": "Quem ganhar a vaza onde cair o {{card}} soma {{points}} pontos por cima. Foge dela, ou vai a ela."
+        "desc": "Anuncia-se uma das cartas dadas. Quem ganhar a vaza onde cair o {{card}} soma {{points}} pontos por cima. A carta fica onde calhou: não pode ser trocada, e quem a tem não pode ficar de fora."
       },
       "fog": {
         "name": "Nevoeiro",
-        "desc": "As vazas recolhem-se viradas para baixo: ninguém vê quantas cada um tem até ao fim da ronda, e a saída passa um lugar para a esquerda em vez de ir para quem ganhou."
+        "desc": "Todas as cartas se jogam viradas para baixo: só vês as tuas. Ninguém sabe quem ganhou cada vaza até ao fim da ronda, não há obrigação de assistir, e a saída passa um lugar para a esquerda depois de cada vaza."
       },
       "blindLead": {
         "name": "Saída às cegas",
@@ -740,6 +743,8 @@
     "withPartner": "com {{name}}",
     "teamed": "{{a}} e {{b}} jogaram em equipa",
     "nemesisOf": "{{name}} perseguia {{target}}",
+    "robinSwapped": "Robin dos Bosques: {{a}} e {{b}} trocaram de resultado",
+    "markedCardStays": "A carta marcada fica na tua mão",
     "ward": "Teu",
     "wardHint": "Apadrinhas este jogador: vês a mão dele e recebes a alteração de pontos dele nesta ronda.",
     "guarding": "padrinho de {{name}}",

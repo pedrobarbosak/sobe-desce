@@ -50,6 +50,8 @@ export function partyDoc(party: PartyState): PartyDoc {
     nemeses: party.nemeses ?? undefined,
     markedCard: party.markedCard ?? undefined,
     voted: party.votes.map((v) => v !== null),
+    passIndex: party.passIndex,
+    robinSwap: party.robinSwap ?? undefined,
   };
 }
 
@@ -129,6 +131,8 @@ export function toEngineState(
           teams: round.party.teams ?? null,
           nemeses: round.party.nemeses ?? null,
           votes: Array.from({ length: session.seatCount }, (_, seat) => (secrets.votes?.[seat] as Suit | null | undefined) ?? null),
+          passIndex: round.party.passIndex ?? [],
+          robinSwap: round.party.robinSwap ? [round.party.robinSwap[0]!, round.party.robinSwap[1]!] : null,
         }
       : null,
   };

@@ -119,6 +119,10 @@ export const partyRound = v.object({
   markedCard: v.optional(v.string()),
   /** Who has voted for the trump; the votes themselves live in roundSecrets. */
   voted: v.optional(v.array(v.boolean())),
+  /** Pass: which slots of each hand go, drawn with the deal. */
+  passIndex: v.optional(v.array(v.array(v.number()))),
+  /** Robin Hood, once scored: the two seats whose results were swapped. */
+  robinSwap: v.optional(v.array(v.number())),
   faceUp: v.optional(v.array(v.union(v.string(), v.null()))),
   market: v.optional(v.array(v.string())),
   marketOrder: v.optional(v.array(v.number())),

@@ -21,9 +21,11 @@ type Props = {
   maxWidth: number;
   /** The round's rules; a party twist may turn the climb rule upside down. */
   rules?: RoundRules;
+  /** Party "markedCard": this card cannot be discarded, so it is never selectable. */
+  locked?: CardT | null;
 };
 
-export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay, selectable, selected, onToggle, onPlay, cardWidth, maxWidth, rules = CLASSIC_RULES }: Props) {
+export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay, selectable, selected, onToggle, onPlay, cardWidth, maxWidth, rules = CLASSIC_RULES, locked = null }: Props) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState<CardT | null>(null);
   const cards = sortHand(hand, deck, trump ?? undefined);
@@ -46,9 +48,10 @@ export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay
           const angle = (i - (n - 1) / 2) * spread;
           const lift = Math.abs(i - (n - 1) / 2) * 3;
           const isSelected = selected.has(card);
-          const why = reason && reason !== "notInHand" ? t(`table.illegal.${reason}`) : null;
+          const isLocked = card === locked;
+          const why = isLocked && selectable ? t("party.markedCardStays") : reason && reason !== "notInHand" ? t(`table.illegal.${reason}`) : null;
           const name = t("table.cardLabel", { rank: rankOf(card), suit: t(`suits.${suitOf(card)}`) });
-          const interactive = legal || selectable;
+          const interactive = legal || (selectable && !isLocked);
           const isHovered = hovered === card;
           return (
             <motion.div
@@ -67,11 +70,11 @@ export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay
                 width={cardWidth}
                 dimmed={canPlay && !legal}
                 selected={isSelected}
-                toggle={selectable}
-                disabled={canPlay && !legal}
-                className={isHovered && interactive ? "card-hover" : ""}
+                toggle={selectable && !isLocked}
+                disabled={(canPlay && !legal) || (selectable && isLocked)}
+                className={`${isHovered && interactive ? "card-hover" : ""} ${isLocked ? "ring-2 ring-heart" : ""}`}
                 onClick={
-                  legal ? () => onPlay(card) : selectable ? () => onToggle(card) : undefined
+                  legal ? () => onPlay(card) : selectable && !isLocked ? () => onToggle(card) : undefined
                 }
                 title={why ?? undefined}
                 // Why a card cannot be played was a tooltip only, so on a phone the rule

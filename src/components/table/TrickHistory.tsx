@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { type Card as CardT, SUIT_SYMBOLS, rankOf, suitOf } from "@/engine";
+import { type Card as CardT, HIDDEN_CARD, SUIT_SYMBOLS, rankOf, suitOf } from "@/engine";
 import type { SeatView } from "./Seat";
 
 const SUIT_TEXT: Record<string, string> = { H: "text-heart", D: "text-orange-600", C: "text-ink-900", S: "text-ink-900" };
@@ -9,6 +9,10 @@ const SUIT_TEXT: Record<string, string> = { H: "text-heart", D: "text-orange-600
 export type PlayedTrick = { leader: number; plays: { seat: number; card: string }[]; winner: number };
 
 function Chip({ card, won }: { card: string; won: boolean }) {
+  // A card played face down (party "fog") is a card, not a value.
+  if (card === HIDDEN_CARD) {
+    return <span className="inline-flex items-center rounded bg-black/40 px-1 font-mono text-[11px] font-bold leading-5 text-cream-100/60">?</span>;
+  }
   const suit = suitOf(card as CardT);
   return (
     <span

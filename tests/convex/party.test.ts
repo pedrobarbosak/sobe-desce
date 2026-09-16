@@ -210,6 +210,14 @@ describe("party twists the server has to keep secrets for", () => {
     expect(table.round!.completedTricks).toHaveLength(1);
     expect(table.round!.completedTricks[0]!.winner).toBe(-1);
     expect(table.seats.every((s) => s.tricksWon === 0)).toBe(true);
+    // Every card but your own is face down, in the trick played and the trick collected.
+    const seen = table.round!.completedTricks[0]!.plays;
+    expect(seen.filter((play) => play.card === HIDDEN_CARD)).toHaveLength(3);
+    expect(seen.find((play) => play.seat === table.mySeat)!.card).not.toBe(HIDDEN_CARD);
+    await playOne(p);
+    const next = await tableFor("ana");
+    const inPlay = next.round!.currentTrick.plays[0]!;
+    expect(inPlay.card === HIDDEN_CARD || inPlay.seat === next.mySeat).toBe(true);
     expect(table.round!.currentTrick.leader).toBe((leader + 1) % 4);
     // The server itself still knows.
     const round = await p.t.run((ctx) => ctx.db.get(p.roundId));

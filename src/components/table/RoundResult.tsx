@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { LuDices, LuShield, LuShuffle, LuSwords, LuUsers } from "react-icons/lu";
+import { LuArrowLeftRight, LuDices, LuShield, LuShuffle, LuSwords, LuUsers } from "react-icons/lu";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { POWERUP_ICONS, type PartyView, type Translate, twistName } from "./party";
@@ -59,6 +59,15 @@ export function RoundResult({
       {party?.swapped !== null && party?.swapped !== undefined && (
         <p className="mt-1 text-xs text-cream-100/80">
           <LuShuffle className="icon" /> {party.swapped ? t("party.swapped") : t("party.notSwapped")}
+        </p>
+      )}
+      {party?.robinSwap && party.robinSwap.length === 2 && (
+        <p className={`mt-1 text-xs ${party.robinSwap.some((s) => seats[s]?.isMe) ? "font-semibold text-gold-400" : "text-cream-100/80"}`}>
+          <LuArrowLeftRight className="icon" />{" "}
+          {t("party.robinSwapped", {
+            a: seats[party.robinSwap[0]!]?.isMe ? t("common.you") : seats[party.robinSwap[0]!]?.name ?? "?",
+            b: seats[party.robinSwap[1]!]?.isMe ? t("common.you") : seats[party.robinSwap[1]!]?.name ?? "?",
+          })}
         </p>
       )}
       {party?.teams && (

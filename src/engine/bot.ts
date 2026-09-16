@@ -109,6 +109,7 @@ export function chooseAction(state: RoundState, seat: number, ctx: RoundContext)
       const strength = handStrength(hand, trump, state, rules);
       // A round that pays for losing turns a strong hand into the one to avoid.
       const weak = rules.avoidTricks ? strength >= maxStrength * 2.5 : strength < maxStrength * 2.5;
+      const marked = rules.markedCard;
       const allowed = canSitOut({
         score: ctx.scores[seat] ?? 0,
         forcedPlayThreshold: ctx.forcedPlayThreshold,
@@ -116,10 +117,12 @@ export function chooseAction(state: RoundState, seat: number, ctx: RoundContext)
         trump,
         isTrumpNamer: state.trumpSeat === seat,
         allIn: rules.allIn,
+        holdsMarkedCard: marked !== null && hand.includes(marked),
       });
       if (weak && allowed) return { type: "sitOut", seat };
       const threshold = maxStrength - 2; // keep A, 7, K
       const junk = hand
+        .filter((c) => c !== marked)
         .filter((c) => suitOf(c) !== trump && (rules.avoidTricks ? power(c, state, rules) >= threshold : power(c, state, rules) < threshold))
         .sort((a, b) => (rules.avoidTricks ? -1 : 1) * (power(a, state, rules) - power(b, state, rules)))
         .slice(0, state.maxDiscard);

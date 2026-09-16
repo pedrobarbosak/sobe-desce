@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import {
   POWERUPS_ENABLED,
   type Powerup,
+  type Twist,
   applyDeltas,
   awardPowerups,
   canCallDarkHearts,
@@ -96,15 +97,15 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
   const index = session.roundsPlayed;
   const dealerSeat = index === 0 ? session.dealerSeat : (session.dealerSeat + 1) % session.seatCount;
   const seed = randomSeed();
-  // Party: the round before this one, so the twist does not repeat back to back.
-  const previous =
-    index > 0
-      ? await ctx.db
-          .query("rounds")
-          .withIndex("by_session_index", (q) => q.eq("sessionId", sessionId).eq("index", index - 1))
-          .unique()
-      : null;
-  const previousTwist = previous?.party ? twistIdOf(previous.party) : null;
+  // Party: the last three twists stay out of the draw, so the weather keeps changing.
+  const recentTwists: Twist[] = [];
+  for (let back = 1; back <= 3 && index - back >= 0; back++) {
+    const earlier = await ctx.db
+      .query("rounds")
+      .withIndex("by_session_index", (q) => q.eq("sessionId", sessionId).eq("index", index - back))
+      .unique();
+    if (earlier?.party) recentTwists.push(twistIdOf(earlier.party));
+  }
   // Never let the blind window swallow the turn on a table with a short clock.
   const darkMs = Math.min(DARK_WINDOW_MS, Math.floor((game.config.turnSeconds * 1000) / 2));
   const players = await Promise.all(session.seats.map((id) => ctx.db.get(id)));
@@ -117,7 +118,7 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
     seed,
     variant: variantOf(game.config),
     inventory: players.map((p) => (p?.powerups ?? []) as Powerup[]),
-    previousTwist,
+    recentTwists,
   });
   // A seat too low to call blind is not kept waiting in the dark for an offer it cannot
   // take, and a round with no trump phase has nothing to call.

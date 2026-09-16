@@ -196,8 +196,9 @@ export function Table({ data }: { data: TableData }) {
       trump,
       isTrumpNamer: round.trumpSeat === mySeat,
       allIn: rules.allIn,
+      holdsMarkedCard: rules.markedCard !== null && (myHand ?? []).includes(rules.markedCard),
     });
-  }, [round, trump, me, mySeat, game.config.forcedPlayThreshold, rules.allIn]);
+  }, [round, trump, me, mySeat, game.config.forcedPlayThreshold, rules.allIn, rules.markedCard, myHand]);
 
   const report = useCallback((err: unknown) => {
     const code = errorCode(err);
@@ -716,6 +717,7 @@ export function Table({ data }: { data: TableData }) {
               cardWidth={cardWidth}
               maxWidth={W * 0.92}
               rules={rules}
+              locked={rules.markedCard}
             />
           </div>
         ) : data.inTheDark ? (

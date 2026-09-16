@@ -75,10 +75,13 @@ export const get = query({
     const myWard = mySeat >= 0 ? round?.party?.guardians?.[mySeat] ?? null : null;
     if (myWard !== null && myWard !== mySeat && round?.phase !== "trump") peeked.add(myWard);
     // Partners see each other from the deal: the whole point is to play the round together.
-    const myPartner = mySeat >= 0 ? round?.party?.teams?.[mySeat] ?? null : null;
+    const myPartner = mySeat >= 0 && rules?.team ? round?.party?.teams?.[mySeat] ?? null : null;
     if (myPartner !== null && myPartner !== mySeat) peeked.add(myPartner);
-    // Party "fog": tricks are collected face down until the round is scored.
+    // Party "fog": every card but your own is played face down, and the tricks are
+    // collected the same way, until the round is scored.
     const fogged = round?.phase === "tricks" && rules?.fog === true;
+    const fogPlays = <P extends { seat: number; card: string }>(plays: P[]): P[] =>
+      plays.map((p) => (p.seat === mySeat ? p : { ...p, card: HIDDEN_CARD }));
     // Party "blindLead": the lead of the trick in progress is face down to everyone but its player.
     const blind = round?.phase === "tricks" && rules?.blindLead === true;
     const allOpen = round !== null && mySeat >= 0 && rules?.openHands === true && round.phase !== "trump";
@@ -150,11 +153,12 @@ export const get = query({
             turnSeat: round.turnSeat,
             turnNonce: round.turnNonce,
             turnDeadline: round.turnDeadline ?? null,
-            currentTrick:
-              blind && round.currentTrick.plays.length > 0 && round.currentTrick.leader !== mySeat
+            currentTrick: fogged
+              ? { ...round.currentTrick, plays: fogPlays(round.currentTrick.plays) }
+              : blind && round.currentTrick.plays.length > 0 && round.currentTrick.leader !== mySeat
                 ? { ...round.currentTrick, plays: round.currentTrick.plays.map((p, i) => (i === 0 ? { ...p, card: HIDDEN_CARD } : p)) }
                 : round.currentTrick,
-            completedTricks: fogged ? round.completedTricks.map((t) => ({ ...t, winner: -1 })) : round.completedTricks,
+            completedTricks: fogged ? round.completedTricks.map((t) => ({ ...t, plays: fogPlays(t.plays), winner: -1 })) : round.completedTricks,
             deltas: round.deltas ?? null,
             party: round.party
               ? {
@@ -180,11 +184,12 @@ export const get = query({
                   curses: round.party.curses,
                   peeks: round.party.peeks,
                   awards: round.party.awards ?? [],
-                  teams: round.party.teams ?? null,
+                  teams: rules?.team ? round.party.teams ?? null : null,
                   // Who was after whom is the round's other reveal.
                   nemeses: round.phase === "scored" ? round.party.nemeses ?? null : null,
                   markedCard: round.party.markedCard ?? null,
                   voted: round.party.voted ?? [],
+                  robinSwap: round.party.robinSwap ?? null,
                 }
               : null,
             winnerSeat: round.winnerSeat ?? null,

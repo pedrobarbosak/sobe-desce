@@ -29,6 +29,8 @@ export type PartyView = {
   markedCard: Card | null;
   /** `voteTrump`: who has voted. */
   voted: boolean[];
+  /** `robinHood`, once scored: the two seats whose results were swapped. */
+  robinSwap: number[] | null;
 };
 
 /** A card as a short label: rank and suit glyph. */

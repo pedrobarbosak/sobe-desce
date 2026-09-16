@@ -337,6 +337,8 @@
     "alreadyPeeked": "You are already looking at that hand.",
     "alreadyShielded": "You are already shielded this round.",
     "alreadyVoted": "You already voted.",
+    "markedCardStays": "The marked card cannot be discarded.",
+    "sitOutMarked": "You hold the marked card, so you play this round.",
     "sitOutAllIn": "Nobody sits out this round.",
     "alreadyPassed": "You already passed a card.",
     "wrongPassCount": "Pick the right number of cards.",
@@ -371,7 +373,8 @@
       "maxConsecutive": "You already sat out 2 rounds in a row",
       "clubs": "Clubs are trump: nobody sits out",
       "trumpNamer": "You named the trump, so you play this round",
-      "allIn": "All in: nobody sits out this round"
+      "allIn": "All in: nobody sits out this round",
+      "markedCard": "You hold the marked card, so you play this round"
     },
     "waitingFor": "{{name}}'s turn",
     "yourTurn": "Your turn",
@@ -621,7 +624,7 @@
       },
       "pass": {
         "name": "Pass",
-        "desc": "After discarding, each active player chooses cards from their hand and passes them in the direction shown."
+        "desc": "After discarding, {{count}} random cards from each active player's hand go in the direction shown. Nobody chooses: the deal does."
       },
       "swap": {
         "name": "Swap hands",
@@ -649,7 +652,7 @@
       },
       "dummy": {
         "name": "Spare hand",
-        "desc": "Up to seven extra cards are revealed. In turn, each active player may swap one card with one of them, or skip."
+        "desc": "Up to seven extra cards are revealed. Each active player may swap one card with one of them, or skip. The player with the most points goes first."
       },
       "faceUp": {
         "name": "Revealed card",
@@ -677,15 +680,15 @@
       },
       "robinHood": {
         "name": "Robin Hood",
-        "desc": "At scoring, the player furthest from zero swaps results with the player closest to it."
+        "desc": "At scoring, the player with the most points (last in the standings) and the player with the fewest (the leader) swap results, among those who played. The leader pays the round the trailer earned, and the other way round."
       },
       "markedCard": {
         "name": "Marked card: {{card}}",
-        "desc": "Whoever takes the trick that holds the {{card}} pays {{points}} points on top. Play around it, or into it."
+        "desc": "One dealt card is announced. Whoever takes the trick that holds the {{card}} pays {{points}} points on top. It stays where it was dealt: it cannot be discarded, and its holder cannot sit out."
       },
       "fog": {
         "name": "Fog",
-        "desc": "Tricks are collected face down: nobody's count shows until the round is scored, and the lead moves one seat left after each trick instead of going to the winner."
+        "desc": "Every card is played face down: you only see your own. Nobody knows who took a trick until the round is scored, follow-suit does not apply, and the lead moves one seat left after each trick."
       },
       "blindLead": {
         "name": "Blind lead",
@@ -740,6 +743,8 @@
     "withPartner": "with {{name}}",
     "teamed": "{{a}} and {{b}} played as a team",
     "nemesisOf": "{{name}} was after {{target}}",
+    "robinSwapped": "Robin Hood: {{a}} and {{b}} swapped results",
+    "markedCardStays": "The marked card stays in your hand",
     "ward": "Yours",
     "wardHint": "You guard this player: you see their hand and receive their score change for the round.",
     "guarding": "guarding {{name}}",
