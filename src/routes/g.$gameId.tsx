@@ -40,6 +40,8 @@ function GameLayout() {
             {variantOf(game.config) === "party" && <span className="ml-2 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">🎲 {t("variants.party")}</span>}
           </p>
         </div>
+        {/* Standings and history are empty until a card has been dealt. */}
+        {game.status !== "lobby" && (
         <nav className="flex gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
           <Link to="/g/$gameId" params={{ gameId }} activeOptions={{ exact: true }} className={tabCls}>
             {t("tabs.lobby")}
@@ -51,6 +53,7 @@ function GameLayout() {
             {t("tabs.history")}
           </Link>
         </nav>
+        )}
       </div>
       <Outlet />
     </div>
