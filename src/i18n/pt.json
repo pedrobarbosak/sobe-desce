@@ -4,10 +4,10 @@
   },
   "nav": {
     "home": "Início",
-    "myGames": "Os meus jogos",
+    "myGames": "As minhas mesas",
     "account": "Conta",
     "rules": "Regras",
-    "create": "Criar jogo",
+    "create": "Criar mesa",
     "join": "Entrar",
     "ongoing": "Jogo a decorrer",
     "ongoingTurn": "É a tua vez!",
@@ -42,7 +42,7 @@
     "kicker": "O clássico das mesas de café",
     "title": "Sobe e Desce",
     "subtitle": "O jogo de cartas português, online e em tempo real. Convida os amigos, escolhe o trunfo e chega aos zero pontos antes dos outros.",
-    "create": "Criar jogo",
+    "create": "Criar mesa",
     "joinTitle": "Tens um código?",
     "joinPlaceholder": "CÓDIGO",
     "joinButton": "Entrar na mesa",
@@ -57,16 +57,16 @@
     ],
     "campaignTitle": "Liga do escritório",
     "campaignText": "Junta até 16 jogadores numa campanha. Em cada sessão, joga quem aparece e os pontos ficam guardados para a próxima. Também podes registar os resultados dos jogos presenciais.",
-    "myGames": "Os meus jogos",
+    "myGames": "As minhas mesas",
     "openTables": "Mesas abertas",
     "noOpenTables": "Não há mesas à espera de jogadores. Cria uma!",
-    "noMyGames": "Ainda não tens jogos. Cria uma mesa ou entra com um código.",
+    "noMyGames": "Ainda não tens mesas. Cria uma ou entra com um código.",
     "joinTable": "Entrar",
     "host": "Anfitrião",
     "seatsFree": "{{count}}/{{max}} jogadores",
     "joinReveal": "Entrar com código",
     "joinCancel": "Cancelar",
-    "finishedGames": "Jogos terminados",
+    "finishedGames": "Mesas terminadas",
     "showFinished": "Ver {{count}} terminados",
     "showFinished_one": "Ver {{count}} terminado",
     "showFinished_other": "Ver {{count}} terminados",
@@ -79,7 +79,7 @@
     },
     "party": {
       "name": "Festa",
-      "desc": "Uma reviravolta em cada ronda · 52 cartas · 12 pontos · até 8 à mesa"
+      "desc": "Uma reviravolta em cada ronda · 52 cartas · 25 pontos · até 8 jogadores"
     },
     "liga": {
       "name": "Liga",
@@ -91,15 +91,15 @@
     },
     "normal": {
       "name": "Normal",
-      "desc": "40 cartas · 20 pontos · até 6 à mesa"
+      "desc": "40 cartas · 20 pontos · até 6 jogadores"
     },
     "long": {
       "name": "Longo",
-      "desc": "40 cartas · 30 pontos · até 6 à mesa"
+      "desc": "40 cartas · 30 pontos · até 6 jogadores"
     },
     "mesaGrande": {
       "name": "Mesa Grande",
-      "desc": "52 cartas · 20 pontos · até 8 à mesa"
+      "desc": "52 cartas · 20 pontos · até 8 jogadores"
     }
   },
   "modes": {
@@ -107,7 +107,7 @@
     "campaign": "Campanha"
   },
   "new": {
-    "title": "Novo jogo",
+    "title": "Nova mesa",
     "name": "Nome da mesa",
     "namePlaceholder": "Mesa da sexta-feira",
     "preset": "Predefinição",
@@ -140,8 +140,8 @@
     "seatsDynamic": "Com o baralho de {{deck}} cartas, podem jogar até {{max}} pessoas. Quem entrar na mesa antes de o jogo começar participa.",
     "randomName": "Nome aleatório",
     "advanced": "Definições avançadas",
-    "advancedHint": "Regras, baralho, pontos e tempo. O modelo já escolheu valores sensatos; ao mudar algum, a mesa passa a personalizada.",
-    "customNote": "As tuas definições, a partir do modelo em que começaste.",
+    "advancedHint": "Regras, baralho, pontos e tempo. A predefinição já escolheu valores sensatos; ao mudar algum, a mesa passa a personalizada.",
+    "customNote": "As tuas definições, a partir da predefinição em que começaste.",
     "summaryPlayers": "até {{max}} jogadores",
     "summaryRoster": "{{count}} inscritos",
     "summaryPoints": "{{points}} pontos",
@@ -234,7 +234,7 @@
     "spectating": "A assistir"
   },
   "tabs": {
-    "lobby": "Mesa",
+    "lobby": "Sala",
     "standings": "Classificação",
     "history": "Histórico"
   },
@@ -332,11 +332,11 @@
     "notPartyTable": "Esta mesa não é de festa.",
     "powerupNotHeld": "Não tens esse poder.",
     "powerupWrongPhase": "Os poderes só se usam enquanto a ronda está a ser decidida ou jogada.",
-    "powerupSatOut": "Passaste esta ronda.",
+    "powerupSatOut": "Ficaste de fora nesta ronda.",
     "powerupBadTarget": "Escolhe outro jogador que esteja em jogo.",
     "alreadyPeeked": "Já estás a ver essa mão.",
     "alreadyShielded": "Já estás protegido nesta ronda.",
-    "sitOutAllIn": "Ninguém passa esta ronda.",
+    "sitOutAllIn": "Ninguém fica de fora nesta ronda.",
     "alreadyPassed": "Já passaste uma carta.",
     "wrongPassCount": "Escolhe o número certo de cartas.",
     "cardNotInMarket": "Essa carta não está no meio.",
@@ -367,7 +367,7 @@
       "maxConsecutive": "Já ficaste de fora 2 rondas seguidas",
       "clubs": "O trunfo é paus: ninguém pode ficar de fora",
       "trumpNamer": "Escolheste o trunfo: tens de jogar esta ronda",
-      "allIn": "Todos jogam: ninguém passa esta ronda"
+      "allIn": "Todos jogam: ninguém fica de fora nesta ronda"
     },
     "waitingFor": "Vez de {{name}}",
     "yourTurn": "É a tua vez",
@@ -387,7 +387,7 @@
     "nextRoundSoon": "A próxima ronda começa já…",
     "gameOver": "Fim do jogo",
     "winner": "{{name}} ganhou!",
-    "backToLobby": "Voltar à mesa",
+    "backToLobby": "Voltar à sala",
     "scoreboard": "Pontuação",
     "spectating": "Estás a assistir",
     "blank": "em branco",
@@ -533,7 +533,7 @@
       "user": "jogador",
       "bot": "bot",
       "timeout": "tempo esgotado",
-      "organizer": "organizador"
+      "organizer": "anfitrião"
     },
     "delete": "Apagar sessão",
     "deleteTitle": "Apagar a sessão {{n}}?",
@@ -576,8 +576,8 @@
   "party": {
     "twist": "Reviravolta",
     "twistOfRound": "Reviravolta desta ronda",
-    "eventCatalogTitle": "Eventos das rondas Festa",
-    "eventCatalogHint": "Um destes eventos aparece no início de cada ronda. O naipe, o valor, o número de cartas e a direção são sorteados de cada vez; os exemplos abaixo mostram um resultado possível.",
+    "eventCatalogTitle": "Reviravoltas das rondas Festa",
+    "eventCatalogHint": "Uma destas reviravoltas aparece no início de cada ronda. O naipe, o valor, o número de cartas e a direção são sorteados de cada vez; os exemplos abaixo mostram um resultado possível.",
     "twists": {
       "desce": {
         "name": "Desce",
@@ -605,7 +605,7 @@
       },
       "allIn": {
         "name": "Todos jogam",
-        "desc": "Ninguém pode passar esta ronda."
+        "desc": "Ninguém pode ficar de fora nesta ronda."
       },
       "lightning": {
         "name": "Relâmpago",
@@ -664,7 +664,7 @@
       },
       "curse": {
         "name": "Maldição",
-        "desc": "Um jogador à tua escolha soma +{{points}} no fim da ronda. Se passar a ronda, escapa."
+        "desc": "Um jogador à tua escolha soma +{{points}} no fim da ronda. Se ficar de fora, escapa."
       },
       "shield": {
         "name": "Escudo",

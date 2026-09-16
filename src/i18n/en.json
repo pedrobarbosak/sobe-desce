@@ -4,10 +4,10 @@
   },
   "nav": {
     "home": "Home",
-    "myGames": "My games",
+    "myGames": "My tables",
     "account": "Account",
     "rules": "Rules",
-    "create": "Create game",
+    "create": "Create a table",
     "join": "Join",
     "ongoing": "Game in progress",
     "ongoingTurn": "Your turn!",
@@ -22,7 +22,7 @@
     "confirm": "Confirm",
     "points": "points",
     "rounds": "rounds",
-    "sessions": "sessions",
+    "sessions": "sittings",
     "you": "you",
     "host": "host",
     "bot": "bot",
@@ -42,31 +42,31 @@
     "kicker": "The Portuguese café-table classic",
     "title": "Sobe e Desce",
     "subtitle": "A Portuguese trick-taking game, online and in real time. Invite your friends, name the trump, and race down to zero.",
-    "create": "Create a game",
+    "create": "Create a table",
     "joinTitle": "Got a code?",
     "joinPlaceholder": "CODE",
-    "joinButton": "Join table",
+    "joinButton": "Join",
     "presetsTitle": "Pick a table",
     "howTitle": "How it's played",
     "how": [
       "Everyone gets 5 cards: 3, then the trump is named, then 2 more.",
-      "Swap cards up to the cap, or sit the round out (rules apply).",
+      "Discard up to the cap and draw again, or sit the round out (rules apply).",
       "5 tricks. Follow suit, trump when void, and if you can climb, you must.",
       "Each trick is -1. Playing and winning none costs +5. Hearts doubles everything.",
       "First to reach 0 wins."
     ],
     "campaignTitle": "Office league",
-    "campaignText": "Campaign mode: up to 16 enrolled, whoever shows up plays, persistent scores, in-person sittings entered by hand.",
-    "myGames": "My games",
+    "campaignText": "Campaign mode: a roster of up to 16, whoever shows up plays, points carry over, and in-person sittings can be entered by hand.",
+    "myGames": "My tables",
     "openTables": "Open tables",
     "noOpenTables": "No tables waiting for players. Create one!",
-    "noMyGames": "No games yet. Create a table or join with a code.",
+    "noMyGames": "No tables yet. Create one or join with a code.",
     "joinTable": "Join",
     "host": "Host",
     "seatsFree": "{{count}}/{{max}} players",
     "joinReveal": "Join with a code",
     "joinCancel": "Cancel",
-    "finishedGames": "Finished games",
+    "finishedGames": "Finished tables",
     "showFinished": "Show {{count}} finished",
     "showFinished_one": "Show {{count}} finished",
     "showFinished_other": "Show {{count}} finished",
@@ -79,11 +79,11 @@
     },
     "party": {
       "name": "Party",
-      "desc": "A twist every round · 52 cards · 12 points · up to 8 seated"
+      "desc": "A twist every round · 52 cards · 25 points · up to 8 players"
     },
     "liga": {
       "name": "Liga",
-      "desc": "Campaign · 40 cards · 1000 points · 16 enrolled"
+      "desc": "Campaign · 40 cards · 1000 points · roster of 16"
     },
     "custom": {
       "name": "Custom",
@@ -91,23 +91,23 @@
     },
     "normal": {
       "name": "Normal",
-      "desc": "40 cards · 20 points · up to 6 seated"
+      "desc": "40 cards · 20 points · up to 6 players"
     },
     "long": {
       "name": "Long",
-      "desc": "40 cards · 30 points · up to 6 seated"
+      "desc": "40 cards · 30 points · up to 6 players"
     },
     "mesaGrande": {
       "name": "Mesa Grande",
-      "desc": "52 cards · 20 points · up to 8 seated"
+      "desc": "52 cards · 20 points · up to 8 players"
     }
   },
   "modes": {
-    "session": "Single session",
+    "session": "One sitting",
     "campaign": "Campaign"
   },
   "new": {
-    "title": "New game",
+    "title": "New table",
     "name": "Table name",
     "namePlaceholder": "Friday table",
     "preset": "Preset",
@@ -118,7 +118,7 @@
     "thresholdHint": "Below this score a player can no longer sit out. A quarter of the starting points until you set it yourself.",
     "mode": "Mode",
     "modeSessionHint": "A fixed group sits down and plays until someone reaches 0.",
-    "modeCampaignHint": "Roster > seats. Whoever shows up plays; scores persist.",
+    "modeCampaignHint": "More on the roster than seats at the table. Whoever shows up plays that sitting, and points carry over to the next.",
     "seats": "Seats at the table",
     "roster": "Roster (max 16)",
     "blankPenalty": "Blank round penalty",
@@ -132,7 +132,7 @@
       "seatsRange": "Seat count not allowed for this deck",
       "seatsDiscard": "Deck would run dry with this many seats",
       "rosterRange": "Roster must be between the seat count and 16",
-      "rosterSession": "In a session the roster equals the seats",
+      "rosterSession": "With one sitting the roster equals the seats",
       "blankPenalty": "Invalid penalty",
       "turnSeconds": "Between 10 and 180 seconds",
       "variant": "Invalid rules"
@@ -151,14 +151,14 @@
     "variantPartyHint": "Every round flips a public twist: low card wins, no trump, pass cards round, swap hands, a secret guardian, a wild rank, a market in the middle and more. Shorter, louder games."
   },
   "join": {
-    "title": "Join table",
+    "title": "Join a table",
     "notFound": "No table matches that code.",
     "joining": "Taking a seat…",
     "players": "{{count}} players",
     "players_one": "{{count}} player",
     "players_other": "{{count}} players",
     "gameFull": "This table is full.",
-    "gameStarted": "This table has already started.",
+    "gameStarted": "The game has already started.",
     "gameFinished": "This game is over."
   },
   "lobby": {
@@ -234,7 +234,7 @@
     "spectating": "Watching"
   },
   "tabs": {
-    "lobby": "Table",
+    "lobby": "Lobby",
     "standings": "Standings",
     "history": "History"
   },
@@ -361,7 +361,7 @@
     "discardN_one": "Discard {{count}} card",
     "discardN_other": "Discard {{count}} cards",
     "keepAll": "Play without discarding",
-    "sitOut": "Stay out",
+    "sitOut": "Sit out",
     "sitOutBlocked": {
       "belowThreshold": "Below {{threshold}} you cannot sit out",
       "maxConsecutive": "You already sat out 2 rounds in a row",
@@ -387,14 +387,14 @@
     "nextRoundSoon": "Next round starting…",
     "gameOver": "Game over",
     "winner": "{{name}} wins!",
-    "backToLobby": "Back to lobby",
+    "backToLobby": "Back to the lobby",
     "scoreboard": "Scores",
-    "spectating": "You are spectating",
+    "spectating": "You are watching",
     "blank": "blank",
     "timeout": "timeout",
     "bot": "bot",
     "left": "left",
-    "leftTable": "{{name}} left; the server plays for them",
+    "leftTable": "{{name}} left; a bot plays for them",
     "sitOutStreak": "sat out {{n}}x in a row",
     "sessionClosed": "The sitting was closed.",
     "hand": "Your hand",
@@ -409,7 +409,7 @@
     "youSatOut": "You sat this round out. Your cards stay face down.",
     "trumpNamerCommitted": "You named the trump, so you are in this round.",
     "yourTurnNow": "Your turn",
-    "choosingTrumpShort": "choosing the trump",
+    "choosingTrumpShort": "naming the trump",
     "decidingShort": "deciding",
     "playingShort": "to play",
     "readyNext": "Choice saved",
@@ -417,11 +417,11 @@
     "changeChoice": "Change",
     "prepareHint": "You can set up your move while you wait.",
     "prepareTitle": "Get your round ready",
-    "readyDiscardN": "Swapping {{count}}",
-    "readyDiscardN_one": "Swapping {{count}} card",
-    "readyDiscardN_other": "Swapping {{count}} cards",
-    "readyKeepAll": "Playing without swapping",
-    "readySitOut": "Staying out this round",
+    "readyDiscardN": "Discarding {{count}}",
+    "readyDiscardN_one": "Discarding {{count}} card",
+    "readyDiscardN_other": "Discarding {{count}} cards",
+    "readyKeepAll": "Playing without discarding",
+    "readySitOut": "Sitting this round out",
     "watchingHands": "You sat out, so you can see everyone's cards.",
     "abandon": "Leave the table",
     "abandonConfirm": "A bot takes your seat for the rest of this sitting. Continue?",
@@ -436,7 +436,7 @@
     "menu": "Table",
     "tableActions": "Table options",
     "home": "Home page",
-    "endSession": "End sitting",
+    "endSession": "End the sitting",
     "endSessionConfirm": "Ends the sitting for everyone. The round in progress does not count. Continue?",
     "endedBelowMin": "The sitting ended: fewer than {{min}} players were left at the table.",
     "flip": "Flip a card",
@@ -446,8 +446,8 @@
     "flippedCard": "Flipped card",
     "flippedFree": "You flipped for it, so you may still sit this round out.",
     "logFlip": "flipped the card",
-    "choosingTrumpBadge": "Choosing the trump",
-    "setTrumpBadge": "Set the trump",
+    "choosingTrumpBadge": "Naming the trump",
+    "setTrumpBadge": "Named the trump",
     "flippedTrumpBadge": "Flipped for the trump",
     "tricksWonBadge": "Tricks won: {{n}}",
     "trickHistory": "Tricks this round",
@@ -533,7 +533,7 @@
       "user": "player",
       "bot": "bot",
       "timeout": "timed out",
-      "organizer": "organizer"
+      "organizer": "host"
     },
     "delete": "Delete sitting",
     "deleteTitle": "Delete sitting {{n}}?",
@@ -576,7 +576,7 @@
   "party": {
     "twist": "Twist",
     "twistOfRound": "This round's twist",
-    "eventCatalogTitle": "Party round events",
+    "eventCatalogTitle": "Party round twists",
     "eventCatalogHint": "One of these appears at the start of every round. Suit, rank, pass count, and direction are drawn each time; the examples below show one possible result.",
     "twists": {
       "desce": {

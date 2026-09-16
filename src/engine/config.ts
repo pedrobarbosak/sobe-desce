@@ -76,7 +76,7 @@ type PresetShape = Omit<GameConfig, "preset" | "forcedPlayThreshold" | "blankPen
 export const PRESETS: Record<Exclude<PresetId, "custom">, PresetShape> = {
   classic: { variant: "classic", deck: 40, startingPoints: 20, mode: "session", rosterSize: 4, seats: 4 },
   /** Short and loud: twists every round, powerups, and a score that a single evening can reach. */
-  party: { variant: "party", deck: 52, startingPoints: 12, mode: "session", rosterSize: 8, seats: 8 },
+  party: { variant: "party", deck: 52, startingPoints: 25, mode: "session", rosterSize: 8, seats: 8 },
   liga: { variant: "classic", deck: 40, startingPoints: 1000, mode: "campaign", rosterSize: MAX_ROSTER, seats: 6 },
   normal: { variant: "classic", deck: 40, startingPoints: 20, mode: "session", rosterSize: 4, seats: 4 },
   long: { variant: "classic", deck: 40, startingPoints: 30, mode: "session", rosterSize: 4, seats: 4 },
