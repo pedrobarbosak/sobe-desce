@@ -147,6 +147,9 @@ body {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
+/* An icon inline with text: the size of the letters around it, sitting on their baseline. */
+.icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
+
 /* Anything clickable gets the hand. */
 button, [role="button"], a[href], summary, label[for], select, input[type="checkbox"], input[type="radio"] { cursor: pointer; }
 button:disabled, [aria-disabled="true"] { cursor: not-allowed; }

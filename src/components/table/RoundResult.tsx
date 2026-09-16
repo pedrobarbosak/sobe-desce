@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { LuDices, LuShield, LuShuffle } from "react-icons/lu";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { POWERUP_ICONS, type PartyView, type Translate, twistName } from "./party";
@@ -52,17 +53,19 @@ export function RoundResult({
       )}
       {party && (
         <p className="mt-1 text-xs text-purple-200">
-          🎲 {twistName(party, t as unknown as Translate)}
+          <LuDices className="icon" /> {twistName(party, t as unknown as Translate)}
         </p>
       )}
       {party?.swapped !== null && party?.swapped !== undefined && (
-        <p className="mt-1 text-xs text-cream-100/80">🔀 {party.swapped ? t("party.swapped") : t("party.notSwapped")}</p>
+        <p className="mt-1 text-xs text-cream-100/80">
+          <LuShuffle className="icon" /> {party.swapped ? t("party.swapped") : t("party.notSwapped")}
+        </p>
       )}
       {party?.guardians && (
         <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
           {party.guardians.map((ward, seat) => (
             <li key={seat} className={seats[seat]?.isMe ? "font-semibold text-gold-400" : ""}>
-              🛡 {t("party.guarded", { name: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", ward: seats[ward]?.isMe ? t("common.you") : seats[ward]?.name ?? "?" })}
+              <LuShield className="icon" /> {t("party.guarded", { name: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", ward: seats[ward]?.isMe ? t("common.you") : seats[ward]?.name ?? "?" })}
             </li>
           ))}
         </ul>
@@ -71,10 +74,11 @@ export function RoundResult({
         <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
           {party.awards.map((a, i) => {
             const who = seats[a.seat];
-            const powerup = `${POWERUP_ICONS[a.powerup]} ${t(`party.powerups.${a.powerup}.name`)}`;
+            const powerup = t(`party.powerups.${a.powerup}.name`);
+            const Icon = POWERUP_ICONS[a.powerup];
             return (
               <li key={i} className={who?.isMe ? "font-semibold text-gold-400" : ""}>
-                {who?.isMe ? t("party.youDrew", { powerup }) : t("party.drew", { name: who?.name ?? "?", powerup })}
+                <Icon className="icon" /> {who?.isMe ? t("party.youDrew", { powerup }) : t("party.drew", { name: who?.name ?? "?", powerup })}
               </li>
             );
           })}

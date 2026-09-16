@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { LuArrowLeft, LuDices, LuMusic, LuRotateCcw, LuVolume2, LuVolumeX } from "react-icons/lu";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { useSoundSettings } from "@/hooks/useSound";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
@@ -50,7 +51,7 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
         aria-label={t("table.backToLobby")}
         title={t("table.backToLobby")}
       >
-        ←
+        <LuArrowLeft className="icon" />
       </button>
       <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{gameName}</span>
       {roundIndex !== null && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: roundIndex + 1 })}</span>}
@@ -59,7 +60,11 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
         <span className={`flex items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
           <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
           <span className="hidden sm:inline">{t(`suits.${trump}`).split(" ")[0]}</span>
-          {flipped && <span className="rounded bg-ink-900 px-1 text-[10px] text-white" title={t("table.flippedCard")}>⤺</span>}
+          {flipped && (
+            <span className="rounded bg-ink-900 px-1 text-[10px] text-white" title={t("table.flippedCard")}>
+              <LuRotateCcw className="icon" />
+            </span>
+          )}
           {trump === "H" && (
             <span className={`rounded px-1 text-[10px] font-bold text-white ${dark ? "bg-heart ring-1 ring-cream-50" : "bg-heart"}`}>
               {dark ? "×4" : "×2"}
@@ -76,7 +81,7 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
           className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
           title={tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}
         >
-          🎲
+          <LuDices className="icon" />
           <span className="hidden sm:inline">{twistName(party, tr)}</span>
           {party.twist === "golden" && party.goldenSuit && (
             <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
@@ -120,7 +125,7 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
           title={t("table.sfx")}
           className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.sfx ? "text-cream-50" : "text-cream-100/40"}`}
         >
-          {soundSettings.sfx ? "🔊" : "🔇"}
+          {soundSettings.sfx ? <LuVolume2 className="icon" /> : <LuVolumeX className="icon" />}
         </button>
         <button
           type="button"
@@ -129,7 +134,7 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
           title={t("table.music")}
           className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.music ? "text-cream-50" : "text-cream-100/40"}`}
         >
-          ♪
+          <LuMusic className="icon" />
         </button>
         <LanguageToggle />
       </nav>

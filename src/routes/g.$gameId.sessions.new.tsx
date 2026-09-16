@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuX } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { SUITS, SUIT_SYMBOLS, type Suit, TRICKS_PER_ROUND, applyDeltas, roundDeltas } from "@/engine";
@@ -168,7 +169,7 @@ function ManualSession() {
                     ))}
                     {rounds.length > 1 && (
                       <button type="button" className="ml-2 text-xs text-cream-100/50 hover:text-heart" onClick={() => setRounds((prev) => prev.filter((_, j) => j !== i))}>
-                        ✕
+                        <LuX className="icon" />
                       </button>
                     )}
                   </div>

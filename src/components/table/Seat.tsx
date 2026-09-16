@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { LuEye, LuShield, LuSkull } from "react-icons/lu";
 import { CURSE_POINTS, type Card as CardT, type DeckSize, type Suit, SUIT_SYMBOLS, sortHand } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
 import { CardBack, CardFace } from "./Card";
@@ -135,22 +136,22 @@ export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTur
         <div className="flex gap-1 text-[10px] font-semibold">
           {ward && (
             <span className="rounded bg-gold-400 px-1 text-ink-900" title={t("party.wardHint")}>
-              🛡 {t("party.ward")}
+              <LuShield className="icon" /> {t("party.ward")}
             </span>
           )}
           {cursed > 0 && (
             <span className="rounded bg-purple-700/80 px-1 text-white" title={t("party.cursedPoints", { points: cursed * CURSE_POINTS })}>
-              ☠ +{cursed * CURSE_POINTS}
+              <LuSkull className="icon" /> +{cursed * CURSE_POINTS}
             </span>
           )}
           {shielded && (
             <span className="rounded bg-sky-700/80 px-1 text-white" title={t("party.shielded")}>
-              🛡
+              <LuShield className="icon" />
             </span>
           )}
           {peeked && (
             <span className="rounded bg-gold-400 px-1 text-ink-900" title={t("party.peeked")}>
-              👁
+              <LuEye className="icon" />
             </span>
           )}
         </div>

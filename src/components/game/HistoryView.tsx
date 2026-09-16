@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuUndo2 } from "react-icons/lu";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
@@ -111,7 +112,7 @@ function SessionRounds({
             {players.map((p) => (
               <th key={p.playerId} className={`px-2 py-2 text-right ${p.left ? "opacity-50" : ""}`} title={p.left ? t("history.leftSitting") : undefined}>
                 {p.name}
-                {p.left && <span className="ml-1">↩</span>}
+                {p.left && <LuUndo2 className="icon ml-1" />}
               </th>
             ))}
             <th className="px-2 py-2" />

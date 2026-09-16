@@ -1,6 +1,7 @@
 import { Link, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuDices } from "react-icons/lu";
 import { variantOf } from "@/engine";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -37,7 +38,9 @@ function GameLayout() {
           <h1 className={`font-display font-extrabold text-cream-50 ${onTable ? "text-lg" : "text-2xl sm:text-3xl"}`}>{game.name}</h1>
           <p className="text-sm text-cream-100/60">
             {t(`modes.${game.mode}`)}, {t(`presets.${game.config.preset}.name`)}, {game.config.deck} {t("new.cards")}
-            {variantOf(game.config) === "party" && <span className="ml-2 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">🎲 {t("variants.party")}</span>}
+            {variantOf(game.config) === "party" && <span className="ml-2 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">
+                <LuDices className="icon" /> {t("variants.party")}
+              </span>}
           </p>
         </div>
         {/* Standings and history are empty until a card has been dealt. */}

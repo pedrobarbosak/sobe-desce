@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuChevronRight, LuDices } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
 import {
   MAX_ROSTER,
@@ -42,7 +43,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 /** A two-or-three-way switch: one button per option, the chosen one lit. */
-function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: readonly T[]; onChange: (v: T) => void; label: (v: T) => string }) {
+function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: readonly T[]; onChange: (v: T) => void; label: (v: T) => React.ReactNode }) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-white/20">
       {options.map((o) => (
@@ -168,7 +169,7 @@ function NewGame() {
           <div className="flex gap-2">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("new.namePlaceholder")} maxLength={40} className={`${inputCls} border-white/20`} />
             <button type="button" onClick={() => setName(randomTableName())} className="shrink-0 rounded-lg border border-white/20 px-3 text-lg hover:bg-white/10" title={t("new.randomName")} aria-label={t("new.randomName")}>
-              🎲
+              <LuDices className="icon" />
             </button>
           </div>
         </Field>
@@ -184,9 +185,7 @@ function NewGame() {
               <span className="text-sm font-semibold text-cream-50">{t("new.advanced")}</span>
               <span className="block text-xs text-cream-100/50">{t("new.advancedHint")}</span>
             </span>
-            <span className={`text-cream-100/60 transition ${showAdvanced ? "rotate-90" : ""}`} aria-hidden>
-              ▸
-            </span>
+            <LuChevronRight className={`icon text-cream-100/60 transition ${showAdvanced ? "rotate-90" : ""}`} aria-hidden />
           </button>
 
           {showAdvanced && (
@@ -199,7 +198,15 @@ function NewGame() {
                   value={cfg.variant}
                   options={["classic", "party"] as const satisfies readonly Variant[]}
                   onChange={(variant) => patch({ variant })}
-                  label={(vr) => `${vr === "party" ? "🎲 " : ""}${t(`variants.${vr}`)}`}
+                  label={(vr) =>
+                    vr === "party" ? (
+                      <>
+                        <LuDices className="icon" /> {t("variants.party")}
+                      </>
+                    ) : (
+                      t("variants.classic")
+                    )
+                  }
                 />
               </Field>
               <Field label={t("new.mode")} hint={cfg.mode === "session" ? t("new.modeSessionHint") : t("new.modeCampaignHint")}>

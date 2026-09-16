@@ -1,3 +1,5 @@
+import type { IconType } from "react-icons";
+import { LuEye, LuShield, LuSkull } from "react-icons/lu";
 import { LIGHTNING_SECONDS, type PassSpec, type Powerup, type Rank, type Suit, type Twist } from "@/engine";
 
 /** The round's twist and the public trace of powerups, as the table query sends them. */
@@ -24,7 +26,7 @@ export type PartyView = {
 /** `t` for keys built at runtime, which the typed one rejects. */
 export type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
-export const POWERUP_ICONS: Record<Powerup, string> = { peek: "👁", curse: "☠", shield: "🛡" };
+export const POWERUP_ICONS: Record<Powerup, IconType> = { peek: LuEye, curse: LuSkull, shield: LuShield };
 
 /** Interpolation values every twist description may use. */
 export function twistVars(party: PartyView, t: Translate): Record<string, unknown> {

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import type { IconType } from "react-icons";
+import { LuCheck, LuChevronDown, LuChevronUp, LuCoins, LuHand, LuLink, LuPlus, LuTrash2, LuUserX } from "react-icons/lu";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { MIN_SEATS, discardCapFor } from "@/engine";
@@ -39,7 +41,6 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const setOrder = useMutation(api.games.setOrder);
   const [linking, setLinking] = useState<string | null>(null);
   const [scoring, setScoring] = useState<{ playerId: string; value: string } | null>(null);
-  const [menuFor, setMenuFor] = useState<string | null>(null);
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
   const [manualName, setManualName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -97,10 +98,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const winner = game.winnerPlayerId ? players.find((p) => p._id === game.winnerPlayerId) : null;
   // The one question everyone in the room has: can we start? Answered in one place.
   const showReady = !sittingActive && !finished;
-  // Filling a short session table is the readiness strip's job; the host panel takes over
-  // once the minimum is met, so the button is never in two places at once.
-  const botsInStrip = isOwner && short && !isCampaign && !rosterFull;
-  const showHostPanel = isOwner && rosterOpen && (isCampaign || !botsInStrip);
+  const showHostPanel = isOwner && rosterOpen;
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -168,13 +166,15 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
               disabled={busy}
               onClick={() => void run(() => setCheckedIn({ gameId, checkedIn: true }))}
             >
-              ✋ {t("lobby.checkIn")}
+              <LuHand className="icon" /> {t("lobby.checkIn")}
             </Button>
           </Panel>
         )}
         {askToPlay && me.checkedIn && (
           <Panel className="flex flex-wrap items-center justify-between gap-3 border-emerald-400/50 bg-emerald-400/10">
-            <p className="text-sm font-semibold text-emerald-200">✓ {t("lobby.wantToPlayDone")}</p>
+            <p className="text-sm font-semibold text-emerald-200">
+              <LuCheck className="icon" /> {t("lobby.wantToPlayDone")}
+            </p>
             <Button variant="ghost" className="px-3 py-1.5 text-xs" disabled={busy} onClick={() => void run(() => setCheckedIn({ gameId, checkedIn: false }))}>
               {t("lobby.checkOut")}
             </Button>
@@ -199,11 +199,6 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 {isOwner && (
                   <Button disabled={busy || !canStart} onClick={goStart}>
                     {isCampaign ? t("lobby.openSitting", { count: seatedCount }) : t("lobby.start")}
-                  </Button>
-                )}
-                {botsInStrip && (
-                  <Button variant="secondary" disabled={busy} onClick={() => void run(() => addBot({ gameId }))}>
-                    {t("lobby.addBot")}
                   </Button>
                 )}
                 {!isOwner && canOpenSitting && (
@@ -281,20 +276,38 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
             </h2>
             <ul className="divide-y divide-white/10">
               {players.map((p, idx) => {
-                // Owner maintenance goes in a menu; what the row keeps is what people do
-                // every evening: raise a hand, or take a seat back from someone.
-                const menu: { label: string; danger?: boolean; onPick: () => void }[] = [];
+                // Owner maintenance is a row of icons; what stays a labelled button is what
+                // people do every evening: raise a hand.
+                const actions: { icon: IconType; label: string; danger?: boolean; active?: boolean; onPick: () => void }[] = [];
+                if (isOwner && !p.isMe && (isCampaign || (!p.isBot && !p.botControlled)) && seatedNow.has(p._id) && !finished) {
+                  actions.push({
+                    icon: LuUserX,
+                    label: t(isCampaign ? "table.kickCampaign" : "table.kick"),
+                    danger: true,
+                    onPick: () => {
+                      if (!window.confirm(t(isCampaign ? "table.kickConfirmCampaign" : "table.kickConfirm", { name: p.name }))) return;
+                      void run(() => kickToBot({ gameId, playerId: p._id }));
+                    },
+                  });
+                }
                 if (isOwner && isCampaign && rosterOpen && !seatedNow.has(p._id)) {
-                  menu.push({
+                  actions.push({
+                    icon: LuCoins,
                     label: t("lobby.setScore"),
+                    active: scoring?.playerId === p._id,
                     onPick: () => setScoring(scoring?.playerId === p._id ? null : { playerId: p._id, value: String(p.score) }),
                   });
                 }
                 if (isOwner && isCampaign && !p.isBot && rosterOpen && (!p.userId || p.userId !== game.ownerId)) {
-                  menu.push({ label: p.userId ? t("lobby.relink") : t("lobby.linkTo"), onPick: () => setLinking(linking === p._id ? null : p._id) });
+                  actions.push({
+                    icon: LuLink,
+                    label: p.userId ? t("lobby.relink") : t("lobby.linkTo"),
+                    active: linking === p._id,
+                    onPick: () => setLinking(linking === p._id ? null : p._id),
+                  });
                 }
                 if (isOwner && !p.isMe && rosterOpen && !seatedNow.has(p._id)) {
-                  menu.push({ label: t("common.remove"), danger: true, onPick: () => void run(() => removePlayer({ gameId, playerId: p._id })) });
+                  actions.push({ icon: LuTrash2, label: t("common.remove"), danger: true, onPick: () => void run(() => removePlayer({ gameId, playerId: p._id })) });
                 }
                 return (
                   <li key={p._id} className="flex flex-wrap items-center gap-3 py-2.5">
@@ -308,7 +321,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                           aria-label={t("lobby.moveUp")}
                           title={t("lobby.moveUp")}
                         >
-                          ▲
+                          <LuChevronUp className="icon" />
                         </button>
                         <button
                           type="button"
@@ -318,7 +331,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                           aria-label={t("lobby.moveDown")}
                           title={t("lobby.moveDown")}
                         >
-                          ▼
+                          <LuChevronDown className="icon" />
                         </button>
                       </div>
                     )}
@@ -338,7 +351,8 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                         {p.score} {t("common.points")}, {p.roundsPlayed} {t("common.rounds")}
                         {!p.isBot && p.userId && (
                           <span className={`ml-2 ${isOnline(p) ? "text-emerald-300" : "text-cream-100/40"}`}>
-                            ● {isOnline(p) ? t("common.online") : t("common.offline")}
+                            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current align-middle" aria-hidden />
+                            {isOnline(p) ? t("common.online") : t("common.offline")}
                           </span>
                         )}
                       </div>
@@ -355,50 +369,24 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                         {p.checkedIn ? t("lobby.checkOut") : t("lobby.checkIn")}
                       </Button>
                     )}
-                    {isOwner && !p.isMe && (isCampaign || (!p.isBot && !p.botControlled)) && seatedNow.has(p._id) && !finished && (
-                      <Button
-                        variant="ghost"
-                        className="px-3 py-1.5 text-xs"
-                        disabled={busy}
-                        onClick={() => {
-                          if (!window.confirm(t(isCampaign ? "table.kickConfirmCampaign" : "table.kickConfirm", { name: p.name }))) return;
-                          void run(() => kickToBot({ gameId, playerId: p._id }));
-                        }}
-                      >
-                        {t(isCampaign ? "table.kickCampaign" : "table.kick")}
-                      </Button>
-                    )}
-                    {menu.length > 0 && (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className="rounded-md px-2 py-1 text-base leading-none text-cream-100/60 hover:bg-white/10 hover:text-cream-50"
-                          disabled={busy}
-                          onClick={() => setMenuFor(menuFor === p._id ? null : p._id)}
-                          aria-label={t("lobby.more")}
-                          aria-haspopup="menu"
-                          aria-expanded={menuFor === p._id}
-                        >
-                          …
-                        </button>
-                        {menuFor === p._id && (
-                          <div role="menu" className="paper absolute right-0 top-full z-20 mt-1 flex min-w-[10rem] flex-col p-1 shadow-xl">
-                            {menu.map((item) => (
-                              <button
-                                key={item.label}
-                                type="button"
-                                role="menuitem"
-                                className={`rounded px-2 py-1.5 text-left text-sm hover:bg-white/10 ${item.danger ? "text-heart" : "text-cream-50"}`}
-                                onClick={() => {
-                                  setMenuFor(null);
-                                  item.onPick();
-                                }}
-                              >
-                                {item.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                    {actions.length > 0 && (
+                      <div className="flex items-center gap-0.5">
+                        {actions.map((a) => (
+                          <button
+                            key={a.label}
+                            type="button"
+                            className={`rounded-md p-1.5 text-base leading-none transition hover:bg-white/10 disabled:opacity-40 ${
+                              a.active ? "bg-white/10 text-gold-400" : a.danger ? "text-cream-100/50 hover:text-heart" : "text-cream-100/50 hover:text-cream-50"
+                            }`}
+                            disabled={busy}
+                            onClick={a.onPick}
+                            aria-label={a.label}
+                            aria-pressed={a.active}
+                            title={a.label}
+                          >
+                            <a.icon className="icon" />
+                          </button>
+                        ))}
                       </div>
                     )}
                     {scoring?.playerId === p._id && (
@@ -490,11 +478,9 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
         {showHostPanel && (
           <Panel className="space-y-3">
             <p className="text-xs font-semibold text-cream-100/60">{t("lobby.hostControls")}</p>
-            {!botsInStrip && (
-              <Button variant="ghost" className="w-full" disabled={busy || rosterFull} onClick={() => void run(() => addBot({ gameId }))}>
-                {t("lobby.addBot")}
-              </Button>
-            )}
+            <Button variant="ghost" className="w-full" disabled={busy || rosterFull} onClick={() => void run(() => addBot({ gameId }))}>
+              {t("lobby.addBot")}
+            </Button>
             {isCampaign && (
               <form
                 className="flex gap-2"
@@ -516,7 +502,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                   aria-label={t("lobby.addManual")}
                 />
                 <Button type="submit" variant="ghost" disabled={busy || rosterFull} aria-label={t("lobby.addManual")}>
-                  +
+                  <LuPlus className="icon" />
                 </Button>
               </form>
             )}

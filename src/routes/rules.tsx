@@ -66,6 +66,7 @@ function PartyEventCatalog() {
       <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {TWISTS.map((twist) => {
           const event = partyEventText(twist, tr);
+          const Icon = PARTY_TWIST_ICONS[twist];
           return (
             <li
               key={twist}
@@ -73,10 +74,10 @@ function PartyEventCatalog() {
             >
               <div className="flex items-start gap-3">
                 <span
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-950 text-2xl shadow-sm"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-950 text-white shadow-sm"
                   aria-hidden="true"
                 >
-                  {PARTY_TWIST_ICONS[twist]}
+                  <Icon className="h-6 w-6" />
                 </span>
                 <div className="min-w-0">
                   <h4 className="font-display text-base font-bold leading-tight text-ink-900">{event.name}</h4>

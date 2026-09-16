@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import type { IconType } from "react-icons";
+import { LuArrowUpDown, LuCornerUpLeft, LuCornerUpRight, LuLayers, LuStore } from "react-icons/lu";
 import { CURSE_POINTS, MAX_POWERUPS, type Card as CardT, type PassSpec, type Powerup } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { CardFace } from "./Card";
 import { POWERUP_ICONS } from "./party";
 import type { SeatView } from "./Seat";
 
-const PASS_ARROWS: Record<PassSpec["direction"], string> = { left: "↰", right: "↱", across: "↕" };
+const PASS_ARROWS: Record<PassSpec["direction"], IconType> = { left: LuCornerUpLeft, right: LuCornerUpRight, across: LuArrowUpDown };
 
 /** Party "pass" and "market": pick the cards to give away. */
 export function PassPanel({
@@ -30,6 +32,7 @@ export function PassPanel({
 }) {
   const { t } = useTranslation();
   const ready = selected.length === spec.count;
+  const Arrow = PASS_ARROWS[spec.direction];
   return (
     <motion.div
       initial={{ y: 30, opacity: 0 }}
@@ -37,7 +40,8 @@ export function PassPanel({
       className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
     >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
-        {market ? `🏪 ${t("party.twists.market.name")}` : `${PASS_ARROWS[spec.direction]} ${t(`party.passNames.${spec.direction}`, { count: spec.count })}`}
+        {market ? <LuStore className="icon" /> : <Arrow className="icon" />}{" "}
+        {market ? t("party.twists.market.name") : t(`party.passNames.${spec.direction}`, { count: spec.count })}
       </p>
       <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
         {market ? t("table.layTitle") : t("table.passTitle", { count: spec.count, name: targetName })}
@@ -79,7 +83,9 @@ export function MarketPanel({
       animate={{ y: 0, opacity: 1 }}
       className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🏪 {t("party.twists.market.name")}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+        <LuStore className="icon" /> {t("party.twists.market.name")}
+      </p>
       <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
         {mine ? t("table.takeTitle") : t("table.marketWaiting")}
       </p>
@@ -133,7 +139,9 @@ export function DummyPanel({
       animate={{ y: 0, opacity: 1 }}
       className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🂠 {t("party.twists.dummy.name")}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+        <LuLayers className="icon" /> {t("party.twists.dummy.name")}
+      </p>
       <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
         {mine ? t("table.dummyTitle") : t("table.dummyWaiting")}
       </p>
@@ -187,6 +195,7 @@ export function PowerupTray({
   const [picking, setPicking] = useState<Powerup | null>(null);
   const label = (p: Powerup) => t(`party.powerups.${p}.name`);
   const desc = (p: Powerup) => t(`party.powerups.${p}.desc`, { points: CURSE_POINTS });
+  const PickingIcon = picking ? POWERUP_ICONS[picking] : null;
   return (
     <motion.div
       initial={{ y: 10, opacity: 0 }}
@@ -196,7 +205,7 @@ export function PowerupTray({
       {picking ? (
         <div className="flex flex-col gap-1">
           <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
-            {POWERUP_ICONS[picking]} {t("party.pickTarget", { powerup: label(picking) })}
+            {PickingIcon && <PickingIcon className="icon" />} {t("party.pickTarget", { powerup: label(picking) })}
           </p>
           {targets.map((s) => (
             <button
@@ -223,6 +232,7 @@ export function PowerupTray({
           </span>
           {stash.map((p, i) => {
             const spent = p === "shield" && shielded;
+            const Icon = POWERUP_ICONS[p];
             return (
               <button
                 key={`${p}-${i}`}
@@ -234,7 +244,7 @@ export function PowerupTray({
                   compact ? "px-1.5 py-1 text-xs" : "px-2 py-1 text-sm"
                 }`}
               >
-                <span>{POWERUP_ICONS[p]}</span>
+                <Icon className="icon" />
                 <span className={compact ? "hidden sm:inline" : ""}>{label(p)}</span>
               </button>
             );

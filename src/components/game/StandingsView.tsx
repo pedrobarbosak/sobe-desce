@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuTrophy, LuUndo2, LuX } from "react-icons/lu";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
@@ -71,7 +72,11 @@ export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games"
                   <div className="flex items-center gap-2">
                     <Avatar seed={p.avatarSeed} size={28} />
                     <span className="font-semibold text-cream-50">{p.name}</span>
-                    {p.playerId === winnerPlayerId && <span title={t("standings.winner")} aria-label={t("standings.winner")}>🏆</span>}
+                    {p.playerId === winnerPlayerId && (
+                      <span className="text-gold-400" title={t("standings.winner")} aria-label={t("standings.winner")}>
+                        <LuTrophy className="icon" />
+                      </span>
+                    )}
                     {i === 0 && !winnerPlayerId && <span className="rounded bg-gold-400/20 px-1.5 text-[10px] font-semibold text-gold-400">{t("standings.leader")}</span>}
                   </div>
                 </td>
@@ -97,7 +102,7 @@ export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games"
                         aria-label={t("standings.removeForever")}
                         title={t("standings.removeForever")}
                       >
-                        ✕
+                        <LuX className="icon" />
                       </button>
                     )}
                   </td>
@@ -172,7 +177,7 @@ function RoundMatrix({
                 <span className="inline-flex items-center gap-1.5">
                   <Avatar seed={p.avatarSeed} size={20} />
                   {p.name}
-                  {p.left && <span>↩</span>}
+                  {p.left && <LuUndo2 className="icon" />}
                 </span>
               </th>
             ))}

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { LuCheck } from "react-icons/lu";
 import { type Card as CardT, SUIT_SYMBOLS, rankOf, suitOf } from "@/engine";
 
 const SUIT_COLOR = { H: "#d1213a", D: "#e4501e", C: "#1c1c1c", S: "#1c2b4a" } as const;
@@ -80,7 +81,7 @@ export const CardFace = forwardRef<HTMLDivElement, Props>(function CardFace(
       )}
       {selected && (
         <div className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-gold-400 px-2 text-[11px] font-bold text-ink-900 shadow" style={{ fontSize: Math.max(11, width * 0.16) }}>
-          ✓
+          <LuCheck className="icon" strokeWidth={3} />
         </div>
       )}
     </div>

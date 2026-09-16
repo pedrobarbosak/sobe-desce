@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuDices } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -188,7 +189,9 @@ function Landing() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-semibold text-cream-50">{g.name}</span>
                   {g.variant === "party" && (
-                    <span className="shrink-0 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">🎲 {t("variants.party")}</span>
+                    <span className="shrink-0 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">
+                      <LuDices className="icon" /> {t("variants.party")}
+                    </span>
                   )}
                   <span className="shrink-0 rounded bg-white/10 px-1.5 text-[10px] font-semibold text-cream-100/70">{t(`modes.${g.mode}`)}</span>
                 </div>

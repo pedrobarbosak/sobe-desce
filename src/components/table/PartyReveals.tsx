@@ -1,5 +1,7 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import type { IconType } from "react-icons";
+import { LuDices, LuHand, LuShuffle } from "react-icons/lu";
 import { PARTY_TWIST_ICONS } from "./partyIcons";
 import { type PartyView, type Translate, twistName, twistVars } from "./party";
 
@@ -7,16 +9,19 @@ import { type PartyView, type Translate, twistName, twistVars } from "./party";
 export function TwistBanner({ party, compact = false }: { party: PartyView; compact?: boolean }) {
   const { t } = useTranslation();
   const tr = t as unknown as Translate;
+  const Icon = PARTY_TWIST_ICONS[party.twist];
   return (
     <motion.div
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       className={`rounded-xl border border-purple-400/50 bg-purple-950/70 text-cream-50 shadow-lg backdrop-blur ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">🎲 {t("party.twistOfRound")}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+        <LuDices className="icon" /> {t("party.twistOfRound")}
+      </p>
       <p className={`font-display font-bold ${compact ? "text-sm" : "text-base"}`}>
         <span className="mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-purple-400/30 px-1 text-xs">
-          {PARTY_TWIST_ICONS[party.twist]}
+          <Icon className="icon" />
         </span>
         {twistName(party, tr)}
       </p>
@@ -29,6 +34,7 @@ export function TwistBanner({ party, compact = false }: { party: PartyView; comp
 export function TwistReveal({ party, compact = false }: { party: PartyView; compact?: boolean }) {
   const { t } = useTranslation();
   const tr = t as unknown as Translate;
+  const Icon = PARTY_TWIST_ICONS[party.twist];
   return (
     <motion.div
       initial={{ scale: 0.3, opacity: 0, rotate: -8 }}
@@ -39,13 +45,15 @@ export function TwistReveal({ party, compact = false }: { party: PartyView; comp
         compact ? "max-w-[20rem] px-5 py-4" : "max-w-md px-8 py-5"
       }`}
     >
-      <p className="text-[11px] uppercase tracking-[0.3em] text-purple-200/80">🎲 {t("party.twistOfRound")}</p>
+      <p className="text-[11px] uppercase tracking-[0.3em] text-purple-200/80">
+        <LuDices className="icon" /> {t("party.twistOfRound")}
+      </p>
       <motion.span
-        className={`mt-1 leading-none drop-shadow-[0_0_24px_rgba(168,85,247,0.7)] ${compact ? "text-[4rem]" : "text-[5.5rem]"}`}
+        className={`mt-2 flex text-purple-200 drop-shadow-[0_0_24px_rgba(168,85,247,0.7)] ${compact ? "text-[4rem]" : "text-[5.5rem]"}`}
         animate={{ scale: [1, 1.08, 1] }}
         transition={{ repeat: Infinity, duration: 1.2 }}
       >
-        {PARTY_TWIST_ICONS[party.twist]}
+        <Icon className="icon" strokeWidth={1.5} />
       </motion.span>
       <p className={`mt-1 font-display font-extrabold text-cream-50 ${compact ? "text-2xl" : "text-3xl"}`}>{twistName(party, tr)}</p>
       <p className={`mt-1 text-cream-100/80 ${compact ? "text-xs" : "text-sm"}`}>{tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}</p>
@@ -53,7 +61,7 @@ export function TwistReveal({ party, compact = false }: { party: PartyView; comp
   );
 }
 
-function CoinFace({ icon, label, size, back = false }: { icon: string; label: string; size: number; back?: boolean }) {
+function CoinFace({ icon: Icon, label, size, back = false }: { icon: IconType; label: string; size: number; back?: boolean }) {
   return (
     <div
       className="backface-hidden absolute inset-0 flex flex-col items-center justify-center rounded-full text-ink-900"
@@ -64,7 +72,7 @@ function CoinFace({ icon, label, size, back = false }: { icon: string; label: st
         boxShadow: "inset 0 0 0 2px rgb(255 243 196 / 0.6), inset 0 0 24px rgb(125 90 23 / 0.35), 0 12px 30px rgb(0 0 0 / 0.45)",
       }}
     >
-      <span style={{ fontSize: size * 0.36, lineHeight: 1 }}>{icon}</span>
+      <Icon style={{ width: size * 0.36, height: size * 0.36 }} strokeWidth={2.25} />
       <span className="mt-1 font-display font-extrabold uppercase" style={{ fontSize: Math.max(11, size * 0.11), letterSpacing: "0.2em" }}>
         {label}
       </span>
@@ -92,7 +100,7 @@ export function CoinFlip({ swapped, compact = false }: { swapped: boolean; compa
       transition={{ duration: 0.25 }}
     >
       <p className="text-[11px] uppercase tracking-[0.3em] text-cream-100/70">
-        {PARTY_TWIST_ICONS.swap} {t("party.twists.swap.name")} · {t("party.coinToss")}
+        <LuShuffle className="icon" /> {t("party.twists.swap.name")} · {t("party.coinToss")}
       </p>
       <div className="mt-4" style={{ perspective: 900, width: size, height: size }}>
         <motion.div
@@ -104,8 +112,8 @@ export function CoinFlip({ swapped, compact = false }: { swapped: boolean; compa
             y: { duration: flightMs / 1000, times: [0, 0.42, 0.8, 0.9, 1], ease: ["easeOut", "easeIn", "easeOut", "easeIn"] },
           }}
         >
-          <CoinFace icon="🔀" label={t("party.coinHeads")} size={size} />
-          <CoinFace icon="✋" label={t("party.coinTails")} size={size} back />
+          <CoinFace icon={LuShuffle} label={t("party.coinHeads")} size={size} />
+          <CoinFace icon={LuHand} label={t("party.coinTails")} size={size} back />
         </motion.div>
       </div>
       <motion.p

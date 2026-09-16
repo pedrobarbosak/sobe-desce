@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { LuShield, LuSkull } from "react-icons/lu";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
@@ -643,12 +644,12 @@ export function Table({ data }: { data: TableData }) {
                   </span>
                 )}
                 {party && (party.curses[mySeat] ?? 0) > 0 && (
-                  <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}>☠</span>
+                  <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}><LuSkull className="icon" /></span>
                 )}
-                {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}>🛡</span>}
+                {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}><LuShield className="icon" /></span>}
                 {myWard !== null && seats[myWard] && (
                   <span className="rounded bg-gold-400 px-1 text-[10px] font-semibold text-ink-900" title={t("party.wardHint")}>
-                    🛡 {t("party.guarding", { name: seats[myWard]!.name })}
+                    <LuShield className="icon" /> {t("party.guarding", { name: seats[myWard]!.name })}
                   </span>
                 )}
                 {me.decision === "out" && phase !== "scored" && <span className="text-cream-100/70">{t("table.out")}</span>}

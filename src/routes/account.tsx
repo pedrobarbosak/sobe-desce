@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { LuDices, LuImage, LuMail, LuPalette } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { COLOURS, identityName, identitySeed, parseSeed, randomIdentity, recolourName, ANIMALS, MAX_DISPLAY_NAME_LENGTH } from "@/shared/names";
@@ -123,13 +124,13 @@ function AccountPage() {
             {saved ? t("common.saved") : t("common.save")}
           </Button>
           <Button variant="secondary" onClick={() => void rerollName()}>
-            🎲 {t("account.newName")}
+            <LuDices className="icon" /> {t("account.newName")}
           </Button>
           <Button variant="secondary" onClick={() => setPicking(!picking)} aria-expanded={picking}>
-            🖼️ {picking ? t("account.done") : t("account.chooseIcon")}
+            <LuImage className="icon" /> {picking ? t("account.done") : t("account.chooseIcon")}
           </Button>
           <Button variant="ghost" onClick={() => void rerollColour()}>
-            🎨 {t("account.newColour")}
+            <LuPalette className="icon" /> {t("account.newColour")}
           </Button>
         </div>
 
@@ -228,7 +229,7 @@ function AccountPage() {
               aria-label={t("account.email")}
             />
             <Button type="submit" variant="secondary" disabled={busy}>
-              ✉️ {t("account.sendLink")}
+              <LuMail className="icon" /> {t("account.sendLink")}
             </Button>
           </form>
           {sentTo && <p className="mt-2 text-sm text-gold-400">{t("account.sent", { email: sentTo })}</p>}
