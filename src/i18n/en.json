@@ -197,6 +197,8 @@
     "hostControls": "Host controls",
     "copyCode": "Copy code",
     "copyLink": "Copy link",
+    "share": "Share invite",
+    "shareText": "Come and play {{name}} on Sobe e Desce. Invite code: {{code}}",
     "rematchReady": "A rematch table is ready.",
     "danger": "Danger zone",
     "deleteTable": "Delete the table",
@@ -275,6 +277,12 @@
     "iconHint": "Pick the animal and the colour. Your name stays as it is.",
     "colourTitle": "Colour",
     "done": "Done"
+  },
+  "install": {
+    "title": "Sobe e Desce as an Android app",
+    "hint": "Opens with one tap, and invites go straight to the table. Android will ask you to allow installs from your browser.",
+    "button": "Install APK",
+    "dismiss": "Not now"
   },
   "suits": {
     "H": "Hearts (Copas)",

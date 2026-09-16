@@ -197,6 +197,8 @@
     "hostControls": "Opções do anfitrião",
     "copyCode": "Copiar código",
     "copyLink": "Copiar link",
+    "share": "Partilhar convite",
+    "shareText": "Vem jogar {{name}} no Sobe e Desce. Código de convite: {{code}}",
     "rematchReady": "Há uma nova mesa para a desforra.",
     "danger": "Zona perigosa",
     "deleteTable": "Apagar a mesa",
@@ -275,6 +277,12 @@
     "iconHint": "Escolhe o animal e a cor. O teu nome fica como está.",
     "colourTitle": "Cor",
     "done": "Pronto"
+  },
+  "install": {
+    "title": "Sobe e Desce como app Android",
+    "hint": "Abre com um toque e os convites vão direitos à mesa. O Android vai pedir para permitires instalações a partir do browser.",
+    "button": "Instalar APK",
+    "dismiss": "Agora não"
   },
   "suits": {
     "H": "Copas",

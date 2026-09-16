@@ -10,7 +10,8 @@ import reactHooks from "eslint-plugin-react-hooks";
  * without catching bugs, and TypeScript is already running in strict mode.
  */
 export default tseslint.config(
-  { ignores: ["dist", "convex/_generated", "src/routeTree.gen.ts", "node_modules"] },
+  // android/ carries a copy of the built bundle, which is not source.
+  { ignores: ["dist", "convex/_generated", "src/routeTree.gen.ts", "node_modules", "android"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   reactHooks.configs.flat["recommended-latest"],

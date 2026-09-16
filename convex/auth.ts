@@ -17,6 +17,14 @@ const siteUrl = process.env.SITE_URL ?? "http://localhost:5173";
  */
 const authBaseUrl = process.env.AUTH_BASE_URL ?? process.env.CONVEX_SITE_URL;
 
+/**
+ * The native app. Its web view has an origin of its own (https://localhost on Android,
+ * capacitor://localhost on iOS), which every auth call carries and CORS has to allow. A
+ * sign-in that leaves for the system browser comes back on the app's own scheme, so that
+ * callback has to be trusted too. See src/lib/native.ts.
+ */
+const nativeOrigins = ["https://localhost", "capacitor://localhost", "sobedesce://"];
+
 const authFunctions: AuthFunctions = internal.auth;
 
 export const authComponent = createClient<DataModel>(components.betterAuth, {
@@ -81,7 +89,7 @@ export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
   betterAuth({
     baseURL: authBaseUrl,
-    trustedOrigins: [siteUrl],
+    trustedOrigins: [siteUrl, ...nativeOrigins],
     database: authComponent.adapter(ctx),
     emailAndPassword: { enabled: false },
     account: {

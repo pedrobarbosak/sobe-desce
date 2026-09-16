@@ -136,7 +136,10 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
         >
           <LuMusic className="icon" />
         </button>
-        <LanguageToggle />
+        {/* Off the bar on a phone: the language is a home-page setting, and the bar has no room. */}
+        <div className="hidden sm:block">
+          <LanguageToggle />
+        </div>
       </nav>
     </div>
   );

@@ -39,6 +39,15 @@ npx convex env set RESEND_API_KEY ...         # magic-link emails; without it th
 OAuth redirect URIs point at the Convex site URL: `https://<deployment>.convex.site/api/auth/callback/discord`
 and `.../api/auth/oauth2/callback/microsoft-entra-id`.
 
+## The Android app
+
+The same code in a native shell (Capacitor), built from `android/`. See
+[docs/ANDROID.md](docs/ANDROID.md) for building, signing, and the links that open the app.
+
+```bash
+npm run android          # debug APK, pointed at the deployment in .env.android
+```
+
 ## Deploying
 
 Self-hosted on a VPS: Convex backend, static frontend and a Cloudflare tunnel, all in

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import type { IconType } from "react-icons";
-import { LuCheck, LuChevronDown, LuChevronUp, LuCoins, LuHand, LuLink, LuPlus, LuTrash2, LuUserX } from "react-icons/lu";
+import { LuCheck, LuChevronDown, LuChevronUp, LuCoins, LuHand, LuLink, LuPlus, LuShare2, LuTrash2, LuUserX } from "react-icons/lu";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { MIN_SEATS, discardCapFor } from "@/engine";
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
 import { StandingsView } from "@/components/game/StandingsView";
 import { errorCode } from "@/lib/errors";
+import { isNative, publicOrigin } from "@/lib/native";
+import { Share } from "@capacitor/share";
 import { Loading } from "@/routes/__root";
 
 /**
@@ -63,7 +65,16 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const tooMany = seatedCount > game.config.seats;
   const canStart = !short && !tooMany && cap !== null;
   const rosterFull = players.length >= game.config.rosterSize;
-  const inviteUrl = `${window.location.origin}/join/${game.code}`;
+  const inviteUrl = `${publicOrigin()}/join/${game.code}`;
+  // The share sheet, where the phone has one: straight into the group chat.
+  const canShare = isNative || typeof navigator.share === "function";
+  const share = async () => {
+    try {
+      await Share.share({ title: game.name, text: t("lobby.shareText", { name: game.name, code: game.code }), url: inviteUrl, dialogTitle: t("lobby.share") });
+    } catch {
+      /* dismissed */
+    }
+  };
   // In a campaign the roster outlives any one sitting, so roster work carries on while a
   // table is live. Only the seats actually in play are off limits.
   const seatedNow = new Set(sittingActive ? session!.seats : []);
@@ -155,6 +166,11 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
             {copied === "link" ? t("common.copied") : t("lobby.copyLink")}
           </Button>
         </div>
+        {canShare && (
+          <Button className="mt-2 w-full" onClick={() => void share()}>
+            <LuShare2 className="icon" /> {t("lobby.share")}
+          </Button>
+        )}
       </Panel>
 
       <div className={cols.main}>

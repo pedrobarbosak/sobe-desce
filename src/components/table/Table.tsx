@@ -16,6 +16,7 @@ import { useTableSounds } from "@/hooks/useTableSounds";
 import { useFeltLayout } from "@/hooks/useFeltLayout";
 import { useSwapHold } from "@/hooks/useSwapHold";
 import { useAutoPlay } from "@/hooks/useAutoPlay";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import { Avatar } from "@/components/ui/Avatar";
 import { LobbyView } from "@/components/game/LobbyView";
 import { StandingsView } from "@/components/game/StandingsView";
@@ -103,6 +104,8 @@ export function Table({ data }: { data: TableData }) {
   const [pending, setPending] = useState<PendingChoice | null>(null);
   const [drawer, setDrawer] = useState<DrawerName | null>(null);
   const [feltRef, felt] = useElementSize<HTMLDivElement>();
+  // A phone on the table must not lock itself while the round is on.
+  useWakeLock(game.status !== "finished");
 
   // Party: the round's twist and the public trace of powerups. Null on a classic table.
   const party: PartyView | null = (round?.party as unknown as PartyView | null | undefined) ?? null;
@@ -364,7 +367,7 @@ export function Table({ data }: { data: TableData }) {
     });
   };
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-felt-900">
+    <div className="safe-top safe-bottom fixed inset-0 z-40 flex flex-col bg-felt-900">
       <TableBar
         gameName={game.name}
         roundIndex={round ? round.index : null}
@@ -817,7 +820,7 @@ export function Table({ data }: { data: TableData }) {
           otherwise cover the card that decided the round before anyone had read it. */}
       {round && phase === "scored" && !display.holding && (
         <div
-          className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 ${gameOver ? "items-start" : "items-center"}`}
+          className={`safe-top safe-bottom fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 ${gameOver ? "items-start" : "items-center"}`}
         >
           <div className={`w-full space-y-3 ${gameOver ? "max-w-3xl" : "max-w-md"}`}>
           <RoundResult

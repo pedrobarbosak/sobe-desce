@@ -19,6 +19,6 @@
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
   },
-  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"],
+  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts", "capacitor.config.ts"],
   "exclude": ["convex", "node_modules", "dist"]
 }

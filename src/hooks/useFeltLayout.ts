@@ -39,7 +39,9 @@ export function useFeltLayout({ felt, statusBelow, hasOpenHands, hasFaceUp }: In
   const H = felt.h || 500;
   const compact = W < 640 || H < 520;
   const portrait = H > W;
-  const cardWidth = Math.round(Math.max(60, Math.min(150, W / 7, H / 4.8)));
+  // A hand is five cards, so a portrait phone can afford wider ones: easier to read, and
+  // a finger lands on the one it meant. Landscape and desktops keep the ratio the ring needs.
+  const cardWidth = Math.round(Math.max(60, Math.min(150, portrait ? W / 5.2 : W / 7, H / 4.8)));
   const avatarSize = Math.round(Math.max(36, Math.min(64, H / 10)));
   const myBadge = Math.round(Math.max(20, avatarSize * 0.8 * 0.46));
   const handHeight = cardWidth * 1.42 * 0.8;
@@ -66,9 +68,10 @@ export function useFeltLayout({ felt, statusBelow, hasOpenHands, hasFaceUp }: In
   }, [W, H, avatarSize, handHeight, statusBelow, statusHeight, statusBottom, seatHalf, cardsOnTop]);
 
   // Panels: centred in the ellipse on wide screens; on compact or portrait screens they
-  // sit just above the hand, where the side seats cannot be covered.
+  // sit above the hand and the viewer's own chip (which is an avatar tall and hugs the
+  // hand), where the side seats cannot be covered.
   const panelStyle: React.CSSProperties =
-    compact || portrait ? { bottom: handHeight + avatarSize * 0.35 } : { top: `${ellipse.cy}%`, transform: "translateY(-50%)" };
+    compact || portrait ? { bottom: handHeight + avatarSize + 20 } : { top: `${ellipse.cy}%`, transform: "translateY(-50%)" };
 
   return { W, H, compact, portrait, cardWidth, avatarSize, myBadge, handHeight, statusHeight, statusBottom, ellipse, panelStyle };
 }

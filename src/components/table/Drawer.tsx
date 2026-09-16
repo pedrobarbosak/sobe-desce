@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { onHardwareBack } from "@/lib/native";
 
 /**
  * Full-height side sheet over the felt. Standings and history open in here so a player
@@ -7,6 +9,14 @@ import { useTranslation } from "react-i18next";
  */
 export function Drawer({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   const { t } = useTranslation();
+  // On a phone the back button closes the sheet, as it would any other sheet.
+  useEffect(() => {
+    if (!open) return;
+    return onHardwareBack(() => {
+      onClose();
+      return true;
+    });
+  }, [open, onClose]);
   return (
     <AnimatePresence>
       {open && (
@@ -25,7 +35,7 @@ export function Drawer({ open, title, onClose, children }: { open: boolean; titl
             transition={{ type: "tween", duration: 0.22 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-black/30 px-4 py-3">
+            <div className="safe-top flex shrink-0 items-center justify-between border-b border-white/10 bg-black/30 px-4 py-3">
               <h2 className="font-display text-lg font-bold text-cream-50">{title}</h2>
               <button
                 type="button"
@@ -35,7 +45,7 @@ export function Drawer({ open, title, onClose, children }: { open: boolean; titl
                 {t("common.close")}
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">{children}</div>
+            <div className="safe-bottom min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">{children}</div>
           </motion.aside>
         </motion.div>
       )}

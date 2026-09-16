@@ -43,7 +43,9 @@ export function useAutoPlay(input: Input): { enabled: boolean; setEnabled: (on: 
   // The inputs arrive as fresh objects on every update; the effect keys on the turn alone
   // and reads the rest when it fires, so a presence heartbeat cannot restart the pause.
   const latest = useRef(input);
-  latest.current = input;
+  useEffect(() => {
+    latest.current = input;
+  });
   const fired = useRef<string | null>(null);
   const { turnKey, myTurnToPlay } = input;
   useEffect(() => {

@@ -58,8 +58,10 @@ export const HandFan = memo(function HandFan({ hand, deck, trump, trick, canPlay
               key={card}
               className="absolute bottom-0"
               style={{ zIndex: isHovered ? 60 : i, transformOrigin: "50% 120%", willChange: "transform" }}
-              onMouseEnter={() => setHovered(card)}
-              onMouseLeave={() => setHovered((h) => (h === card ? null : h))}
+              onPointerEnter={(e) => {
+                if (e.pointerType === "mouse") setHovered(card);
+              }}
+              onPointerLeave={() => setHovered((h) => (h === card ? null : h))}
               initial={{ left: i * overlap, y: -260, opacity: 0, rotate: -30 }}
               animate={{ left: i * overlap, y: isSelected ? -26 : lift, opacity: 1, rotate: angle }}
               whileHover={interactive ? { y: -30, scale: 1.1, rotate: 0 } : { y: -8 }}

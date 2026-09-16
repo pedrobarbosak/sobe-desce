@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
+import "@fontsource-variable/fraunces/opsz.css";
+import "@fontsource-variable/inter/opsz.css";
 import "../index.css";
 import { type DeckSize, SUITS, SUIT_NAMES_PT, SUIT_SYMBOLS, makeCard, ranksFor } from "@/engine";
 import { CardBack, CardFace } from "@/components/table/Card";

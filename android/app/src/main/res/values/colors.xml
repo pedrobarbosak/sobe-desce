@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- The felt, so the system bars and the splash match the page behind them. -->
+    <color name="felt">#0f3d27</color>
+    <color name="colorPrimary">#1b5e3b</color>
+    <color name="colorPrimaryDark">#0f3d27</color>
+    <color name="colorAccent">#e8b84a</color>
+</resources>

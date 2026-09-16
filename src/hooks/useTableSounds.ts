@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { sound } from "@/lib/sound";
+import { buzz } from "@/lib/haptics";
 import type { Reveal } from "./useReveals";
 
 type Input = {
@@ -37,6 +38,7 @@ export function useTableSounds({ roundId, playCount, trickCount, lastTrick, mySe
       const hidden = (lastTrick?.winner ?? -1) < 0;
       const cue = !inTrick || hidden ? "trick" : lastTrick?.winner === mySeat ? "trickWin" : "trickLose";
       setTimeout(() => sound.play(cue), 250);
+      if (cue === "trickWin") buzz("win");
     }
   }, [roundId, playCount, trickCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -57,6 +59,7 @@ export function useTableSounds({ roundId, playCount, trickCount, lastTrick, mySe
   useEffect(() => {
     if (!myDeadline) return;
     sound.play("turn");
+    buzz("turn");
     const remaining = () => Math.max(0, myDeadline - (Date.now() + skewMs));
     let cancelled = false;
     let tickId: number | undefined;

@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Bundled with the app (see main.tsx), so the first paint never waits on a font server. */
+  --font-display: "Fraunces Variable", "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
 
   --color-felt-900: #0f3d27;
   --color-felt-800: #145233;
@@ -37,13 +38,30 @@
 }
 
 html, body, #root { height: 100%; }
+/* Nothing may push the page wider than the screen: a phone browser answers horizontal
+   overflow by growing the layout viewport in both directions, and every fixed, full-bleed
+   surface (the table, the drawers) then runs off the bottom of the screen. */
+#root { overflow-x: clip; }
+html {
+  /* A phone: no rubber-band past the edges, no pull-to-refresh yanking the table away,
+     and no grey flash on every tap. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
 body {
   margin: 0;
   background: var(--color-felt-900);
   color: var(--color-cream-100);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Taps land at once instead of waiting to see whether a double-tap zoom is coming. */
+  touch-action: manipulation;
 }
+
+/* The notch, the status bar and the gesture strip. The app draws edge to edge, so the
+   page keeps its own edges clear; zero in a desktop browser. */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
 :focus-visible { outline: 3px solid var(--color-brass-400); outline-offset: 2px; border-radius: 6px; }
 
@@ -92,6 +110,12 @@ body {
 .paper .focus\:border-gold-400:focus { border-color: var(--color-brass-600); }
 .paper .text-cream-100\/60.uppercase, .paper .uppercase.tracking-wider, .paper .uppercase.tracking-widest { color: var(--color-ink-500); }
 
+.card-face, .card-back {
+  /* A long press on a card is a mis-tap, not a request to copy it or save it as an image. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
 .card-face {
   border-radius: var(--radius-card);
   background: linear-gradient(160deg, #ffffff 0%, #f3efe4 100%);

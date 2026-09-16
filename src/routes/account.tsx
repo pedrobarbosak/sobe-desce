@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { LuDices, LuImage, LuMail, LuPalette } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
-import { authClient } from "@/lib/auth-client";
+import { authClient, signInCallback, signInWithProvider } from "@/lib/auth-client";
 import { COLOURS, identityName, identitySeed, parseSeed, randomIdentity, recolourName, ANIMALS, MAX_DISPLAY_NAME_LENGTH } from "@/shared/names";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -45,7 +45,6 @@ function AccountPage() {
   const [picking, setPicking] = useState(false);
 
   if (!me) return <Loading />;
-  const callbackURL = `${window.location.origin}/account`;
   const displayName = name ?? me.displayName;
   const parsed = parseSeed(me.avatarSeed);
 
@@ -189,7 +188,7 @@ function AccountPage() {
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => void authClient.signIn.social({ provider: "discord", callbackURL })}
+            onClick={() => void signInWithProvider("discord")}
             className="flex items-center justify-center gap-2 rounded-xl bg-[#5865F2] px-4 py-3 text-sm font-semibold text-white shadow transition hover:bg-[#4752c4]"
           >
             <DiscordLogo />
@@ -197,7 +196,7 @@ function AccountPage() {
           </button>
           <button
             type="button"
-            onClick={() => void authClient.signIn.oauth2({ providerId: "microsoft-entra-id", callbackURL })}
+            onClick={() => void signInWithProvider("microsoft")}
             className="flex items-center justify-center gap-2 rounded-xl border border-[#8c8c8c] bg-white px-4 py-3 text-sm font-semibold text-[#3c3c3c] shadow transition hover:bg-[#f3f3f3]"
           >
             <MicrosoftLogo />
@@ -212,7 +211,7 @@ function AccountPage() {
               e.preventDefault();
               setBusy(true);
               try {
-                await authClient.signIn.magicLink({ email, callbackURL });
+                await authClient.signIn.magicLink({ email, callbackURL: signInCallback() });
                 setSentTo(email);
               } finally {
                 setBusy(false);

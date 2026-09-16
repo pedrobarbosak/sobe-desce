@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { useAuthBootstrap } from "@/hooks/useAuthBootstrap";
 import { Avatar } from "@/components/ui/Avatar";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
+import { InstallAppBanner } from "@/components/ui/InstallApp";
 
 export const Route = createRootRoute({ component: RootLayout });
 
@@ -13,12 +14,12 @@ function RootLayout() {
   const { isLoading } = useAuthBootstrap();
   return (
     <div className="felt flex min-h-full flex-col">
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-felt-900/70 backdrop-blur">
+      <header className="safe-top sticky top-0 z-40 border-b border-white/10 bg-felt-900/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
           <Link to="/" className="whitespace-nowrap font-display text-lg font-extrabold tracking-tight text-cream-50 sm:text-xl">
             <span className="text-gold-400">♠</span> {t("app.name")}
           </Link>
-          <nav className="flex items-center gap-3 text-sm">
+          <nav className="flex min-w-0 items-center gap-3 text-sm">
             <Link to="/rules" className="hidden text-cream-100/80 hover:text-cream-50 sm:inline">
               {t("nav.rules")}
             </Link>
@@ -28,8 +29,15 @@ function RootLayout() {
         </div>
         {!isLoading && <OngoingBar />}
       </header>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-3 sm:px-4 sm:py-5">
-        {isLoading ? <Loading /> : <Outlet />}
+      <main className="safe-bottom mx-auto w-full max-w-7xl flex-1 px-3 py-3 sm:px-4 sm:py-5">
+        {isLoading ? (
+          <Loading />
+        ) : (
+          <>
+            <InstallAppBanner />
+            <Outlet />
+          </>
+        )}
       </main>
     </div>
   );
@@ -68,10 +76,11 @@ function MeChip() {
   return (
     <Link
       to="/account"
-      className="flex items-center gap-2 rounded-full border border-white/15 bg-black/20 py-1 pl-1 pr-3 text-cream-50 hover:bg-black/30"
+      className="flex min-w-0 items-center gap-2 rounded-full border border-white/15 bg-black/20 py-1 pl-1 pr-3 text-cream-50 hover:bg-black/30"
     >
-      <Avatar seed={me.avatarSeed} size={28} />
-      <span className="max-w-[10rem] truncate text-sm font-medium">{me.displayName}</span>
+      <Avatar seed={me.avatarSeed} size={28} className="shrink-0" />
+      {/* A phone has room for a first name, not the whole generated one. */}
+      <span className="max-w-[5.5rem] truncate text-sm font-medium sm:max-w-[10rem]">{me.displayName}</span>
     </Link>
   );
 }

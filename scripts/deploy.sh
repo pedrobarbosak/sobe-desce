@@ -92,6 +92,21 @@ set_env EMAIL_FROM "${EMAIL_FROM:-}"
 echo "==> functions, schema and indexes"
 "$CONVEX" deploy -y </dev/null
 
+# Android opens links to the site in the app only if the site vouches for the app's
+# signing certificate. The file is generated here so the fingerprint lives in .env.deploy
+# with the other deployment facts, and removed again if it is unset.
+mkdir -p public/.well-known
+if [ -n "${ANDROID_CERT_SHA256:-}" ]; then
+  cat > public/.well-known/assetlinks.json <<JSON
+[{"relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {"namespace": "android_app", "package_name": "com.sobedesce.app",
+             "sha256_cert_fingerprints": ["$ANDROID_CERT_SHA256"]}}]
+JSON
+  echo "  assetlinks.json written for the Android app"
+else
+  rm -f public/.well-known/assetlinks.json
+fi
+
 echo "==> site"
 # The hostnames are compiled into the bundle, so this is a real rebuild whenever they
 # change. Docker caches the install layer, so it is quick when they do not.
