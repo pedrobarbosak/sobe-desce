@@ -356,6 +356,8 @@
     "handLabel": "Your hand",
     "choosingTrump": "{{name}} is naming the trump…",
     "voting": "{{name}} is voting…",
+    "autoPlay": "Auto",
+    "autoPlayHint": "Auto-play: when there is nothing to decide, the card goes by itself. Your only legal card, or, when nothing in your hand can win the trick, the one to throw away.",
     "voteTrump": "Vote for the trump",
     "voteHint": "Everyone votes once, in turn and in secret. The suit with the most votes is trump; a tie goes to the earliest vote.",
     "chooseTrump": "Name the trump",

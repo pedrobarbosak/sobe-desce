@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { LuShield, LuSkull, LuUsers } from "react-icons/lu";
+import { LuShield, LuSkull, LuUsers, LuZap } from "react-icons/lu";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
@@ -15,6 +15,7 @@ import { useTurnClock } from "@/hooks/useTurnClock";
 import { useTableSounds } from "@/hooks/useTableSounds";
 import { useFeltLayout } from "@/hooks/useFeltLayout";
 import { useSwapHold } from "@/hooks/useSwapHold";
+import { useAutoPlay } from "@/hooks/useAutoPlay";
 import { Avatar } from "@/components/ui/Avatar";
 import { LobbyView } from "@/components/game/LobbyView";
 import { StandingsView } from "@/components/game/StandingsView";
@@ -273,6 +274,17 @@ export function Table({ data }: { data: TableData }) {
     },
     [roundId, run, playCard],
   );
+  // Auto-play: the obvious card goes by itself when the player has asked for that.
+  const autoPlay = useAutoPlay({
+    turnKey: round ? `${round._id}:${round.turnNonce}` : null,
+    myTurnToPlay: isMyTurn && phase === "tricks" && me?.decision === "in" && !swapHeld,
+    hand: myHand as CardT[] | null,
+    trick: (round?.currentTrick as TrickInProgress | undefined) ?? null,
+    trump,
+    deck: game.config.deck,
+    rules,
+    onPlay,
+  });
   const onUsePowerup = useCallback(
     (powerup: Powerup, target?: number) => {
       if (!roundId) return;
@@ -685,8 +697,24 @@ export function Table({ data }: { data: TableData }) {
           </div>
         )}
 
-        {POWERUPS_ENABLED && party && me && !standIn && me.decision !== "out" && (phase === "discard" || phase === "tricks") && data.myPowerups.length > 0 && (
+        {handShown && !standIn && (
           <div className="absolute right-2 z-20" style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}>
+            <button
+              type="button"
+              onClick={() => autoPlay.setEnabled(!autoPlay.enabled)}
+              aria-pressed={autoPlay.enabled}
+              title={t("table.autoPlayHint")}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold shadow backdrop-blur transition ${
+                autoPlay.enabled ? "border-gold-400 bg-gold-400/25 text-gold-400" : "border-white/15 bg-black/45 text-cream-100/70 hover:bg-black/60"
+              }`}
+            >
+              <LuZap className="icon" /> {t("table.autoPlay")}
+            </button>
+          </div>
+        )}
+
+        {POWERUPS_ENABLED && party && me && !standIn && me.decision !== "out" && (phase === "discard" || phase === "tricks") && data.myPowerups.length > 0 && (
+          <div className="absolute right-2 z-20" style={{ bottom: (compact || portrait ? handHeight + 10 : 8) + 40 }}>
             <PowerupTray
               stash={data.myPowerups as Powerup[]}
               targets={seats.filter((s) => s.seat !== mySeat && s.decision !== "out")}

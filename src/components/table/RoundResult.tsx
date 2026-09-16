@@ -1,9 +1,9 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { LuArrowLeftRight, LuDices, LuShield, LuShuffle, LuSwords, LuUsers } from "react-icons/lu";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Button } from "@/components/ui/Button";
-import { POWERUP_ICONS, type PartyView, type Translate, twistName } from "./party";
+import { POWERUP_ICONS, type PartyView } from "./party";
+import { PartyRecap } from "./PartyRecap";
 import type { SeatView } from "./Seat";
 
 /** Short status update for the round that just ended; the full matrix lives in Standings. */
@@ -52,54 +52,9 @@ export function RoundResult({
         </p>
       )}
       {party && (
-        <p className="mt-1 text-xs text-purple-200">
-          <LuDices className="icon" /> {twistName(party, t as unknown as Translate)}
-        </p>
-      )}
-      {party?.swapped !== null && party?.swapped !== undefined && (
-        <p className="mt-1 text-xs text-cream-100/80">
-          <LuShuffle className="icon" /> {party.swapped ? t("party.swapped") : t("party.notSwapped")}
-        </p>
-      )}
-      {party?.robinSwap && party.robinSwap.length === 2 && (
-        <p className={`mt-1 text-xs ${party.robinSwap.some((s) => seats[s]?.isMe) ? "font-semibold text-gold-400" : "text-cream-100/80"}`}>
-          <LuArrowLeftRight className="icon" />{" "}
-          {t("party.robinSwapped", {
-            a: seats[party.robinSwap[0]!]?.isMe ? t("common.you") : seats[party.robinSwap[0]!]?.name ?? "?",
-            b: seats[party.robinSwap[1]!]?.isMe ? t("common.you") : seats[party.robinSwap[1]!]?.name ?? "?",
-          })}
-        </p>
-      )}
-      {party?.teams && (
-        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
-          {party.teams.map((partner, seat) =>
-            seat < partner ? (
-              <li key={seat} className={seats[seat]?.isMe || seats[partner]?.isMe ? "font-semibold text-gold-400" : ""}>
-                <LuUsers className="icon" />{" "}
-                {t("party.teamed", { a: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", b: seats[partner]?.isMe ? t("common.you") : seats[partner]?.name ?? "?" })}
-              </li>
-            ) : null,
-          )}
-        </ul>
-      )}
-      {party?.nemeses && (
-        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
-          {party.nemeses.map((target, seat) => (
-            <li key={seat} className={seats[seat]?.isMe ? "font-semibold text-gold-400" : ""}>
-              <LuSwords className="icon" />{" "}
-              {t("party.nemesisOf", { name: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", target: seats[target]?.isMe ? t("common.you") : seats[target]?.name ?? "?" })}
-            </li>
-          ))}
-        </ul>
-      )}
-      {party?.guardians && (
-        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
-          {party.guardians.map((ward, seat) => (
-            <li key={seat} className={seats[seat]?.isMe ? "font-semibold text-gold-400" : ""}>
-              <LuShield className="icon" /> {t("party.guarded", { name: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", ward: seats[ward]?.isMe ? t("common.you") : seats[ward]?.name ?? "?" })}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-2 flex justify-center">
+          <PartyRecap party={party} seats={seats} />
+        </div>
       )}
       {party && party.awards.length > 0 && !gameOver && (
         <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">

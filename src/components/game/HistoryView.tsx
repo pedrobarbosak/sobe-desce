@@ -8,6 +8,9 @@ import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Panel } from "@/components/ui/Panel";
+import { PartyRecap } from "@/components/table/PartyRecap";
+import { PARTY_TWIST_ICONS } from "@/components/table/partyIcons";
+import { type Translate, twistName } from "@/components/table/party";
 import { errorCode } from "@/lib/errors";
 import { Loading } from "@/routes/__root";
 
@@ -97,11 +100,14 @@ function SessionRounds({
   players: { playerId: string; name: string; left: boolean }[];
 }) {
   const { t } = useTranslation();
+  const tr = t as unknown as Translate;
   const rounds = useQuery(api.history.rounds, { sessionId });
   const [openRound, setOpenRound] = useState<Id<"rounds"> | null>(null);
   if (rounds === undefined) return <Loading />;
   if (rounds.length === 0) return <p className="px-4 pb-4 text-sm text-cream-100/60">{t("history.noRounds")}</p>;
   const nameById = new Map(players.map((p) => [p.playerId, p.name]));
+  // A party sitting gets a column for the round's twist; the reveals sit under the log.
+  const hasParty = rounds.some((r) => r.party !== null);
   return (
     <div className="overflow-x-auto border-t border-white/10">
       <table className="w-full text-sm">
@@ -109,6 +115,7 @@ function SessionRounds({
           <tr>
             <th className="px-4 py-2">#</th>
             <th className="px-2 py-2">{t("history.trumpBy")}</th>
+            {hasParty && <th className="px-2 py-2">{t("party.twist")}</th>}
             {players.map((p) => (
               <th key={p.playerId} className={`px-2 py-2 text-right ${p.left ? "opacity-50" : ""}`} title={p.left ? t("history.leftSitting") : undefined}>
                 {p.name}
@@ -123,6 +130,9 @@ function SessionRounds({
             const byPlayer = new Map(r.participants.map((p) => [p.gamePlayerId as string, p]));
             const seatNames = new Map(r.participants.map((p) => [p.seat, nameById.get(p.gamePlayerId) ?? null]));
             const nameOf = (seat: number) => seatNames.get(seat) ?? t("history.seat", { n: seat + 1 });
+            const seatCount = Math.max(0, ...r.participants.map((p) => p.seat + 1));
+            const seatsNamed = Array.from({ length: seatCount }, (_, seat) => ({ name: nameOf(seat) }));
+            const TwistIcon = r.party ? PARTY_TWIST_ICONS[r.party.twist] : null;
             return (
             <Fragment key={r._id}>
               <tr className="border-t border-white/5">
@@ -135,6 +145,15 @@ function SessionRounds({
                   )}
                   {r.phase !== "scored" && <span className="ml-1 text-[10px] text-cream-100/50">…</span>}
                 </td>
+                {hasParty && (
+                  <td className="max-w-[10rem] truncate px-2 py-1.5 text-xs text-purple-200" title={r.party ? twistName(r.party, tr) : undefined}>
+                    {r.party && TwistIcon && (
+                      <>
+                        <TwistIcon className="icon" /> {twistName(r.party, tr)}
+                      </>
+                    )}
+                  </td>
+                )}
                 {players.map((col) => {
                   const p = byPlayer.get(col.playerId);
                   return (
@@ -162,7 +181,12 @@ function SessionRounds({
               </tr>
               {openRound === r._id && (
                 <tr>
-                  <td colSpan={players.length + 3} className="bg-black/20 px-4 py-2">
+                  <td colSpan={players.length + (hasParty ? 4 : 3)} className="bg-black/20 px-4 py-2">
+                    {r.party && (
+                      <div className="mb-2 border-b border-white/10 pb-2">
+                        <PartyRecap party={r.party} seats={seatsNamed} compact />
+                      </div>
+                    )}
                     <ActionLog roundId={r._id} nameOf={nameOf} />
                   </td>
                 </tr>

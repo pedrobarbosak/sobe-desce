@@ -1,6 +1,8 @@
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { rosterOf } from "./games";
+import { rulesOfDoc, twistIdOf } from "./game/state";
 
 /**
  * Sessions of a game, newest first, with a short summary each. `players` is the sitting's
@@ -68,10 +70,29 @@ export const rounds = query({
           delta: p.delta ?? null,
           scoreAfter: p.scoreAfter ?? null,
         })),
-        tricks: r.completedTricks,
+        // A fog round in progress keeps its cards to itself until it is scored.
+        tricks: r.phase !== "scored" && rulesOfDoc(r.party)?.fog ? [] : r.completedTricks,
+        party: r.party ? partyRecap(r.party, r.phase === "scored") : null,
       }));
   },
 });
+
+/** The twist a round was played under and, once it is scored, what it revealed. */
+function partyRecap(party: NonNullable<Doc<"rounds">["party"]>, scored: boolean) {
+  const twist = twistIdOf(party);
+  return {
+    twist,
+    goldenSuit: party.goldenSuit ?? null,
+    pass: party.pass ?? (party.twist === "passLeft" ? { count: 1, direction: "left" as const } : null),
+    wildRank: party.wildRank ?? null,
+    markedCard: party.markedCard ?? null,
+    teams: rulesOfDoc(party)?.team ? party.teams ?? null : null,
+    swapped: scored && twist === "swap" ? (party.swapOffset ?? 0) > 0 : null,
+    robinSwap: scored ? party.robinSwap ?? null : null,
+    nemeses: scored ? party.nemeses ?? null : null,
+    guardians: scored ? party.guardians ?? null : null,
+  };
+}
 
 /** The redacted action log of one round (for disputes and debugging the sobe rule). */
 export const actions = query({

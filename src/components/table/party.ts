@@ -43,8 +43,11 @@ export type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
 export const POWERUP_ICONS: Record<Powerup, IconType> = { peek: LuEye, curse: LuSkull, shield: LuShield };
 
+/** What the names and descriptions of twists are built from. */
+export type TwistFacts = { twist: Twist; goldenSuit: Suit | null; pass: PassSpec | null; wildRank: string | null; markedCard: string | null };
+
 /** Interpolation values every twist description may use. */
-export function twistVars(party: PartyView, t: Translate): Record<string, unknown> {
+export function twistVars(party: TwistFacts, t: Translate): Record<string, unknown> {
   return {
     suit: party.goldenSuit ? t(`suits.${party.goldenSuit}`).split(" ")[0] : "",
     seconds: LIGHTNING_SECONDS,
@@ -56,7 +59,7 @@ export function twistVars(party: PartyView, t: Translate): Record<string, unknow
 }
 
 /** The twist's name with its drawn parameter filled in, for chips and banners. */
-export function twistName(party: PartyView, t: Translate): string {
+export function twistName(party: TwistFacts, t: Translate): string {
   if (party.twist === "pass" && party.pass) return t(`party.passNames.${party.pass.direction}`, { count: party.pass.count });
   return t(`party.twists.${party.twist}.name`, twistVars(party, t));
 }

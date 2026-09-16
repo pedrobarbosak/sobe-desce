@@ -1,19 +1,49 @@
-import { type Card, type Suit, SUITS, rankOf, ranksFor, rankValue, suitOf } from "./cards";
+import { type Card, type DeckSize, type Suit, SUITS, rankOf, ranksFor, rankValue, suitOf } from "./cards";
 import { canSitOut, legalPlays } from "./legal";
 import { type PowerupAction } from "./party";
 import { type Action, type RoundContext, type RoundState, rulesFor } from "./round";
 import type { RoundRules } from "./rules";
-import { beats, currentWinner } from "./trick";
+import { HIDDEN_CARD, type TrickInProgress, beats, currentWinner } from "./trick";
 
 /**
  * How strong a card is this round: rank, or its mirror image when the low card wins. A
  * wild card sits above everything.
  */
-function power(card: Card, state: RoundState, rules: RoundRules): number {
-  const top = ranksFor(state.deck).length;
+export function cardPower(card: Card, deck: DeckSize, rules: RoundRules): number {
+  const top = ranksFor(deck).length;
   if (rules.wildRank !== null && rankOf(card) === rules.wildRank) return top + 2;
-  const v = rankValue(card, state.deck);
+  const v = rankValue(card, deck);
   return rules.lowWins ? top + 1 - v : v;
+}
+
+function power(card: Card, state: RoundState, rules: RoundRules): number {
+  return cardPower(card, state.deck, rules);
+}
+
+/**
+ * The play that needs no thought, for the table's auto-play: the only legal card, or,
+ * when following and nothing in hand can beat the card that is winning, the card to throw
+ * away (the weakest, or the strongest when the round pays for losing). Null whenever
+ * there is a real choice to make, which includes every lead, and whenever a card of the
+ * trick is still face down.
+ */
+export function obviousPlay(
+  hand: readonly Card[],
+  trick: TrickInProgress,
+  trump: Suit | null,
+  deck: DeckSize,
+  rules: RoundRules,
+): Card | null {
+  const legal = legalPlays(hand, trick, trump, deck, rules);
+  if (legal.length === 0) return null;
+  if (legal.length === 1) return legal[0]!;
+  if (trick.plays.length === 0) return null;
+  if (trick.plays.some((p) => (p.card as string) === HIDDEN_CARD)) return null;
+  const winning = currentWinner(trick.plays, trump, deck, rules.lowWins, rules.wildRank);
+  if (!winning) return null;
+  if (legal.some((c) => beats(c, winning.card, trump, deck, rules.lowWins, rules.wildRank))) return null;
+  const byPower = [...legal].sort((a, b) => cardPower(a, deck, rules) - cardPower(b, deck, rules));
+  return rules.avoidTricks ? byPower[byPower.length - 1]! : byPower[0]!;
 }
 
 function weakestN(cards: readonly Card[], n: number, state: RoundState, rules: RoundRules): Card[] {
