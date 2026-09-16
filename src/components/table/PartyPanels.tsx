@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { IconType } from "react-icons";
-import { LuArrowUpDown, LuCornerUpLeft, LuCornerUpRight, LuLayers, LuStore } from "react-icons/lu";
+import { LuArrowUpDown, LuCornerUpLeft, LuCornerUpRight, LuHandCoins, LuLayers, LuStore } from "react-icons/lu";
 import { CURSE_POINTS, MAX_POWERUPS, type Card as CardT, type PassSpec, type Powerup } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { CardFace } from "./Card";
@@ -103,6 +103,76 @@ export function MarketPanel({
           </button>
         ))}
       </div>
+    </motion.div>
+  );
+}
+
+/**
+ * Party "communism": the raid. The seat on turn sees a few of another player's cards,
+ * takes one, and hands one of its own back. Everyone else only sees who is raiding whom.
+ */
+export function RaidPanel({
+  victimName,
+  cards,
+  mine,
+  give,
+  take,
+  busy,
+  onPickTake,
+  onRaid,
+  compact = false,
+}: {
+  victimName: string;
+  /** The cards shown to the raider; empty for everyone else. */
+  cards: CardT[];
+  mine: boolean;
+  /** The card selected in the viewer's own hand to hand over, if any. */
+  give: CardT | null;
+  /** The card selected on the table to take, if any. */
+  take: CardT | null;
+  busy: boolean;
+  onPickTake: (card: CardT) => void;
+  onRaid: () => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const width = compact ? 44 : 60;
+  return (
+    <motion.div
+      initial={{ y: 30, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+        <LuHandCoins className="icon" /> {t("party.twists.communism.name")}
+      </p>
+      <p className={`mt-1 font-display font-bold text-cream-50 ${compact ? "text-base" : "text-lg"}`}>
+        {mine ? t("table.raidTitle", { name: victimName }) : t("table.raidWaiting")}
+      </p>
+      {mine && <p className="mt-1 text-xs text-cream-100/60">{t("table.raidHint")}</p>}
+      {mine && (
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {cards.map((card) => (
+            <button
+              key={card}
+              type="button"
+              disabled={busy}
+              onClick={() => onPickTake(card)}
+              className={`rounded-lg transition hover:-translate-y-1.5 ${take === card ? "-translate-y-2 ring-2 ring-gold-400" : ""}`}
+              aria-label={card}
+            >
+              <CardFace card={card} width={width} className="shadow-md" />
+            </button>
+          ))}
+        </div>
+      )}
+      {mine && (
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <Button disabled={busy || give === null || take === null} onClick={onRaid}>
+            {give && take ? t("table.raidGo", { take, give }) : t("table.raidPick")}
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 }

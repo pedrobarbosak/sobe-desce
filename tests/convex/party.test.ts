@@ -123,7 +123,7 @@ describe("party twists the server has to keep secrets for", () => {
   afterEach(() => vi.useRealTimers());
 
   /** A party table whose round is pinned to `twist` before anyone has acted. */
-  async function pinned(twist: "voteTrump" | "fog" | "blindLead" | "team") {
+  async function pinned(twist: "voteTrump" | "fog" | "blindLead" | "team" | "communism") {
     const t = setup();
     const { gameId } = await createPartyGame(t);
     await as(t, "ana").mutation(api.sessions.start, { gameId });
@@ -134,8 +134,12 @@ describe("party twists the server has to keep secrets for", () => {
       const round = (await ctx.db.get(roundId))!;
       const seatCount = round.participants.length;
       const teams = twist === "team" ? [1, 0, 3, 2] : undefined;
+      const raid =
+        twist === "communism"
+          ? { raidTarget: [1, 2, 3, 0], raidSlots: Array.from({ length: seatCount }, () => [0, 1, 2]), raidCount: Array.from({ length: seatCount }, () => 2), raidTurn: 0, raids: [] }
+          : {};
       await ctx.db.patch(roundId, {
-        party: { ...round.party!, twist, goldenSuit: undefined, teams, voted: Array.from({ length: seatCount }, () => false) },
+        party: { ...round.party!, twist, goldenSuit: undefined, teams, voted: Array.from({ length: seatCount }, () => false), ...raid },
         // A vote round opens on the vote rather than on the namer.
         phase: twist === "voteTrump" ? "vote" : "trump",
         turnSeat: (round.dealerSeat + 1) % seatCount,
@@ -239,6 +243,36 @@ describe("party twists the server has to keep secrets for", () => {
     for (let i = 0; i < 3; i++) await playOne(p);
     table = await tableFor("ana");
     expect(table.round!.completedTricks[0]!.plays.every((play) => play.card !== HIDDEN_CARD)).toBe(true);
+  });
+
+  it("communism: the raider alone sees the offer, and the cards change hands", async () => {
+    const p = await pinned("communism");
+    const { t, roundId, tableFor, nameAt } = p;
+    let table = await tableFor("ana");
+    await as(t, nameAt(table.round!.turnSeat!)).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+    for (let i = 0; i < 4; i++) {
+      table = await tableFor("ana");
+      await as(t, nameAt(table.round!.turnSeat!)).mutation(api.game.actions.discard, { roundId, cards: [] });
+    }
+    table = await tableFor("ana");
+    expect(table.round!.phase).toBe("raid");
+    const raider = table.round!.turnSeat!;
+    const victim = table.round!.party!.raidVictim!;
+    expect(victim).not.toBe(raider);
+    const mine = await tableFor(nameAt(raider));
+    const theirs = await tableFor(nameAt(victim));
+    expect(mine.round!.party!.raidOffer).toHaveLength(2);
+    for (const c of mine.round!.party!.raidOffer) expect(theirs.myHand).toContain(c);
+    expect(theirs.round!.party!.raidOffer).toEqual([]);
+    const take = mine.round!.party!.raidOffer[0]!;
+    const give = mine.myHand![0]!;
+    await expect(as(t, nameAt(victim)).mutation(api.game.actions.raid, { roundId, take, give })).rejects.toThrow();
+    await as(t, nameAt(raider)).mutation(api.game.actions.raid, { roundId, take, give });
+    expect((await tableFor(nameAt(raider))).myHand).toContain(take);
+    expect((await tableFor(nameAt(victim))).myHand).toContain(give);
+    table = await tableFor("ana");
+    expect(table.round!.party!.raids).toEqual([{ seat: raider, target: victim }]);
+    expect(table.round!.turnSeat).not.toBe(raider);
   });
 
   it("team: partners are public and see each other's hands from the deal", async () => {

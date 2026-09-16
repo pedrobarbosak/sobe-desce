@@ -29,7 +29,8 @@ export type EngineErrorCode =
   | "alreadyShielded"
   | "alreadyVoted"
   | "markedCardStays"
-  | "sitOutMarked";
+  | "sitOutMarked"
+  | "cardNotOffered";
 
 export class EngineError extends Error {
   constructor(public readonly code: EngineErrorCode, message?: string) {

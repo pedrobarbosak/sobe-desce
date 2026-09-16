@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
-import { HIDDEN_CARD } from "../../src/engine";
+import { HIDDEN_CARD, offeredCards, playOrder, raidVictim } from "../../src/engine";
 import { currentUser } from "../lib/auth";
 import { rulesOfDoc } from "./state";
 
@@ -72,7 +72,7 @@ export const get = query({
     // seated player. All of it only once the trump is settled.
     const rules = rulesOfDoc(round?.party);
     const peeked = new Set(round?.party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []);
-    const myWard = mySeat >= 0 ? round?.party?.guardians?.[mySeat] ?? null : null;
+    const myWard = mySeat >= 0 && rules?.guardian ? round?.party?.guardians?.[mySeat] ?? null : null;
     if (myWard !== null && myWard !== mySeat && round?.phase !== "trump") peeked.add(myWard);
     // Partners see each other from the deal: the whole point is to play the round together.
     const myPartner = mySeat >= 0 && rules?.team ? round?.party?.teams?.[mySeat] ?? null : null;
@@ -85,19 +85,33 @@ export const get = query({
     // Party "blindLead": the lead of the trick in progress is face down to everyone but its player.
     const blind = round?.phase === "tricks" && rules?.blindLead === true;
     const allOpen = round !== null && mySeat >= 0 && rules?.openHands === true && round.phase !== "trump";
+    // Party "communism": whom the seat on turn is raiding, and, for that seat alone, the
+    // cards it is being shown.
+    const raidSeat = round?.phase === "raid" && rules?.communism ? round.turnSeat : null;
+    const playing = round ? playOrder(round.dealerSeat, session.seatCount).filter((s) => round.participants[s]?.decision === "in") : [];
+    const raidingNow =
+      round && raidSeat !== null ? raidVictim({ raidTarget: round.party?.raidTarget ?? [] }, raidSeat, playing, session.seatCount) : null;
+    const raidMine = raidSeat !== null && raidSeat === mySeat && raidingNow !== null;
     let openHands: { seat: number; cards: string[] }[] | null = null;
-    if (round && ((iAmOut && tricksVisible) || peeked.size > 0 || allOpen)) {
+    let raidOffer: string[] = [];
+    if (round && ((iAmOut && tricksVisible) || peeked.size > 0 || allOpen || raidMine)) {
       const all = await ctx.db
         .query("hands")
         .withIndex("by_round", (q) => q.eq("roundId", round._id))
         .collect();
-      openHands = all
-        .filter(
-          (h) =>
-            h.seat !== mySeat &&
-            (allOpen || peeked.has(h.seat) || (iAmOut && tricksVisible && round.participants[h.seat]?.decision === "in")),
-        )
-        .map((h) => ({ seat: h.seat, cards: h.cards }));
+      if ((iAmOut && tricksVisible) || peeked.size > 0 || allOpen) {
+        openHands = all
+          .filter(
+            (h) =>
+              h.seat !== mySeat &&
+              (allOpen || peeked.has(h.seat) || (iAmOut && tricksVisible && round.participants[h.seat]?.decision === "in")),
+          )
+          .map((h) => ({ seat: h.seat, cards: h.cards }));
+      }
+      if (raidMine) {
+        const victimHand = (all.find((h) => h.seat === raidingNow)?.cards ?? []) as never[];
+        raidOffer = offeredCards(victimHand, round.party?.raidSlots?.[mySeat] ?? [], round.party?.raidCount?.[mySeat] ?? 1);
+      }
     }
     const myPowerups = round?.party && mySeat >= 0 ? players[mySeat]?.powerups ?? [] : [];
 
@@ -172,7 +186,7 @@ export const get = query({
                   dummy: round.party.dummy ?? [],
                   dummyTurn: round.party.dummyTurn ?? 0,
                   // Who guarded whom is the round's reveal: it stays hidden until scored.
-                  guardians: round.phase === "scored" ? round.party.guardians ?? null : null,
+                  guardians: round.phase === "scored" && rules?.guardian ? round.party.guardians ?? null : null,
                   // Whether the hands moved is known the moment the coin is tossed, which is
                   // as soon as everyone has decided: the cards change in people's hands.
                   // With fewer than two still in there is nothing to rotate.
@@ -190,6 +204,9 @@ export const get = query({
                   markedCard: round.party.markedCard ?? null,
                   voted: round.party.voted ?? [],
                   robinSwap: round.party.robinSwap ?? null,
+                  raids: round.party.raids ?? [],
+                  raidVictim: raidingNow,
+                  raidOffer,
                 }
               : null,
             winnerSeat: round.winnerSeat ?? null,

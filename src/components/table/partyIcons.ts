@@ -18,6 +18,7 @@ import {
   LuFlame,
   LuFlipVertical2,
   LuGift,
+  LuHandCoins,
   LuLayers,
   LuLock,
   LuMegaphone,
@@ -59,6 +60,7 @@ export const PARTY_TWIST_ICONS: Record<Twist, IconType> = {
   fog: LuCloudFog,
   blindLead: LuEyeOff,
   voteTrump: LuVote,
+  communism: LuHandCoins,
   // These two are implemented but currently outside the draw pool.
   openHands: LuBookOpen,
   allIn: LuMegaphone,

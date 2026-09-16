@@ -338,6 +338,7 @@
     "alreadyShielded": "Já estás protegido nesta ronda.",
     "alreadyVoted": "Já votaste.",
     "markedCardStays": "A carta marcada não pode ser trocada.",
+    "cardNotOffered": "Essa carta não é uma das que te mostraram.",
     "sitOutMarked": "Tens a carta marcada, por isso jogas esta ronda.",
     "sitOutAllIn": "Ninguém fica de fora nesta ronda.",
     "alreadyPassed": "Já passaste uma carta.",
@@ -498,7 +499,13 @@
     "dummyPick": "Escolhe uma de cada",
     "dummySwap": "Trocar {{give}} por {{take}}",
     "dummySkip": "Deixar estar",
-    "dummyWaiting": "À espera dos outros…"
+    "dummyWaiting": "À espera dos outros…",
+    "raiding": "{{name}} está a servir-se de uma carta…",
+    "raidTitle": "Leva uma carta a {{name}} e devolve uma",
+    "raidHint": "Escolhe uma carta para levar e uma das tuas para dar, virada para baixo.",
+    "raidGo": "Levar {{take}}, dar {{give}}",
+    "raidPick": "Escolhe uma de cada",
+    "raidWaiting": "À espera que os outros se sirvam…"
   },
   "standings": {
     "title": "Classificação",
@@ -601,8 +608,8 @@
         "desc": "Quem ganhar a quinta e última vaza conta-a como cinco vazas em vez de uma."
       },
       "blankPays": {
-        "name": "Prémio de zero vazas",
-        "desc": "Se jogares e não fizeres nenhuma vaza, a penalização habitual é subtraída dos teus pontos em vez de somada. As vazas contam normalmente."
+        "name": "Ronda segura",
+        "desc": "Nada a perder: joga-se normalmente e qualquer resultado te faz descer. As vazas contam como sempre, e não fazer nenhuma tira-te a penalização em vez de ta somar."
       },
       "noTrump": {
         "name": "Sem trunfo",
@@ -696,6 +703,10 @@
         "name": "Saída às cegas",
         "desc": "A primeira carta de cada vaza joga-se virada para baixo e só se revela quando todos tiverem jogado. Quem assiste pode jogar qualquer carta; o trunfo, e depois o naipe de saída, continuam a decidir."
       },
+      "communism": {
+        "name": "Comunismo",
+        "desc": "O que é teu é meu. Depois das trocas, cada jogador à vez vê uma a três cartas ao calhas de um jogador ao calhas, leva uma, e devolve uma das suas virada para baixo."
+      },
       "voteTrump": {
         "name": "Trunfo por votação",
         "desc": "Ninguém escolhe o trunfo: cada um vota à vez, em segredo, e ganha o naipe mais votado. Em caso de empate, vale o primeiro voto. Ninguém fica obrigado a jogar a ronda."
@@ -746,6 +757,7 @@
     "teamed": "{{a}} e {{b}} jogaram em equipa",
     "nemesisOf": "{{name}} perseguia {{target}}",
     "robinSwapped": "Robin dos Bosques: {{a}} e {{b}} trocaram de resultado",
+    "raided": "{{name}} levou uma carta a {{target}}",
     "markedCardStays": "A carta marcada fica na tua mão",
     "ward": "Teu",
     "wardHint": "Apadrinhas este jogador: vês a mão dele e recebes a alteração de pontos dele nesta ronda.",

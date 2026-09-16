@@ -71,6 +71,8 @@ export type Twist =
   | "blindLead"
   /** Nobody names the trump: everyone votes for it, in turn but secretly. */
   | "voteTrump"
+  /** What is yours is mine: in turn, see a few of a random player's cards, take one, hand one back. */
+  | "communism"
   /** Shelved: every hand face up. The visibility knob stays for other twists. */
   | "openHands"
   /** Shelved: nobody may sit out. "asDealt" still uses the knob. */
@@ -103,6 +105,7 @@ export const TWISTS: readonly Twist[] = [
   "fog",
   "blindLead",
   "voteTrump",
+  "communism",
 ];
 
 export const LIGHTNING_SECONDS = 8;
@@ -112,6 +115,8 @@ export const DUMMY_SIZE = 7;
 export const PASS_DIRECTIONS: readonly PassDirection[] = ["left", "right", "across"];
 /** What taking the trick with the marked card costs. */
 export const MARKED_CARD_POINTS = 3;
+/** The most cards a raid shows. */
+export const MAX_RAID_CARDS = 3;
 
 /**
  * Powerups are built and tested but switched off for now: nothing is awarded, so no seat
@@ -187,6 +192,16 @@ export type PartyState = {
   passIndex: number[][];
   /** `robinHood`, once scored: the two seats whose results were swapped. */
   robinSwap: [number, number] | null;
+  /** `communism`: whom each seat raids, drawn with the deal (see raidVictim for who it lands on). */
+  raidTarget: number[];
+  /** `communism`: which slots of the victim's hand each seat is shown. */
+  raidSlots: number[][];
+  /** `communism`: how many of those slots, one to three. */
+  raidCount: number[];
+  /** `communism`: how many seats have raided. */
+  raidTurn: number;
+  /** `communism`: who took a card from whom, in order. Public. */
+  raids: { seat: number; target: number }[];
 };
 
 export type PowerupAction = { type: "usePowerup"; seat: number; powerup: Powerup; target?: number };
@@ -267,6 +282,11 @@ export function createPartyState(
   const seats = <T,>(make: () => T) => Array.from({ length: seatCount }, make);
   // Pass: the slots that will go, two distinct ones per seat, however many the twist takes.
   const passIndex = twist === "pass" ? seats(() => shuffledSeats(HAND_SIZE, rng).slice(0, MAX_PASS_COUNT)) : [];
+  // Communism: whom each seat raids (never itself), which slots it is shown, and how many.
+  const raiding = twist === "communism";
+  const raidTarget = raiding ? Array.from({ length: seatCount }, (_, seat) => (seat + 1 + Math.floor(rng() * (seatCount - 1))) % seatCount) : [];
+  const raidSlots = raiding ? seats(() => shuffledSeats(HAND_SIZE, rng).slice(0, MAX_RAID_CARDS)) : [];
+  const raidCount = raiding ? seats(() => 1 + Math.floor(rng() * MAX_RAID_CARDS)) : [];
   return {
     twist,
     goldenSuit,
@@ -291,6 +311,11 @@ export function createPartyState(
     votes: seats(() => null),
     passIndex,
     robinSwap: null,
+    raidTarget,
+    raidSlots,
+    raidCount,
+    raidTurn: 0,
+    raids: [],
   };
 }
 
@@ -314,6 +339,10 @@ export function clonePartyState(p: PartyState): PartyState {
     votes: [...p.votes],
     passIndex: p.passIndex.map((ix) => [...ix]),
     robinSwap: p.robinSwap ? [p.robinSwap[0], p.robinSwap[1]] : null,
+    raidTarget: [...p.raidTarget],
+    raidSlots: p.raidSlots.map((ix) => [...ix]),
+    raidCount: [...p.raidCount],
+    raids: p.raids.map((r) => ({ ...r })),
   };
 }
 
@@ -397,6 +426,9 @@ export function partyRules(p: Pick<PartyState, "twist" | "pass" | "wildRank" | "
       break;
     case "voteTrump":
       r.voteTrump = true;
+      break;
+    case "communism":
+      r.communism = true;
       break;
     case "golden":
     case "lastTrick":
@@ -551,6 +583,35 @@ export function applyPowerup(p: PartyState, action: PowerupAction): void {
       p.curses[action.target!] = (p.curses[action.target!] ?? 0) + 1;
       return;
   }
+}
+
+/**
+ * Communism: the cards a raider is shown. The victim's hand read at the drawn slots, as
+ * many distinct cards as the draw allows.
+ */
+export function offeredCards(hand: readonly Card[], slots: readonly number[], count: number): Card[] {
+  const out: Card[] = [];
+  if (hand.length === 0) return out;
+  for (const i of slots) {
+    const card = hand[i % hand.length]!;
+    if (!out.includes(card)) out.push(card);
+    if (out.length >= count) break;
+  }
+  return out;
+}
+
+/**
+ * Communism: whom `seat` raids. The drawn target, or failing that the next seat still in
+ * the round clockwise from it. Never the raider, and null when nobody else is playing.
+ */
+export function raidVictim(p: Pick<PartyState, "raidTarget">, seat: number, playing: readonly number[], seatCount: number): number | null {
+  if (seatCount < 2) return null;
+  let target = p.raidTarget[seat] ?? (seat + 1) % seatCount;
+  for (let i = 0; i < seatCount; i++) {
+    if (target !== seat && playing.includes(target)) return target;
+    target = (target + 1) % seatCount;
+  }
+  return null;
 }
 
 /** Seats whose hands `seat` may see: through a peek, as the guardian of a ward, or as a partner. */

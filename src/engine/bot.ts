@@ -1,7 +1,7 @@
 import { type Card, type DeckSize, type Suit, SUITS, rankOf, ranksFor, rankValue, suitOf } from "./cards";
 import { canSitOut, legalPlays } from "./legal";
-import { type PowerupAction } from "./party";
-import { type Action, type RoundContext, type RoundState, rulesFor } from "./round";
+import { type PowerupAction, offeredCards, raidVictim } from "./party";
+import { type Action, type RoundContext, type RoundState, inSeats, rulesFor } from "./round";
 import type { RoundRules } from "./rules";
 import { HIDDEN_CARD, type TrickInProgress, beats, currentWinner } from "./trick";
 
@@ -18,6 +18,13 @@ export function cardPower(card: Card, deck: DeckSize, rules: RoundRules): number
 
 function power(card: Card, state: RoundState, rules: RoundRules): number {
   return cardPower(card, state.deck, rules);
+}
+
+/** Communism: what the seat on turn is being shown, given the whole state. */
+function raidOffer(state: RoundState, seat: number): Card[] {
+  const party = state.party!;
+  const victim = raidVictim(party, seat, inSeats(state), state.seatCount);
+  return victim === null ? [] : offeredCards(state.hands[victim]!, party.raidSlots[seat] ?? [], party.raidCount[seat] ?? 1);
 }
 
 /**
@@ -101,6 +108,11 @@ export function autoPlay(state: RoundState, seat: number): Action {
       return { type: "take", seat, card: weakest(state.party!.market, state, rules) };
     case "dummy":
       return { type: "dummy", seat };
+    case "raid": {
+      // The least committal raid: the weakest card shown for the weakest card held.
+      const offer = raidOffer(state, seat);
+      return { type: "raid", seat, take: weakest(offer, state, rules), give: weakest(hand, state, rules) };
+    }
     case "tricks": {
       const legal = legalPlays(hand, state.currentTrick, state.trump, state.deck, rules);
       return { type: "play", seat, card: weakest(legal, state, rules) };
@@ -184,6 +196,15 @@ export function chooseAction(state: RoundState, seat: number, ctx: RoundContext)
         ? power(take, state, rules) < power(give, state, rules)
         : power(take, state, rules) > power(give, state, rules);
       return better ? { type: "dummy", seat, give, take } : { type: "dummy", seat };
+    }
+
+    case "raid": {
+      // Take the best on offer and hand over the worst in hand, or the reverse when the
+      // round pays for losing.
+      const offer = raidOffer(state, seat);
+      const take = rules.avoidTricks ? weakest(offer, state, rules) : strongest(offer, state, rules);
+      const give = rules.avoidTricks ? strongest(hand, state, rules) : weakest(hand, state, rules);
+      return { type: "raid", seat, take, give };
     }
 
     case "tricks": {

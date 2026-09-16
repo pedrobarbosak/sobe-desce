@@ -44,6 +44,7 @@ export const phase = v.union(
   v.literal("pass"),
   v.literal("market"),
   v.literal("dummy"),
+  v.literal("raid"),
   v.literal("tricks"),
   v.literal("scored"),
 );
@@ -98,6 +99,7 @@ export const twist = v.union(
   v.literal("fog"),
   v.literal("blindLead"),
   v.literal("voteTrump"),
+  v.literal("communism"),
 );
 export const passDirection = v.union(v.literal("left"), v.literal("right"), v.literal("across"));
 export const powerup = v.union(v.literal("peek"), v.literal("curse"), v.literal("shield"));
@@ -123,6 +125,12 @@ export const partyRound = v.object({
   passIndex: v.optional(v.array(v.array(v.number()))),
   /** Robin Hood, once scored: the two seats whose results were swapped. */
   robinSwap: v.optional(v.array(v.number())),
+  /** Communism: the draw, the count of raids made, and who took from whom. */
+  raidTarget: v.optional(v.array(v.number())),
+  raidSlots: v.optional(v.array(v.array(v.number()))),
+  raidCount: v.optional(v.array(v.number())),
+  raidTurn: v.optional(v.number()),
+  raids: v.optional(v.array(v.object({ seat: v.number(), target: v.number() }))),
   faceUp: v.optional(v.array(v.union(v.string(), v.null()))),
   market: v.optional(v.array(v.string())),
   marketOrder: v.optional(v.array(v.number())),

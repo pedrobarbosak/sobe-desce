@@ -34,7 +34,7 @@ import type { PartyView } from "./party";
 import { TrumpPicker, TrumpReveal } from "./TrumpPanels";
 import { type PendingChoice, DiscardPanel } from "./DiscardPanel";
 import { CoinFlip, TwistBanner, TwistReveal } from "./PartyReveals";
-import { DummyPanel, MarketPanel, PassPanel, PowerupTray } from "./PartyPanels";
+import { DummyPanel, MarketPanel, PassPanel, PowerupTray, RaidPanel } from "./PartyPanels";
 import { RoundResult } from "./RoundResult";
 import { ringLayout, ringPlacer } from "./geometry";
 
@@ -91,6 +91,7 @@ export function Table({ data }: { data: TableData }) {
   const passCards = useMutation(api.game.actions.passCards);
   const takeCard = useMutation(api.game.actions.takeCard);
   const dummySwap = useMutation(api.game.actions.dummySwap);
+  const raid = useMutation(api.game.actions.raid);
   const [dummyTake, setDummyTake] = useState<CardT | null>(null);
   const spendPowerup = useMutation(api.game.actions.usePowerup);
   const rematch = useMutation(api.games.rematch);
@@ -255,7 +256,7 @@ export function Table({ data }: { data: TableData }) {
 
   // Passing takes exactly the twist's count (one for the market), a dummy swap one card,
   // and discarding up to the cap.
-  const selectLimit = roundPhase === "pass" ? (rules.market ? 1 : rules.pass?.count ?? 1) : roundPhase === "dummy" ? 1 : maxDiscardNow;
+  const selectLimit = roundPhase === "pass" ? (rules.market ? 1 : rules.pass?.count ?? 1) : roundPhase === "dummy" || roundPhase === "raid" ? 1 : maxDiscardNow;
   const toggle = useCallback(
     (card: CardT) => {
       setSelected((prev) => {
@@ -304,7 +305,7 @@ export function Table({ data }: { data: TableData }) {
   const iAmOut = me?.decision === "out";
   // Who the status card is about: the trick winner while the table holds, else the turn.
   const statusActor = display.holding && display.winnerSeat !== null ? seats[display.winnerSeat] : turnSeat;
-  const statusKind: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null =
+  const statusKind: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "raid" | "tricks" | "trickWon" | null =
     display.holding && display.winnerSeat !== null
       ? "trickWon"
       : phase === "scored" || !turnSeat
@@ -315,7 +316,7 @@ export function Table({ data }: { data: TableData }) {
           ? "trump"
           : phase === "discard"
             ? "discard"
-            : phase === "pass" || phase === "market" || phase === "dummy"
+            : phase === "pass" || phase === "market" || phase === "dummy" || phase === "raid"
               ? phase
               : "tricks";
   // Discard phase, my decision still open, somebody else on the clock.
@@ -626,6 +627,25 @@ export function Table({ data }: { data: TableData }) {
           </div>
         )}
 
+        {phase === "raid" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <RaidPanel
+              compact={compact}
+              victimName={party.raidVictim !== null ? seats[party.raidVictim]?.name ?? "" : ""}
+              cards={party.raidOffer as CardT[]}
+              mine={isMyTurn}
+              give={[...selected][0] ?? null}
+              take={dummyTake}
+              busy={busy}
+              onPickTake={(card) => setDummyTake((cur) => (cur === card ? null : card))}
+              onRaid={() => {
+                const give = [...selected][0];
+                if (give && dummyTake) void run(() => raid({ roundId: round._id, take: dummyTake, give }));
+              }}
+            />
+          </div>
+        )}
+
         {/* my seat chip + hand, pinned to the bottom of the felt */}
         {me && (
           <div
@@ -738,7 +758,7 @@ export function Table({ data }: { data: TableData }) {
               trump={trump}
               trick={(round?.currentTrick as TrickInProgress | undefined) ?? null}
               canPlay={isMyTurn && phase === "tricks" && me?.decision === "in" && !swapHeld}
-              selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || ((phase === "pass" || phase === "dummy") && isMyTurn)}
+              selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || ((phase === "pass" || phase === "dummy" || phase === "raid") && isMyTurn)}
               selected={selected}
               onToggle={toggle}
               onPlay={onPlay}

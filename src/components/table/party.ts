@@ -31,6 +31,12 @@ export type PartyView = {
   voted: boolean[];
   /** `robinHood`, once scored: the two seats whose results were swapped. */
   robinSwap: number[] | null;
+  /** `communism`: who took a card from whom so far. */
+  raids: { seat: number; target: number }[];
+  /** `communism`: whom the seat on turn is raiding. */
+  raidVictim: number | null;
+  /** `communism`: the cards shown to the viewer, when it is the viewer's raid. */
+  raidOffer: string[];
 };
 
 /** A card as a short label: rank and suit glyph. */

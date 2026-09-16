@@ -40,6 +40,8 @@ function redactPayload(action: Action): unknown {
       return { card: action.card };
     case "dummy":
       return { give: action.give ?? null, take: action.take ?? null };
+    case "raid":
+      return {}; // the cards changed hands in private
     case "usePowerup":
       return { powerup: action.powerup, target: action.target };
   }
@@ -195,6 +197,12 @@ export const dummySwap = mutation({
       if (take !== undefined) action.take = take as CardArg;
       return action;
     }),
+});
+
+/** Party "communism": take one of the cards shown and hand one back. */
+export const raid = mutation({
+  args: { roundId: v.id("rounds"), take: v.string(), give: v.string() },
+  handler: (ctx, { roundId, take, give }) => move(ctx, roundId, (seat) => ({ type: "raid", seat, take: take as CardArg, give: give as CardArg })),
 });
 
 /** Party: spend a powerup. Allowed out of turn while the round is being decided or played. */

@@ -37,7 +37,7 @@ type Props = {
   deadline: number | null;
   totalMs: number;
   skewMs: number;
-  phase: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "scored";
+  phase: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "raid" | "tricks" | "scored";
   compact?: boolean;
   size?: number;
   /** Face-up hand, shown only to a viewer who sat this round out. */

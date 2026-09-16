@@ -1,5 +1,5 @@
 import { type Card, type DeckSize, type Suit, SUITS, buildDeck, isCard, suitOf } from "./cards";
-import { DUMMY_SIZE, type Twist, passOffset } from "./party";
+import { DUMMY_SIZE, type Twist, offeredCards, passOffset, raidVictim } from "./party";
 import { HAND_SIZE, TRICKS_PER_ROUND, type Variant } from "./config";
 import { EngineError } from "./errors";
 import { legalPlays, sitOutBlockedReason } from "./legal";
@@ -26,7 +26,7 @@ import { type CompletedTrick, type TrickInProgress, trickWinner } from "./trick"
  * the tricks: choosing cards to pass or lay out, taking from the market, swapping with
  * the spare hand.
  */
-export type Phase = "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "scored";
+export type Phase = "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "raid" | "tricks" | "scored";
 export type Decision = "pending" | "in" | "out";
 
 export type SeatState = {
@@ -89,6 +89,8 @@ export type Action =
   | { type: "take"; seat: number; card: Card }
   /** Party "dummy": swap one card with the spare hand, or pass with neither. */
   | { type: "dummy"; seat: number; give?: Card; take?: Card }
+  /** Party "communism": take one of the cards shown and hand one of your own back. */
+  | { type: "raid"; seat: number; take: Card; give: Card }
   | PowerupAction;
 
 export type RoundEvent =
@@ -103,6 +105,7 @@ export type RoundEvent =
   | { type: "passed"; seat: number }
   | { type: "took"; seat: number; card: Card }
   | { type: "dummySwapped"; seat: number; give: Card | null; take: Card | null }
+  | { type: "raided"; seat: number; target: number }
   | { type: "played"; seat: number; card: Card }
   | { type: "trickWon"; seat: number; trickIndex: number }
   | { type: "scored"; deltas: number[] }
@@ -363,6 +366,13 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[], ctx?: Round
     party.marketOrder = takeOrder(players, ctx);
     state.phase = "dummy";
     state.turnSeat = party.marketOrder[0]!;
+    return;
+  }
+  if (rules.communism) {
+    // Everyone still in raids once, in play order.
+    state.party!.raidTurn = 0;
+    state.phase = "raid";
+    state.turnSeat = players[0]!;
     return;
   }
   startTricks(state);
@@ -639,6 +649,25 @@ export function applyAction(
       const players = inSeats(state);
       if (party.dummyTurn >= players.length) startTricks(state);
       else state.turnSeat = party.marketOrder[party.dummyTurn] ?? players[party.dummyTurn]!;
+      return { ok: true, state, events };
+    }
+
+    case "raid": {
+      if (state.phase !== "raid") return fail("wrongPhase");
+      const party = state.party!;
+      const players = inSeats(state);
+      const victim = raidVictim(party, action.seat, players, state.seatCount);
+      if (victim === null) return fail("wrongPhase");
+      const offer = offeredCards(state.hands[victim]!, party.raidSlots[action.seat] ?? [], party.raidCount[action.seat] ?? 1);
+      if (!isCard(action.take, state.deck) || !offer.includes(action.take)) return fail("cardNotOffered", String(action.take));
+      if (!isCard(action.give, state.deck) || !hand.includes(action.give)) return fail("cardNotInHand", String(action.give));
+      state.hands[action.seat] = [...hand.filter((c) => c !== action.give), action.take];
+      state.hands[victim] = [...state.hands[victim]!.filter((c) => c !== action.take), action.give];
+      party.raids.push({ seat: action.seat, target: victim });
+      events.push({ type: "raided", seat: action.seat, target: victim });
+      party.raidTurn += 1;
+      if (party.raidTurn >= players.length) startTricks(state);
+      else state.turnSeat = players[party.raidTurn]!;
       return { ok: true, state, events };
     }
 

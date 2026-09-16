@@ -338,6 +338,7 @@
     "alreadyShielded": "You are already shielded this round.",
     "alreadyVoted": "You already voted.",
     "markedCardStays": "The marked card cannot be discarded.",
+    "cardNotOffered": "That card is not one you were shown.",
     "sitOutMarked": "You hold the marked card, so you play this round.",
     "sitOutAllIn": "Nobody sits out this round.",
     "alreadyPassed": "You already passed a card.",
@@ -498,7 +499,13 @@
     "dummyPick": "Pick one of each",
     "dummySwap": "Swap {{give}} for {{take}}",
     "dummySkip": "Leave it",
-    "dummyWaiting": "Waiting for the others…"
+    "dummyWaiting": "Waiting for the others…",
+    "raiding": "{{name}} is helping themselves to a card…",
+    "raidTitle": "Take one of {{name}}'s cards and give one back",
+    "raidHint": "Pick a card to take, and one of yours to hand over face down.",
+    "raidGo": "Take {{take}}, give {{give}}",
+    "raidPick": "Pick one of each",
+    "raidWaiting": "Waiting for the others to raid…"
   },
   "standings": {
     "title": "Standings",
@@ -601,8 +608,8 @@
         "desc": "Whoever wins the fifth and final trick scores it as five tricks instead of one."
       },
       "blankPays": {
-        "name": "Zero-trick bonus",
-        "desc": "If you play and win no tricks, the usual penalty is subtracted from your score instead of added. Tricks score normally."
+        "name": "Safe round",
+        "desc": "Nothing to lose: play as usual, and every outcome takes you down. Tricks count as always, and winning none subtracts the penalty instead of adding it."
       },
       "noTrump": {
         "name": "No trump",
@@ -696,6 +703,10 @@
         "name": "Blind lead",
         "desc": "The first card of every trick is played face down and revealed once everyone has followed. Followers may play anything; trump, then the led suit, still decides."
       },
+      "communism": {
+        "name": "Communism",
+        "desc": "What is yours is mine. After the discards, each player in turn is shown one to three random cards of a random player, takes one, and hands one of their own back face down."
+      },
       "voteTrump": {
         "name": "Vote for trump",
         "desc": "Nobody names the trump: everyone votes in turn, secretly, and the suit with the most votes wins. Ties go to the earliest vote. Nobody is committed to the round by it."
@@ -746,6 +757,7 @@
     "teamed": "{{a}} and {{b}} played as a team",
     "nemesisOf": "{{name}} was after {{target}}",
     "robinSwapped": "Robin Hood: {{a}} and {{b}} swapped results",
+    "raided": "{{name}} took a card from {{target}}",
     "markedCardStays": "The marked card stays in your hand",
     "ward": "Yours",
     "wardHint": "You guard this player: you see their hand and receive their score change for the round.",

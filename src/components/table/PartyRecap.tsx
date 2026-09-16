@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { LuArrowLeftRight, LuShield, LuShuffle, LuSwords, LuUsers } from "react-icons/lu";
+import { LuArrowLeftRight, LuHandCoins, LuShield, LuShuffle, LuSwords, LuUsers } from "react-icons/lu";
 import { PARTY_TWIST_ICONS } from "./partyIcons";
 import { type Translate, type TwistFacts, twistName } from "./party";
 
@@ -10,6 +10,7 @@ export type RecapParty = TwistFacts & {
   teams?: number[] | null;
   nemeses?: number[] | null;
   guardians?: number[] | null;
+  raids?: { seat: number; target: number }[] | null;
 };
 
 type Named = { name: string; isMe?: boolean };
@@ -50,6 +51,11 @@ export function PartyRecap({ party, seats, compact = false }: { party: RecapPart
       {party.nemeses?.map((target, seat) => (
         <p key={seat} className={tone(seat)}>
           <LuSwords className="icon" /> {t("party.nemesisOf", { name: who(seat), target: who(target) })}
+        </p>
+      ))}
+      {party.raids?.map((raid, i) => (
+        <p key={i} className={tone(raid.seat, raid.target)}>
+          <LuHandCoins className="icon" /> {t("party.raided", { name: who(raid.seat), target: who(raid.target) })}
         </p>
       ))}
       {party.guardians?.map((ward, seat) => (

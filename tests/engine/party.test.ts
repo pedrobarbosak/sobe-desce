@@ -24,6 +24,8 @@ import {
   robinHoodPair,
   rulesFor,
   viewFor,
+  offeredCards,
+  raidVictim,
 } from "@/engine";
 
 const ctx: RoundContext = { scores: [20, 20, 20, 20], sitOutStreak: [0, 0, 0, 0], forcedPlayThreshold: 5 };
@@ -83,6 +85,11 @@ function party(over: Partial<PartyState> = {}): PartyState {
     votes: [null, null, null, null],
     passIndex: [],
     robinSwap: null,
+    raidTarget: [],
+    raidSlots: [],
+    raidCount: [],
+    raidTurn: 0,
+    raids: [],
     ...over,
   };
 }
@@ -842,6 +849,69 @@ describe("marked card, musical tricks, fog, blind lead", () => {
     expect(legalPlays(["AS", "7H", "2D"], { leader: 1, plays: [] }, "S", 40, rules)).toEqual(["AS"]);
     // Following: anything goes, even holding the led suit and a beating card.
     expect(legalPlays(["AS", "7H", "2H"], { leader: 1, plays: [{ seat: 1, card: "3H" }] }, "S", 40, rules)).toEqual(["AS", "7H", "2H"]);
+  });
+});
+
+describe("communism", () => {
+  it("in turn, each seat is shown a few of a random player's cards, takes one and gives one back", () => {
+    const fresh = make(seedFor("communism"));
+    const p = fresh.party!;
+    p.raidTarget.forEach((target, seat) => expect(target).not.toBe(seat));
+    for (const slots of p.raidSlots) {
+      expect(slots).toHaveLength(3);
+      expect(new Set(slots).size).toBe(3);
+    }
+    for (const n of p.raidCount) expect(n).toBeGreaterThanOrEqual(1);
+    for (const n of p.raidCount) expect(n).toBeLessThanOrEqual(3);
+
+    let s = step(fresh, { type: "nameTrump", seat: 1, suit: "S" });
+    for (const seat of [1, 2, 3, 0]) s = step(s, { type: "discard", seat, cards: [] });
+    expect(s.phase).toBe("raid");
+    expect(s.turnSeat).toBe(1);
+    const victim = raidVictim(s.party!, 1, [1, 2, 3, 0], 4)!;
+    expect(victim).not.toBe(1);
+    const offer = offeredCards(s.hands[victim]!, s.party!.raidSlots[1]!, s.party!.raidCount[1]!);
+    expect(offer).toHaveLength(s.party!.raidCount[1]!);
+    for (const c of offer) expect(s.hands[victim]).toContain(c);
+    const notShown = s.hands[victim]!.find((c) => !offer.includes(c)) ?? s.hands[2]![0]!;
+    expectError(s, { type: "raid", seat: 2, take: offer[0]!, give: s.hands[2]![0]! }, "notYourTurn");
+    expectError(s, { type: "raid", seat: 1, take: notShown, give: s.hands[1]![0]! }, "cardNotOffered");
+    expectError(s, { type: "raid", seat: 1, take: offer[0]!, give: offer[0]! }, "cardNotInHand");
+    expectError(s, { type: "play", seat: 1, card: s.hands[1]![0]! }, "wrongPhase");
+    const give = s.hands[1]![0]!;
+    s = step(s, { type: "raid", seat: 1, take: offer[0]!, give });
+    expect(s.hands[1]).toContain(offer[0]);
+    expect(s.hands[1]).not.toContain(give);
+    expect(s.hands[victim]).toContain(give);
+    expect(s.hands[victim]).not.toContain(offer[0]);
+    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+    expect(s.party!.raids).toEqual([{ seat: 1, target: victim }]);
+    expect(s.turnSeat).toBe(2);
+    // The bots and the timer make legal raids, and everyone gets one before the tricks.
+    while (s.phase === "raid") {
+      const seat = s.turnSeat!;
+      const pick = seat % 2 === 0 ? chooseAction(s, seat, ctx) : autoPlay(s, seat);
+      expect(pick.type).toBe("raid");
+      s = step(s, pick);
+    }
+    expect(s.phase).toBe("tricks");
+    expect(s.party!.raids).toHaveLength(4);
+    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+  });
+
+  it("a target that sat out is skipped for the next seat still in, and never the raider", () => {
+    const p = party({ twist: "communism", raidTarget: [2, 0, 3, 0] });
+    // Seat 2 sat out: seat 0's raid lands on seat 3; seat 1 keeps its target.
+    expect(raidVictim(p, 0, [0, 1, 3], 4)).toBe(3);
+    expect(raidVictim(p, 1, [0, 1, 3], 4)).toBe(0);
+    // Seat 3 targets 0, who sat out; next clockwise is 1.
+    expect(raidVictim(p, 3, [1, 2, 3], 4)).toBe(1);
+    // The walk never lands on the raider itself.
+    expect(raidVictim(p, 2, [2, 3], 4)).toBe(3);
+    expect(raidVictim(p, 2, [2], 4)).toBeNull();
+    // Offers read the hand at the drawn slots, distinct, up to the count.
+    expect(offeredCards(["AS", "KS", "QS", "JS", "7S"], [4, 0, 2], 2)).toEqual(["7S", "AS"]);
+    expect(offeredCards(["AS", "KS", "QS"], [4, 1, 2], 3)).toEqual(["KS", "QS"]);
   });
 });
 

@@ -91,6 +91,7 @@ function partyRecap(party: NonNullable<Doc<"rounds">["party"]>, scored: boolean)
     robinSwap: scored ? party.robinSwap ?? null : null,
     nemeses: scored ? party.nemeses ?? null : null,
     guardians: scored ? party.guardians ?? null : null,
+    raids: party.raids ?? null,
   };
 }
 

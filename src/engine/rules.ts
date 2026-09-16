@@ -60,6 +60,8 @@ export type RoundRules = {
   blindLead: boolean;
   /** Nobody names the trump: everyone votes for it, in turn, before the deal is finished. */
   voteTrump: boolean;
+  /** After the discards, each seat in turn sees a few of another's cards, takes one and gives one back. */
+  communism: boolean;
 };
 
 export const CLASSIC_RULES: RoundRules = {
@@ -88,4 +90,5 @@ export const CLASSIC_RULES: RoundRules = {
   fog: false,
   blindLead: false,
   voteTrump: false,
+  communism: false,
 };
