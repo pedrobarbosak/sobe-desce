@@ -61,6 +61,9 @@ export function TwistReveal({ party, compact = false }: { party: PartyView; comp
   );
 }
 
+/** How long the coin is in the air before it settles on its answer. */
+export const COIN_FLIGHT_MS = 1900;
+
 function CoinFace({ icon: Icon, label, size, back = false }: { icon: IconType; label: string; size: number; back?: boolean }) {
   return (
     <div
@@ -90,7 +93,7 @@ export function CoinFlip({ swapped, compact = false }: { swapped: boolean; compa
   const size = compact ? 110 : 160;
   const spins = 5;
   const landed = 360 * spins + (swapped ? 0 : 180);
-  const flightMs = 1900;
+  const flightMs = COIN_FLIGHT_MS;
   return (
     <motion.div
       className="pointer-events-none flex flex-col items-center"

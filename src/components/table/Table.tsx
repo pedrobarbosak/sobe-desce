@@ -14,6 +14,7 @@ import { useReveals } from "@/hooks/useReveals";
 import { useTurnClock } from "@/hooks/useTurnClock";
 import { useTableSounds } from "@/hooks/useTableSounds";
 import { useFeltLayout } from "@/hooks/useFeltLayout";
+import { useSwapHold } from "@/hooks/useSwapHold";
 import { Avatar } from "@/components/ui/Avatar";
 import { LobbyView } from "@/components/game/LobbyView";
 import { StandingsView } from "@/components/game/StandingsView";
@@ -56,7 +57,7 @@ const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
 export function Table({ data }: { data: TableData }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { game, session, round, seats: seatRows, mySeat, myHand } = data;
+  const { game, session, round, seats: seatRows, mySeat, myHand: serverHand } = data;
   // Presence is its own subscription so a heartbeat cannot invalidate the table query
   // and re-send every hand and trick. See presence.onlineIn.
   const onlineIds = useQuery(api.presence.onlineIn, { gameId: game._id });
@@ -133,6 +134,8 @@ export function Table({ data }: { data: TableData }) {
     twist: party?.twist ?? null,
     swapped: party?.swapped ?? null,
   });
+  // Party "swap": the old hand stays on screen until the coin has landed.
+  const { hand: myHand, holding: swapHeld } = useSwapHold(serverHand, roundId, roundPhase, party?.swapped ?? null, reveal);
 
   const display = useTrickDisplay(
     round ? { _id: round._id, currentTrick: round.currentTrick as TrickInProgress, completedTricks: round.completedTricks as never } : null,
@@ -687,7 +690,7 @@ export function Table({ data }: { data: TableData }) {
               deck={game.config.deck}
               trump={trump}
               trick={(round?.currentTrick as TrickInProgress | undefined) ?? null}
-              canPlay={isMyTurn && phase === "tricks" && me?.decision === "in"}
+              canPlay={isMyTurn && phase === "tricks" && me?.decision === "in" && !swapHeld}
               selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || ((phase === "pass" || phase === "dummy") && isMyTurn)}
               selected={selected}
               onToggle={toggle}
