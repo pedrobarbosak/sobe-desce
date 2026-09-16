@@ -25,7 +25,7 @@ import { TableStatus } from "./TableStatus";
 import { DarkCall } from "./DarkCall";
 import { type PlayedTrick, TrickHistory } from "./TrickHistory";
 import { Drawer } from "./Drawer";
-import { type PartyView, type PendingChoice, DiscardPanel, DummyPanel, MarketPanel, PassPanel, PowerupTray, RoundResult, TrumpPicker, TrumpReveal, TwistBanner, twistName, twistVars } from "./panels";
+import { type PartyView, type PendingChoice, CoinFlip, DiscardPanel, DummyPanel, MarketPanel, PassPanel, PowerupTray, RoundResult, TrumpPicker, TrumpReveal, TwistBanner, TwistReveal, twistName, twistVars } from "./panels";
 import { type Ellipse, ringLayout, ringPlacer } from "./geometry";
 
 export type TableData = NonNullable<FunctionReturnType<typeof api.game.table.get>>;
@@ -35,6 +35,14 @@ export type TableData = NonNullable<FunctionReturnType<typeof api.game.table.get
  * landing". The UI has already corrected itself, so a banner would just be noise.
  */
 const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
+
+/** The announcements that take the middle of the felt for a beat, one at a time. */
+type Reveal =
+  | { kind: "twist"; roundId: string }
+  | { kind: "trump"; suit: Suit; roundId: string }
+  | { kind: "coin"; roundId: string; swapped: boolean };
+/** How long each one holds. The coin needs its flight, then a moment to read the verdict. */
+const REVEAL_MS: Record<Reveal["kind"], number> = { twist: 2800, trump: 2600, coin: 3600 };
 
 /**
  * Full-viewport table. A thin bar on top, the felt fills the rest; every size (cards,
@@ -101,21 +109,47 @@ export function Table({ data }: { data: TableData }) {
   const isDark = round?.darkHearts === true;
   // The server is still holding this seat's cards back, so the blind offer stands.
   const blindDeadline = data.inTheDark ? round?.darkUntil ?? null : null;
-  const [reveal, setReveal] = useState<{ suit: Suit; roundId: string } | null>(null);
+  // The centre-felt announcements queue up rather than fight for the spot: the twist as
+  // the round is dealt, the trump as it is named, the swap coin as it is tossed.
+  const [reveals, setReveals] = useState<Reveal[]>([]);
+  const reveal = reveals[0] ?? null;
+  const announce = useCallback((r: Reveal) => setReveals((q) => [...q, r]), []);
   const seenTrump = useRef<{ roundId: string | undefined; trump: string | null }>({ roundId: undefined, trump: null });
   useEffect(() => {
     const prev = seenTrump.current;
     seenTrump.current = { roundId, trump: roundTrump };
     if (!roundId || !roundTrump) return;
     if (prev.roundId === roundId && prev.trump === null && (namerSeat !== mySeat || flippedCard !== null)) {
-      setReveal({ suit: roundTrump as Suit, roundId });
+      announce({ kind: "trump", suit: roundTrump as Suit, roundId });
     }
-  }, [roundId, roundTrump, namerSeat, mySeat, flippedCard]);
-  // Clearing is its own effect: hanging it off the one above meant a re-run could cancel
+  }, [roundId, roundTrump, namerSeat, mySeat, flippedCard, announce]);
+  // The twist goes up as the round is dealt: once per round, and only while the round is
+  // still opening. Someone arriving mid-round has the banner in the corner instead.
+  const twistNow = party?.twist ?? null;
+  const roundOpening =
+    round !== null && (round.phase === "trump" || (round.phase === "discard" && seatRows.every((s) => s.decision === "pending")));
+  const seenTwist = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!roundId || !twistNow || !roundOpening || seenTwist.current === roundId) return;
+    seenTwist.current = roundId;
+    // A fresh round makes anything still queued from the last one stale.
+    setReveals((q) => [...q.filter((r) => r.roundId === roundId), { kind: "twist", roundId }]);
+  }, [roundId, twistNow, roundOpening]);
+  // Party "swap": the coin is tossed the moment the deciding ends, and the server says
+  // which way it fell in the same update that moves the round on.
+  const swapped = party?.swapped ?? null;
+  const seenPhase = useRef<{ roundId: string | undefined; phase: string | undefined }>({ roundId: undefined, phase: undefined });
+  useEffect(() => {
+    const prev = seenPhase.current;
+    seenPhase.current = { roundId, phase: roundPhase };
+    if (!roundId || prev.roundId !== roundId || swapped === null) return;
+    if (prev.phase === "discard" && roundPhase !== "discard" && roundPhase !== "scored") announce({ kind: "coin", roundId, swapped });
+  }, [roundId, roundPhase, swapped, announce]);
+  // Clearing is its own effect: hanging it off the ones above meant a re-run could cancel
   // the timer without re-arming it, leaving the reveal parked over the discard panel.
   useEffect(() => {
     if (!reveal) return;
-    const id = setTimeout(() => setReveal(null), 2600);
+    const id = setTimeout(() => setReveals((q) => q.slice(1)), REVEAL_MS[reveal.kind]);
     return () => clearTimeout(id);
   }, [reveal]);
 
@@ -145,7 +179,7 @@ export function Table({ data }: { data: TableData }) {
     else sound.play(winnerForSound === mySeat ? "win" : "lose");
   }, [phaseForSound, winnerForSound, roundId, mySeat]);
   useEffect(() => {
-    if (reveal) sound.play("trump");
+    if (reveal) sound.play(reveal.kind === "coin" ? "card" : "trump");
   }, [reveal]);
 
   const display = useTrickDisplay(
@@ -195,19 +229,25 @@ export function Table({ data }: { data: TableData }) {
   // Above the one-line "spectating" / "you sat out" note that owns the very bottom.
   const statusBottom = 34;
   const hasOpenHands = (data.openHands?.length ?? 0) > 0;
-  // Half a seat's height (it is centred on its point): a fan of cards above the avatar, or
-  // a row of backs, plus the name and score below.
-  const seatHalf = hasOpenHands ? avatarSize * 0.94 + 27 : avatarSize * 0.5 + 39;
+  // Party "faceUp": one card of each hand stands beside the backs, above the avatar.
+  const hasFaceUp = party?.twist === "faceUp" && round?.phase === "tricks";
+  // Cards meant to be read sit above the seat opposite, right where the status card hangs.
+  const cardsOnTop = hasOpenHands || hasFaceUp;
+  // Half a seat's height (it is centred on its point): a fan of cards above the avatar, a
+  // face-up card beside the backs, or just the backs, plus the name and score below.
+  const seatHalf = hasOpenHands ? avatarSize * 0.94 + 27 : hasFaceUp ? avatarSize * 0.86 + 27 : avatarSize * 0.5 + 39;
   // Keep the ellipse clear of the top bar, the status card, and the hand at the bottom.
   const ellipse: Ellipse = useMemo(() => {
-    const topPad = statusBelow ? seatHalf + 8 : avatarSize * 1.4 + 26;
+    // With readable cards up there the whole ring drops below the status card, so the
+    // one card that matters is never hidden under "who is playing".
+    const topPad = statusBelow ? seatHalf + 8 : cardsOnTop ? 8 + statusHeight + 12 + seatHalf : avatarSize * 1.4 + 26;
     const bottomPad = statusBelow ? statusBottom + statusHeight + 6 + seatHalf : handHeight + avatarSize * 0.4;
     const usable = Math.max(120, H - topPad - bottomPad);
     const cy = ((topPad + usable / 2) / H) * 100;
     const ry = ((usable / 2) / H) * 100;
     const rx = Math.min(45, ((W / 2 - avatarSize * 1.2) / W) * 100);
     return { cx: 50, cy, rx, ry };
-  }, [W, H, avatarSize, handHeight, statusBelow, statusHeight, statusBottom, seatHalf]);
+  }, [W, H, avatarSize, handHeight, statusBelow, statusHeight, statusBottom, seatHalf, cardsOnTop]);
 
   const n = session?.seatCount ?? seats.length;
   const me = mySeat >= 0 ? seats[mySeat] : undefined;
@@ -611,15 +651,26 @@ export function Table({ data }: { data: TableData }) {
             <TrickHistory tricks={(round?.completedTricks ?? []) as PlayedTrick[]} seats={seats} compact={compact} />
           </div>
 
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {reveal && round && (
-              <motion.div key={reveal.roundId} className="absolute inset-0 z-30 flex items-center justify-center" exit={{ opacity: 0 }}>
-                <TrumpReveal
-                  trump={reveal.suit}
-                  byName={(round.trumpSeat !== null ? seats[round.trumpSeat]?.name : undefined) ?? seats[(round.dealerSeat + 1) % n]?.name ?? ""}
-                  flipped={flippedCard}
-                  dark={isDark}
-                />
+              <motion.div
+                key={`${reveal.roundId}-${reveal.kind}`}
+                className="absolute inset-0 z-30 flex items-center justify-center px-3"
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {reveal.kind === "trump" ? (
+                  <TrumpReveal
+                    trump={reveal.suit}
+                    byName={(round.trumpSeat !== null ? seats[round.trumpSeat]?.name : undefined) ?? seats[(round.dealerSeat + 1) % n]?.name ?? ""}
+                    flipped={flippedCard}
+                    dark={isDark}
+                  />
+                ) : reveal.kind === "coin" ? (
+                  <CoinFlip swapped={reveal.swapped} compact={compact} />
+                ) : (
+                  party && <TwistReveal party={party} compact={compact} />
+                )}
               </motion.div>
             )}
           </AnimatePresence>

@@ -686,6 +686,11 @@
     "guarded": "{{name}} apadrinhou {{ward}}",
     "faceUpCard": "Visível para todos até ser jogada",
     "swapped": "As mãos rodaram mesmo.",
-    "notSwapped": "As mãos ficaram onde estavam."
+    "notSwapped": "As mãos ficaram onde estavam.",
+    "coinToss": "Cara ou coroa",
+    "coinHeads": "Rodam",
+    "coinTails": "Ficam",
+    "coinMoved": "Cara: as mãos rodam!",
+    "coinStayed": "Coroa: as mãos ficam no lugar."
   }
 }

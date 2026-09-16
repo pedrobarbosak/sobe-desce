@@ -686,6 +686,11 @@
     "guarded": "{{name}} guarded {{ward}}",
     "faceUpCard": "Visible to everyone until played",
     "swapped": "The hands did move.",
-    "notSwapped": "The hands stayed where they were."
+    "notSwapped": "The hands stayed where they were.",
+    "coinToss": "Heads or tails",
+    "coinHeads": "Move",
+    "coinTails": "Stay",
+    "coinMoved": "Heads: the hands move round!",
+    "coinStayed": "Tails: the hands stay put."
   }
 }

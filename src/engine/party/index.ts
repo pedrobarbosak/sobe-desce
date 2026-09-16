@@ -116,7 +116,8 @@ export type PartyState = {
   wildRank: Rank | null;
   /**
    * `swap`: how many seats to the left every hand travels, or 0 when the coin came up
-   * "stay put". Nobody at the table can tell which until the round is scored.
+   * "stay put". Private: the table only learns whether the hands moved, and only once the
+   * deciding is over and the coin has been tossed.
    */
   swapOffset: number;
   /** `faceUp`: which card of each hand (by index, at the start of the tricks) shows. */
@@ -453,8 +454,9 @@ export type PublicPartyState = Omit<PartyState, "inventory" | "passes" | "guardi
 };
 
 /**
- * Everything but the private bits. The guardian cycle and whether the hands moved are
- * the round's reveals: they stay out until the round is scored.
+ * Everything but the private bits. The guardian cycle is the round's reveal and stays out
+ * until the round is scored; the swap step stays out for good, the server derives a plain
+ * "did they move" once the coin is tossed.
  */
 export function redactParty(p: PartyState): PublicPartyState {
   const { inventory, passes, guardians: _guardians, swapOffset: _swapOffset, ...rest } = p;
