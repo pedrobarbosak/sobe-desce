@@ -14,26 +14,34 @@ export function usePresence(gameId: Id<"games"> | undefined) {
   useEffect(() => {
     if (!gameId) return;
     let cancelled = false;
+    let lastBeat = 0;
     const beat = () => {
-      if (!cancelled) void heartbeat({ gameId }).catch(() => {});
+      if (cancelled) return;
+      lastBeat = Date.now();
+      void heartbeat({ gameId }).catch(() => {});
     };
     beat();
     const id = setInterval(beat, 15_000);
-    // Waking up from a locked phone or a background tab: report in straight away.
+    // Waking up from a locked phone or a background tab: report in straight away. Tabbing
+    // back and forth fires these several times a second, and the server would ignore all
+    // but the first anyway, so the rest are not sent.
+    const wake = () => {
+      if (Date.now() - lastBeat >= 5_000) beat();
+    };
     const onVisible = () => {
-      if (document.visibilityState === "visible") beat();
+      if (document.visibilityState === "visible") wake();
     };
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", beat);
-    window.addEventListener("pageshow", beat);
-    window.addEventListener("online", beat);
+    window.addEventListener("focus", wake);
+    window.addEventListener("pageshow", wake);
+    window.addEventListener("online", wake);
     return () => {
       cancelled = true;
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", beat);
-      window.removeEventListener("pageshow", beat);
-      window.removeEventListener("online", beat);
+      window.removeEventListener("focus", wake);
+      window.removeEventListener("pageshow", wake);
+      window.removeEventListener("online", wake);
     };
   }, [gameId, heartbeat]);
 }

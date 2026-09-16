@@ -43,14 +43,32 @@ export function isServerDriven(player: Doc<"gamePlayers"> | null): boolean {
   );
 }
 
+export type SetTurnOptions = {
+  /**
+   * The caller is the turn timer itself. Its own scheduled mutation is the one stored on
+   * the round, and a mutation that cancels itself rolls the whole move back, so that one
+   * is left to the nonce check in onTimeout instead.
+   */
+  fromTimer?: boolean;
+  /** Already in hand at the call site: saves reading them again. */
+  session?: Doc<"sessions">;
+  game?: Doc<"games">;
+};
+
 /** Bump the nonce, arm the turn timer, and poke a bot if it is one. */
-export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">): Promise<void> {
+export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">, opts: SetTurnOptions = {}): Promise<void> {
   const round = await ctx.db.get(roundId);
   if (!round) return;
-  const [session, game] = await Promise.all([ctx.db.get(round.sessionId), ctx.db.get(round.gameId)]);
+  const session = opts.session ?? (await ctx.db.get(round.sessionId));
+  const game = opts.game ?? (await ctx.db.get(round.gameId));
   if (!session || !game) return;
-  // Stale timers are not cancelled (the scheduler may be running this very function);
-  // the nonce check in onTimeout makes them harmless no-ops.
+  // The timer armed for the turn that just ended would only wake up to find a stale nonce.
+  // Cancelled here it never runs at all: one scheduled function fewer for every move made.
+  // Only while it is still pending: one already running is left to that nonce check.
+  if (round.timerId && !opts.fromTimer) {
+    const timer = await ctx.db.system.get(round.timerId);
+    if (timer?.state.kind === "pending") await ctx.scheduler.cancel(round.timerId);
+  }
   const nonce = round.turnNonce + 1;
   if (round.turnSeat === null) {
     await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: undefined, timerId: undefined });

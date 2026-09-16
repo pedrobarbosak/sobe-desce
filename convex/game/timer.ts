@@ -12,6 +12,6 @@ export const onTimeout = internalMutation({
     if (!round || round.turnNonce !== nonce || round.phase === "scored" || round.turnSeat === null) return;
     const loaded = await loadRound(ctx, roundId);
     const action = autoPlay(loaded.state, round.turnSeat);
-    await applyInternal(ctx, { roundId, nonce, action, actor: "timeout" });
+    await applyInternal(ctx, { roundId, nonce, loaded, action, actor: "timeout" });
   },
 });

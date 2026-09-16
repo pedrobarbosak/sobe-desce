@@ -179,6 +179,29 @@ describe("timers and bots", () => {
     expect(log[0]!.actor).toBe("timeout");
   });
 
+  it("drops the timer of a turn that ended, but never the one it is running under", async () => {
+    const t = setup();
+    const { gameId } = await createFourPlayerGame(t);
+    await as(t, "ana").mutation(api.sessions.start, { gameId });
+    const stateOf = async (id: Id<"_scheduled_functions">) => (await t.run((ctx) => ctx.db.system.get(id)))!.state.kind;
+    const timerOf = async (roundId: Id<"rounds">) => (await t.run((ctx) => ctx.db.get(roundId)))!.timerId!;
+    let table = (await as(t, "ana").query(api.game.table.get, { gameId }))!;
+    const roundId = table.round!._id as Id<"rounds">;
+    const first = await timerOf(roundId);
+    expect(await stateOf(first)).toBe("pending");
+    // The timer itself moves the turn on: it must not cancel the job it is running as.
+    await t.mutation(internal.game.timer.onTimeout, { roundId, nonce: table.round!.turnNonce });
+    const second = await timerOf(roundId);
+    expect(second).not.toBe(first);
+    expect(await stateOf(first)).toBe("pending");
+    // A player moves: the timer armed for their turn is cancelled and a fresh one armed.
+    table = (await as(t, "ana").query(api.game.table.get, { gameId }))!;
+    const onTurn = table.seats[table.round!.turnSeat!]!.name;
+    await as(t, onTurn).mutation(api.game.actions.discard, { roundId, cards: [] });
+    expect(await stateOf(second)).toBe("canceled");
+    expect(await stateOf(await timerOf(roundId))).toBe("pending");
+  });
+
   it("a lone human against three bots gets played to the end by the server", async () => {
     const t = setup();
     await seedUsers(t, ["ana"]);

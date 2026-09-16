@@ -18,10 +18,10 @@ export const act = internalMutation({
     // Party: a powerup goes first and leaves the turn where it is, so the move still lands.
     const boost = choosePowerup(loaded.state, round.turnSeat, roundCtx);
     if (boost) {
-      await applyInternal(ctx, { roundId, nonce, action: boost, actor: "bot" });
+      await applyInternal(ctx, { roundId, nonce, loaded, action: boost, actor: "bot" });
       loaded = await loadRound(ctx, roundId);
     }
     const action = chooseAction(loaded.state, round.turnSeat, roundCtx);
-    await applyInternal(ctx, { roundId, nonce, action, actor: "bot" });
+    await applyInternal(ctx, { roundId, nonce, loaded, action, actor: "bot" });
   },
 });

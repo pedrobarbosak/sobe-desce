@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -29,6 +29,7 @@ import { type PartyView, type PendingChoice, CoinFlip, DiscardPanel, DummyPanel,
 import { type Ellipse, ringLayout, ringPlacer } from "./geometry";
 
 export type TableData = NonNullable<FunctionReturnType<typeof api.game.table.get>>;
+type SeatRow = TableData["seats"][number] & { online: boolean };
 
 /**
  * Codes that only ever mean "the table moved on between the click and the mutation
@@ -60,10 +61,21 @@ export function Table({ data }: { data: TableData }) {
   // Keyed on the joined ids rather than the array: a heartbeat that changes nothing hands
   // back a fresh array every time, and reseating everyone for that would defeat the point.
   const onlineKey = (onlineIds ?? []).join(",");
+  // Every query update arrives as fresh objects. A seat whose data has not changed keeps
+  // the object it had, so the memoised Seat components only re-render for the seats that
+  // actually moved: the one on turn and the one that just played, not all eight.
+  const [seatCache] = useState(() => new Map<number, { key: string; view: SeatRow }>());
   const seats = useMemo(() => {
     const online = new Set(onlineKey === "" ? [] : onlineKey.split(","));
-    return seatRows.map((s) => ({ ...s, online: s.isBot || (s.userId !== null && online.has(s.userId)) }));
-  }, [seatRows, onlineKey]);
+    return seatRows.map((s) => {
+      const view: SeatRow = { ...s, online: s.isBot || (s.userId !== null && online.has(s.userId)) };
+      const key = JSON.stringify(view);
+      const kept = seatCache.get(s.seat);
+      if (kept && kept.key === key) return kept.view;
+      seatCache.set(s.seat, { key, view });
+      return view;
+    });
+  }, [seatRows, onlineKey, seatCache]);
   const nameTrump = useMutation(api.game.actions.nameTrump);
   const flipTrump = useMutation(api.game.actions.flipTrump);
   const darkHearts = useMutation(api.game.actions.darkHearts);
@@ -155,6 +167,10 @@ export function Table({ data }: { data: TableData }) {
 
   const soundSettings = useSoundSettings();
 
+  const display = useTrickDisplay(
+    round ? { _id: round._id, currentTrick: round.currentTrick as TrickInProgress, completedTricks: round.completedTricks as never } : null,
+  );
+
   // ---- sound cues, derived from state changes
   const playCount = round?.currentTrick.plays.length ?? 0;
   const trickCount = round?.completedTricks.length ?? 0;
@@ -173,21 +189,20 @@ export function Table({ data }: { data: TableData }) {
   }, [roundId, playCount, trickCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const phaseForSound = round?.phase;
   const winnerForSound = round?.winnerSeat ?? null;
+  // The round's cue waits, like its result card, for the last trick to be seen.
+  const holdingForSound = display.holding;
   useEffect(() => {
-    if (phaseForSound !== "scored") return;
+    if (phaseForSound !== "scored" || holdingForSound) return;
     if (winnerForSound === null) sound.play("round");
     else sound.play(winnerForSound === mySeat ? "win" : "lose");
-  }, [phaseForSound, winnerForSound, roundId, mySeat]);
+  }, [phaseForSound, winnerForSound, holdingForSound, roundId, mySeat]);
   useEffect(() => {
     if (reveal) sound.play(reveal.kind === "coin" ? "card" : "trump");
   }, [reveal]);
 
-  const display = useTrickDisplay(
-    round ? { _id: round._id, currentTrick: round.currentTrick as TrickInProgress, completedTricks: round.completedTricks as never } : null,
-  );
-  // Clock skew between server and client. `serverNow` on the query can be stale (queries
-  // only re-run on data changes), so anchor on the turn deadline instead: it is written by
-  // the server the instant a turn starts and reaches us within network latency.
+  // Clock skew between server and client, anchored on the turn deadline: it is written by
+  // the server the instant a turn starts and reaches us within network latency. (A "server
+  // now" on the query would go stale, since queries only re-run on data changes.)
   // A party twist may shorten the clock or cap the discards for this round only.
   const totalTurnMs = (rules.turnSeconds ?? game.config.turnSeconds) * 1000;
   const maxDiscardNow = rules.maxDiscard ?? session?.maxDiscard ?? 0;
@@ -452,512 +467,512 @@ export function Table({ data }: { data: TableData }) {
   };
 
   return (
-    <LayoutGroup>
-      <div className="fixed inset-0 z-40 flex flex-col bg-felt-900">
-        {/* top bar */}
-        <div className="flex h-11 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap border-b border-white/10 bg-black/40 px-2 text-xs text-cream-100/80 sm:gap-3 sm:px-3 sm:text-sm">
-          <Link to="/" className="rounded-md px-2 py-1 font-semibold text-gold-400 hover:bg-white/10" aria-label={t("table.home")} title={t("table.home")}>
-            ♠
-          </Link>
+    <div className="fixed inset-0 z-40 flex flex-col bg-felt-900">
+      {/* top bar */}
+      <div className="flex h-11 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap border-b border-white/10 bg-black/40 px-2 text-xs text-cream-100/80 sm:gap-3 sm:px-3 sm:text-sm">
+        <Link to="/" className="rounded-md px-2 py-1 font-semibold text-gold-400 hover:bg-white/10" aria-label={t("table.home")} title={t("table.home")}>
+          ♠
+        </Link>
+        <button
+          type="button"
+          onClick={() => setDrawer("lobby")}
+          className="rounded-md px-2 py-1 font-semibold text-cream-50 hover:bg-white/10"
+          aria-label={t("table.backToLobby")}
+          title={t("table.backToLobby")}
+        >
+          ←
+        </button>
+        <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{game.name}</span>
+        {round && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: round.index + 1 })}</span>}
+        {session && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap: maxDiscardNow })}</span>}
+        {trump ? (
+          <span className={`flex items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
+            <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
+            <span className="hidden sm:inline">{t(`suits.${trump}`).split(" ")[0]}</span>
+            {flippedCard && <span className="rounded bg-ink-900 px-1 text-[10px] text-white" title={t("table.flippedCard")}>⤺</span>}
+            {trump === "H" && (
+              <span className={`rounded px-1 text-[10px] font-bold text-white ${isDark ? "bg-heart ring-1 ring-cream-50" : "bg-heart"}`}>
+                {isDark ? "×4" : "×2"}
+              </span>
+            )}
+            {trump === "C" && <span className="rounded bg-ink-900 px-1 text-[10px] text-white">!</span>}
+            {goldenTrump && <span className="rounded bg-gold-400 px-1 text-[10px] font-bold text-ink-900">×2</span>}
+          </span>
+        ) : (
+          <span className="whitespace-nowrap text-cream-100/50">{t("table.noTrump")}</span>
+        )}
+        {party && (
+          <span
+            className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
+            title={tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}
+          >
+            🎲
+            <span className="hidden sm:inline">{twistName(party, tr)}</span>
+            {party.twist === "golden" && party.goldenSuit && (
+              <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
+            )}
+          </span>
+        )}
+        <nav className="ml-auto flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => setDrawer("lobby")} className="rounded-md px-2 py-1 hover:bg-white/10">
+            {t("tabs.lobby")}
+          </button>
+          <button type="button" onClick={() => setDrawer("standings")} className="rounded-md px-2 py-1 hover:bg-white/10">
+            {t("tabs.standings")}
+          </button>
+          <button type="button" onClick={() => setDrawer("history")} className="hidden rounded-md px-2 py-1 hover:bg-white/10 sm:inline">
+            {t("tabs.history")}
+          </button>
+          {canEndSitting && (
+            <button
+              type="button"
+              onClick={goEndSitting}
+              disabled={busy}
+              className="hidden rounded-md px-2 py-1 text-cream-100/70 hover:bg-white/10 hover:text-gold-400 lg:inline"
+            >
+              {t("table.endSession")}
+            </button>
+          )}
+          {mySeat >= 0 && !standIn && game.status !== "finished" && (
+            <button
+              type="button"
+              onClick={goAbandon}
+              disabled={busy}
+              className="hidden rounded-md px-2 py-1 text-cream-100/60 hover:bg-white/10 hover:text-heart lg:inline"
+            >
+              {t(isCampaign ? "table.abandonCampaign" : "table.abandon")}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setDrawer("lobby")}
-            className="rounded-md px-2 py-1 font-semibold text-cream-50 hover:bg-white/10"
-            aria-label={t("table.backToLobby")}
-            title={t("table.backToLobby")}
+            onClick={() => soundSettings.setSfx(!soundSettings.sfx)}
+            aria-pressed={soundSettings.sfx}
+            title={t("table.sfx")}
+            className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.sfx ? "text-cream-50" : "text-cream-100/40"}`}
           >
-            ←
+            {soundSettings.sfx ? "🔊" : "🔇"}
           </button>
-          <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{game.name}</span>
-          {round && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: round.index + 1 })}</span>}
-          {session && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap: maxDiscardNow })}</span>}
-          {trump ? (
-            <span className={`flex items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
-              <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
-              <span className="hidden sm:inline">{t(`suits.${trump}`).split(" ")[0]}</span>
-              {flippedCard && <span className="rounded bg-ink-900 px-1 text-[10px] text-white" title={t("table.flippedCard")}>⤺</span>}
-              {trump === "H" && (
-                <span className={`rounded px-1 text-[10px] font-bold text-white ${isDark ? "bg-heart ring-1 ring-cream-50" : "bg-heart"}`}>
-                  {isDark ? "×4" : "×2"}
-                </span>
-              )}
-              {trump === "C" && <span className="rounded bg-ink-900 px-1 text-[10px] text-white">!</span>}
-              {goldenTrump && <span className="rounded bg-gold-400 px-1 text-[10px] font-bold text-ink-900">×2</span>}
-            </span>
-          ) : (
-            <span className="whitespace-nowrap text-cream-100/50">{t("table.noTrump")}</span>
-          )}
-          {party && (
-            <span
-              className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
-              title={tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}
-            >
-              🎲
-              <span className="hidden sm:inline">{twistName(party, tr)}</span>
-              {party.twist === "golden" && party.goldenSuit && (
-                <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
-              )}
-            </span>
-          )}
-          <nav className="ml-auto flex shrink-0 items-center gap-1">
-            <button type="button" onClick={() => setDrawer("lobby")} className="rounded-md px-2 py-1 hover:bg-white/10">
-              {t("tabs.lobby")}
-            </button>
-            <button type="button" onClick={() => setDrawer("standings")} className="rounded-md px-2 py-1 hover:bg-white/10">
-              {t("tabs.standings")}
-            </button>
-            <button type="button" onClick={() => setDrawer("history")} className="hidden rounded-md px-2 py-1 hover:bg-white/10 sm:inline">
-              {t("tabs.history")}
-            </button>
-            {canEndSitting && (
-              <button
-                type="button"
-                onClick={goEndSitting}
-                disabled={busy}
-                className="hidden rounded-md px-2 py-1 text-cream-100/70 hover:bg-white/10 hover:text-gold-400 lg:inline"
-              >
-                {t("table.endSession")}
-              </button>
-            )}
-            {mySeat >= 0 && !standIn && game.status !== "finished" && (
-              <button
-                type="button"
-                onClick={goAbandon}
-                disabled={busy}
-                className="hidden rounded-md px-2 py-1 text-cream-100/60 hover:bg-white/10 hover:text-heart lg:inline"
-              >
-                {t(isCampaign ? "table.abandonCampaign" : "table.abandon")}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => soundSettings.setSfx(!soundSettings.sfx)}
-              aria-pressed={soundSettings.sfx}
-              title={t("table.sfx")}
-              className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.sfx ? "text-cream-50" : "text-cream-100/40"}`}
-            >
-              {soundSettings.sfx ? "🔊" : "🔇"}
-            </button>
-            <button
-              type="button"
-              onClick={() => soundSettings.setMusic(!soundSettings.music)}
-              aria-pressed={soundSettings.music}
-              title={t("table.music")}
-              className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.music ? "text-cream-50" : "text-cream-100/40"}`}
-            >
-              ♪
-            </button>
-            <LanguageToggle />
-          </nav>
-        </div>
-
-        {/* felt */}
-        <div ref={feltRef} className="perspective relative flex-1 overflow-hidden">
-          <div className="felt absolute inset-0" />
-          {isMyTurn && round?.turnDeadline && (
-            <div
-              key={`${round._id}-${round.turnNonce}`}
-              className="turn-bar absolute inset-x-0 top-0 z-30 h-1.5"
-              style={{ animationDuration: `${turnBarMs}ms` }}
-            />
-          )}
-          <div
-            className="absolute rounded-[50%] border-2 border-white/10 shadow-[inset_0_0_80px_rgba(0,0,0,0.35)]"
-            style={{
-              left: `${ellipse.cx - ellipse.rx}%`,
-              top: `${ellipse.cy - ellipse.ry}%`,
-              width: `${ellipse.rx * 2}%`,
-              height: `${ellipse.ry * 2}%`,
-            }}
-          />
-
-          {seats
-            .filter((s) => layout.includes(s.seat) && !s.isMe)
-            .map((s) => {
-              const pos = placer.seat(s.seat);
-              return (
-                <Seat
-                  key={s.seat}
-                  seat={s}
-                  x={pos.x}
-                  y={pos.y}
-                  isTrumpSeat={trumpSeatNow === s.seat}
-                  flipped={flippedCard !== null}
-                  isTurn={round?.turnSeat === s.seat && phase !== "scored"}
-                  deadline={round?.turnDeadline ?? null}
-                  totalMs={totalTurnMs}
-                  skewMs={skewMs}
-                  phase={phase}
-                  compact={compact}
-                  size={avatarSize}
-                  openHand={openBySeat.get(s.seat) ?? null}
-                  deck={game.config.deck}
-                  trump={trump}
-                  cursed={party?.curses[s.seat] ?? 0}
-                  shielded={party?.shielded[s.seat] ?? false}
-                  peeked={peekedSeats.has(s.seat)}
-                  ward={myWard === s.seat}
-                  faceUp={phase === "tricks" ? party?.faceUp[s.seat] ?? null : null}
-                />
-              );
-            })}
-
-          {/* Whose turn it is, and who took the trick, are the two things a player who
-              cannot see the felt has to be told. Polite, so it waits for a pause. */}
-          <div
-            className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2"
-            style={statusBelow ? { bottom: statusBottom } : { top: 8 }}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
+          <button
+            type="button"
+            onClick={() => soundSettings.setMusic(!soundSettings.music)}
+            aria-pressed={soundSettings.music}
+            title={t("table.music")}
+            className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.music ? "text-cream-50" : "text-cream-100/40"}`}
           >
-            <AnimatePresence mode="wait">
-              <TableStatus
-                actor={statusActor}
-                kind={statusKind}
-                isMe={statusKind !== "trickWon" && isMyTurn}
-                deadline={statusKind === "trickWon" ? null : round?.turnDeadline ?? null}
+            ♪
+          </button>
+          <LanguageToggle />
+        </nav>
+      </div>
+
+      {/* felt */}
+      <div ref={feltRef} className="perspective relative flex-1 overflow-hidden">
+        <div className="felt absolute inset-0" />
+        {isMyTurn && round?.turnDeadline && (
+          <div
+            key={`${round._id}-${round.turnNonce}`}
+            className="turn-bar absolute inset-x-0 top-0 z-30 h-1.5"
+            style={{ animationDuration: `${turnBarMs}ms` }}
+          />
+        )}
+        <div
+          className="absolute rounded-[50%] border-2 border-white/10 shadow-[inset_0_0_80px_rgba(0,0,0,0.35)]"
+          style={{
+            left: `${ellipse.cx - ellipse.rx}%`,
+            top: `${ellipse.cy - ellipse.ry}%`,
+            width: `${ellipse.rx * 2}%`,
+            height: `${ellipse.ry * 2}%`,
+          }}
+        />
+
+        {seats
+          .filter((s) => layout.includes(s.seat) && !s.isMe)
+          .map((s) => {
+            const pos = placer.seat(s.seat);
+            return (
+              <Seat
+                key={s.seat}
+                seat={s}
+                x={pos.x}
+                y={pos.y}
+                isTrumpSeat={trumpSeatNow === s.seat}
+                flipped={flippedCard !== null}
+                isTurn={round?.turnSeat === s.seat && phase !== "scored"}
+                deadline={round?.turnDeadline ?? null}
                 totalMs={totalTurnMs}
                 skewMs={skewMs}
+                phase={phase}
                 compact={compact}
+                size={avatarSize}
+                openHand={openBySeat.get(s.seat) ?? null}
+                deck={game.config.deck}
+                trump={trump}
+                cursed={party?.curses[s.seat] ?? 0}
+                shielded={party?.shielded[s.seat] ?? false}
+                peeked={peekedSeats.has(s.seat)}
+                ward={myWard === s.seat}
+                faceUp={phase === "tricks" ? party?.faceUp[s.seat] ?? null : null}
               />
-            </AnimatePresence>
-          </div>
+            );
+          })}
 
-          <TrickArea
-            plays={phase === "scored" && !display.holding ? [] : display.plays}
-            leadingSeat={leadingSeat}
-            holding={display.holding}
-            collecting={display.collecting}
-            placer={placer}
-            cardWidth={Math.round(cardWidth * 0.78)}
-          />
-
-          {/* Kept clear of the status card when it is centred at the top of the felt. */}
-          <div className="absolute left-2 z-20 flex max-w-[45%] flex-col items-start gap-2" style={{ top: compact && !statusBelow ? 54 : 8 }}>
-            {party && phase !== "scored" && <TwistBanner party={party} compact={compact} />}
-            {satOut.length > 0 && (
-              <div className="rounded-xl bg-black/40 px-3 py-2 text-xs text-cream-100/80">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cream-100/50">{t("table.satOutList")}</p>
-                {satOut.map((s) => (
-                  <div key={s.seat} className="flex items-center gap-1.5 opacity-80">
-                    <span className="h-2 w-2 rounded-full bg-zinc-400" />
-                    {s.isMe ? t("common.you") : s.name}
-                    <span className="font-mono text-cream-100/60">{s.score}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <TrickHistory tricks={(round?.completedTricks ?? []) as PlayedTrick[]} seats={seats} compact={compact} />
-          </div>
-
+        {/* Whose turn it is, and who took the trick, are the two things a player who
+            cannot see the felt has to be told. Polite, so it waits for a pause. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2"
+          style={statusBelow ? { bottom: statusBottom } : { top: 8 }}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <AnimatePresence mode="wait">
-            {reveal && round && (
-              <motion.div
-                key={`${reveal.roundId}-${reveal.kind}`}
-                className="absolute inset-0 z-30 flex items-center justify-center px-3"
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {reveal.kind === "trump" ? (
-                  <TrumpReveal
-                    trump={reveal.suit}
-                    byName={(round.trumpSeat !== null ? seats[round.trumpSeat]?.name : undefined) ?? seats[(round.dealerSeat + 1) % n]?.name ?? ""}
-                    flipped={flippedCard}
-                    dark={isDark}
-                  />
-                ) : reveal.kind === "coin" ? (
-                  <CoinFlip swapped={reveal.swapped} compact={compact} />
-                ) : (
-                  party && <TwistReveal party={party} compact={compact} />
-                )}
-              </motion.div>
-            )}
+            <TableStatus
+              actor={statusActor}
+              kind={statusKind}
+              isMe={statusKind !== "trickWon" && isMyTurn}
+              deadline={statusKind === "trickWon" ? null : round?.turnDeadline ?? null}
+              totalMs={totalTurnMs}
+              skewMs={skewMs}
+              compact={compact}
+            />
           </AnimatePresence>
+        </div>
 
-          {isMyTurn && phase === "trump" && blindDeadline !== null && !reveal && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <DarkCall
-                deadline={blindDeadline}
-                skewMs={skewMs}
-                busy={busy}
-                compact={compact}
-                onCall={() => void run(() => darkHearts({ roundId: round._id }))}
-                onSkip={() => void run(() => revealHand({ roundId: round._id }))}
-              />
-            </div>
-          )}
-          {isMyTurn && phase === "trump" && blindDeadline === null && !reveal && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <TrumpPicker
-                busy={busy}
-                compact={compact}
-                onPick={(suit) => void run(() => nameTrump({ roundId: round._id, suit }))}
-                onFlip={() => void run(() => flipTrump({ roundId: round._id }))}
-              />
-            </div>
-          )}
-          {canPrepare && session && !reveal && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <DiscardPanel
-                compact={compact}
-                prepare
-                pending={pending}
-                onClear={() => setPending(null)}
-                cap={maxDiscardNow}
-                trump={trump}
-                flipped={flippedCard}
-                youFlipped={flippedCard !== null && round?.trumpSeat === mySeat}
-                selectedCount={selected.size}
-                sitOutBlock={sitOutBlock}
-                threshold={game.config.forcedPlayThreshold}
-                busy={busy}
-                onDiscard={() => setPending({ kind: "discard", cards: [...selected] })}
-                onSitOut={() => setPending({ kind: "sitOut" })}
-              />
-            </div>
-          )}
-          {isMyTurn && phase === "discard" && session && !reveal && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <DiscardPanel
-                compact={compact}
-                cap={maxDiscardNow}
-                trump={trump}
-                flipped={flippedCard}
-                youFlipped={flippedCard !== null && round?.trumpSeat === mySeat}
-                selectedCount={selected.size}
-                sitOutBlock={sitOutBlock}
-                threshold={game.config.forcedPlayThreshold}
-                busy={busy}
-                onDiscard={() => void run(() => discard({ roundId: round._id, cards: [...selected] }))}
-                onSitOut={() => void run(() => sitOut({ roundId: round._id }))}
-              />
-            </div>
-          )}
-          {isMyTurn && phase === "pass" && party && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <PassPanel
-                compact={compact}
-                market={rules.market}
-                spec={rules.pass ?? { count: 1, direction: "left" }}
-                targetName={(() => {
-                  // The cards travel round the ring of seats still in, clockwise from the
-                  // dealer's left, by the twist's offset.
-                  const ring: number[] = [];
-                  for (let i = 1; i <= n; i++) {
-                    const seat = (round.dealerSeat + i) % n;
-                    if (seats[seat]?.decision === "in") ring.push(seat);
-                  }
-                  const at = ring.indexOf(mySeat);
-                  if (at < 0 || !rules.pass) return "";
-                  const off = rules.pass.direction === "left" ? 1 : rules.pass.direction === "right" ? ring.length - 1 : Math.floor(ring.length / 2);
-                  return seats[ring[(at + off) % ring.length]!]?.name ?? "";
-                })()}
-                selected={[...selected]}
-                busy={busy}
-                onPass={() => void run(() => passCards({ roundId: round._id, cards: [...selected] }))}
-              />
-            </div>
-          )}
-          {phase === "market" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <MarketPanel
-                compact={compact}
-                cards={party.market as CardT[]}
-                mine={isMyTurn}
-                busy={busy}
-                onTake={(card) => void run(() => takeCard({ roundId: round._id, card }))}
-              />
-            </div>
-          )}
-          {phase === "dummy" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
-            <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-              <DummyPanel
-                compact={compact}
-                cards={party.dummy as CardT[]}
-                mine={isMyTurn}
-                give={[...selected][0] ?? null}
-                take={dummyTake}
-                busy={busy}
-                onPickTake={(card) => setDummyTake((cur) => (cur === card ? null : card))}
-                onSwap={() => {
-                  const give = [...selected][0];
-                  if (give && dummyTake) void run(() => dummySwap({ roundId: round._id, give, take: dummyTake }));
-                }}
-                onSkip={() => void run(() => dummySwap({ roundId: round._id }))}
-              />
-            </div>
-          )}
+        <TrickArea
+          plays={phase === "scored" && !display.holding ? [] : display.plays}
+          leadingSeat={leadingSeat}
+          holding={display.holding}
+          collecting={display.collecting}
+          placer={placer}
+          cardWidth={Math.round(cardWidth * 0.78)}
+        />
 
-          {/* my seat chip + hand, pinned to the bottom of the felt */}
-          {me && (
-            <div
-              className={`absolute left-2 z-20 flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-xs text-cream-50 ${isMyTurn ? "bg-gold-400/25 ring-2 ring-gold-400" : "bg-black/45"}`}
-              style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}
+        {/* Kept clear of the status card when it is centred at the top of the felt. */}
+        <div className="absolute left-2 z-20 flex max-w-[45%] flex-col items-start gap-2" style={{ top: compact && !statusBelow ? 54 : 8 }}>
+          {party && phase !== "scored" && <TwistBanner party={party} compact={compact} />}
+          {satOut.length > 0 && (
+            <div className="rounded-xl bg-black/40 px-3 py-2 text-xs text-cream-100/80">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cream-100/50">{t("table.satOutList")}</p>
+              {satOut.map((s) => (
+                <div key={s.seat} className="flex items-center gap-1.5 opacity-80">
+                  <span className="h-2 w-2 rounded-full bg-zinc-400" />
+                  {s.isMe ? t("common.you") : s.name}
+                  <span className="font-mono text-cream-100/60">{s.score}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <TrickHistory tricks={(round?.completedTricks ?? []) as PlayedTrick[]} seats={seats} compact={compact} />
+        </div>
+
+        <AnimatePresence mode="wait">
+          {reveal && round && (
+            <motion.div
+              key={`${reveal.roundId}-${reveal.kind}`}
+              className="absolute inset-0 z-30 flex items-center justify-center px-3"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              <div className="relative" style={{ width: avatarSize * 0.8, height: avatarSize * 0.8 }}>
-                <Avatar seed={me.avatarSeed} size={avatarSize * 0.8} className={me.decision === "out" ? "opacity-50 grayscale" : ""} />
-                {isMyTurn && round?.turnDeadline && (
-                  <TimerRing deadline={round.turnDeadline} totalMs={totalTurnMs} size={avatarSize * 0.8} skewMs={skewMs} />
-                )}
-                {trumpSeatNow === mySeat && (
+              {reveal.kind === "trump" ? (
+                <TrumpReveal
+                  trump={reveal.suit}
+                  byName={(round.trumpSeat !== null ? seats[round.trumpSeat]?.name : undefined) ?? seats[(round.dealerSeat + 1) % n]?.name ?? ""}
+                  flipped={flippedCard}
+                  dark={isDark}
+                />
+              ) : reveal.kind === "coin" ? (
+                <CoinFlip swapped={reveal.swapped} compact={compact} />
+              ) : (
+                party && <TwistReveal party={party} compact={compact} />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isMyTurn && phase === "trump" && blindDeadline !== null && !reveal && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <DarkCall
+              deadline={blindDeadline}
+              skewMs={skewMs}
+              busy={busy}
+              compact={compact}
+              onCall={() => void run(() => darkHearts({ roundId: round._id }))}
+              onSkip={() => void run(() => revealHand({ roundId: round._id }))}
+            />
+          </div>
+        )}
+        {isMyTurn && phase === "trump" && blindDeadline === null && !reveal && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <TrumpPicker
+              busy={busy}
+              compact={compact}
+              onPick={(suit) => void run(() => nameTrump({ roundId: round._id, suit }))}
+              onFlip={() => void run(() => flipTrump({ roundId: round._id }))}
+            />
+          </div>
+        )}
+        {canPrepare && session && !reveal && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <DiscardPanel
+              compact={compact}
+              prepare
+              pending={pending}
+              onClear={() => setPending(null)}
+              cap={maxDiscardNow}
+              trump={trump}
+              flipped={flippedCard}
+              youFlipped={flippedCard !== null && round?.trumpSeat === mySeat}
+              selectedCount={selected.size}
+              sitOutBlock={sitOutBlock}
+              threshold={game.config.forcedPlayThreshold}
+              busy={busy}
+              onDiscard={() => setPending({ kind: "discard", cards: [...selected] })}
+              onSitOut={() => setPending({ kind: "sitOut" })}
+            />
+          </div>
+        )}
+        {isMyTurn && phase === "discard" && session && !reveal && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <DiscardPanel
+              compact={compact}
+              cap={maxDiscardNow}
+              trump={trump}
+              flipped={flippedCard}
+              youFlipped={flippedCard !== null && round?.trumpSeat === mySeat}
+              selectedCount={selected.size}
+              sitOutBlock={sitOutBlock}
+              threshold={game.config.forcedPlayThreshold}
+              busy={busy}
+              onDiscard={() => void run(() => discard({ roundId: round._id, cards: [...selected] }))}
+              onSitOut={() => void run(() => sitOut({ roundId: round._id }))}
+            />
+          </div>
+        )}
+        {isMyTurn && phase === "pass" && party && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <PassPanel
+              compact={compact}
+              market={rules.market}
+              spec={rules.pass ?? { count: 1, direction: "left" }}
+              targetName={(() => {
+                // The cards travel round the ring of seats still in, clockwise from the
+                // dealer's left, by the twist's offset.
+                const ring: number[] = [];
+                for (let i = 1; i <= n; i++) {
+                  const seat = (round.dealerSeat + i) % n;
+                  if (seats[seat]?.decision === "in") ring.push(seat);
+                }
+                const at = ring.indexOf(mySeat);
+                if (at < 0 || !rules.pass) return "";
+                const off = rules.pass.direction === "left" ? 1 : rules.pass.direction === "right" ? ring.length - 1 : Math.floor(ring.length / 2);
+                return seats[ring[(at + off) % ring.length]!]?.name ?? "";
+              })()}
+              selected={[...selected]}
+              busy={busy}
+              onPass={() => void run(() => passCards({ roundId: round._id, cards: [...selected] }))}
+            />
+          </div>
+        )}
+        {phase === "market" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <MarketPanel
+              compact={compact}
+              cards={party.market as CardT[]}
+              mine={isMyTurn}
+              busy={busy}
+              onTake={(card) => void run(() => takeCard({ roundId: round._id, card }))}
+            />
+          </div>
+        )}
+        {phase === "dummy" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <DummyPanel
+              compact={compact}
+              cards={party.dummy as CardT[]}
+              mine={isMyTurn}
+              give={[...selected][0] ?? null}
+              take={dummyTake}
+              busy={busy}
+              onPickTake={(card) => setDummyTake((cur) => (cur === card ? null : card))}
+              onSwap={() => {
+                const give = [...selected][0];
+                if (give && dummyTake) void run(() => dummySwap({ roundId: round._id, give, take: dummyTake }));
+              }}
+              onSkip={() => void run(() => dummySwap({ roundId: round._id }))}
+            />
+          </div>
+        )}
+
+        {/* my seat chip + hand, pinned to the bottom of the felt */}
+        {me && (
+          <div
+            className={`absolute left-2 z-20 flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-xs text-cream-50 ${isMyTurn ? "bg-gold-400/25 ring-2 ring-gold-400" : "bg-black/45"}`}
+            style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}
+          >
+            <div className="relative" style={{ width: avatarSize * 0.8, height: avatarSize * 0.8 }}>
+              <Avatar seed={me.avatarSeed} size={avatarSize * 0.8} className={me.decision === "out" ? "opacity-50 grayscale" : ""} />
+              {isMyTurn && round?.turnDeadline && (
+                <TimerRing deadline={round.turnDeadline} totalMs={totalTurnMs} size={avatarSize * 0.8} skewMs={skewMs} />
+              )}
+              {trumpSeatNow === mySeat && (
+                <span
+                  className={`absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-cream-50 font-bold shadow-md ring-2 ${
+                    trump ? "ring-gold-400" : "ring-gold-400/60"
+                  } ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}
+                  style={{ width: myBadge, height: myBadge, fontSize: Math.round(myBadge * 0.66), lineHeight: 1 }}
+                  title={trump ? t(flippedCard ? "table.flippedTrumpBadge" : "table.setTrumpBadge") : t("table.choosingTrumpBadge")}
+                >
+                  {trump ? SUIT_SYMBOLS[trump] : "?"}
+                </span>
+              )}
+            </div>
+            <div className="leading-tight">
+              <div className="flex items-center gap-1.5 font-semibold">
+                {t("common.you")}
+                {standIn && (
                   <span
-                    className={`absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full bg-cream-50 font-bold shadow-md ring-2 ${
-                      trump ? "ring-gold-400" : "ring-gold-400/60"
-                    } ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}
-                    style={{ width: myBadge, height: myBadge, fontSize: Math.round(myBadge * 0.66), lineHeight: 1 }}
-                    title={trump ? t(flippedCard ? "table.flippedTrumpBadge" : "table.setTrumpBadge") : t("table.choosingTrumpBadge")}
+                    className="rounded bg-white/15 px-1 text-[10px] font-semibold text-cream-100/80"
+                    title={me?.botReason ? t(`table.botReason.${me.botReason}`, { name: t("common.you") }) : undefined}
                   >
-                    {trump ? SUIT_SYMBOLS[trump] : "?"}
+                    {t("table.botStandIn")}
                   </span>
                 )}
               </div>
-              <div className="leading-tight">
-                <div className="flex items-center gap-1.5 font-semibold">
-                  {t("common.you")}
-                  {standIn && (
-                    <span
-                      className="rounded bg-white/15 px-1 text-[10px] font-semibold text-cream-100/80"
-                      title={me?.botReason ? t(`table.botReason.${me.botReason}`, { name: t("common.you") }) : undefined}
-                    >
-                      {t("table.botStandIn")}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="rounded bg-cream-100 px-1.5 font-mono font-bold text-ink-900">{me.score}</span>
-                  {me.tricksWon > 0 && (
-                    <span
-                      className="inline-flex items-center justify-center rounded-full bg-gold-400 font-bold text-ink-900 shadow-md ring-2 ring-ink-900/25"
-                      style={{ width: myBadge, height: myBadge, fontSize: Math.round(myBadge * 0.6), lineHeight: 1 }}
-                      title={t("table.tricksWonBadge", { n: me.tricksWon })}
-                    >
-                      {me.tricksWon}
-                    </span>
-                  )}
-                  {party && (party.curses[mySeat] ?? 0) > 0 && (
-                    <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}>☠</span>
-                  )}
-                  {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}>🛡</span>}
-                  {myWard !== null && seats[myWard] && (
-                    <span className="rounded bg-gold-400 px-1 text-[10px] font-semibold text-ink-900" title={t("party.wardHint")}>
-                      🛡 {t("party.guarding", { name: seats[myWard]!.name })}
-                    </span>
-                  )}
-                  {me.decision === "out" && phase !== "scored" && <span className="text-cream-100/70">{t("table.out")}</span>}
-                  {phase === "scored" && me.delta !== undefined && (
-                    <span className={`rounded px-1 font-bold ${me.delta < 0 ? "bg-emerald-400 text-ink-900" : me.delta > 0 ? "bg-heart text-white" : "bg-black/40"}`}>
-                      {me.delta > 0 ? `+${me.delta}` : me.delta}
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center gap-1">
+                <span className="rounded bg-cream-100 px-1.5 font-mono font-bold text-ink-900">{me.score}</span>
+                {me.tricksWon > 0 && (
+                  <span
+                    className="inline-flex items-center justify-center rounded-full bg-gold-400 font-bold text-ink-900 shadow-md ring-2 ring-ink-900/25"
+                    style={{ width: myBadge, height: myBadge, fontSize: Math.round(myBadge * 0.6), lineHeight: 1 }}
+                    title={t("table.tricksWonBadge", { n: me.tricksWon })}
+                  >
+                    {me.tricksWon}
+                  </span>
+                )}
+                {party && (party.curses[mySeat] ?? 0) > 0 && (
+                  <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}>☠</span>
+                )}
+                {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}>🛡</span>}
+                {myWard !== null && seats[myWard] && (
+                  <span className="rounded bg-gold-400 px-1 text-[10px] font-semibold text-ink-900" title={t("party.wardHint")}>
+                    🛡 {t("party.guarding", { name: seats[myWard]!.name })}
+                  </span>
+                )}
+                {me.decision === "out" && phase !== "scored" && <span className="text-cream-100/70">{t("table.out")}</span>}
+                {phase === "scored" && me.delta !== undefined && (
+                  <span className={`rounded px-1 font-bold ${me.delta < 0 ? "bg-emerald-400 text-ink-900" : me.delta > 0 ? "bg-heart text-white" : "bg-black/40"}`}>
+                    {me.delta > 0 ? `+${me.delta}` : me.delta}
+                  </span>
+                )}
               </div>
-            </div>
-          )}
-
-          {POWERUPS_ENABLED && party && me && !standIn && me.decision !== "out" && (phase === "discard" || phase === "tricks") && data.myPowerups.length > 0 && (
-            <div className="absolute right-2 z-20" style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}>
-              <PowerupTray
-                stash={data.myPowerups as Powerup[]}
-                targets={seats.filter((s) => s.seat !== mySeat && s.decision !== "out")}
-                shielded={party.shielded[mySeat] ?? false}
-                busy={busy}
-                onUse={onUsePowerup}
-                compact={compact}
-              />
-            </div>
-          )}
-
-          {mySeat >= 0 && myHand && iAmOut && tricksStarted ? (
-            <p className="absolute inset-x-0 bottom-2 text-center text-sm text-cream-100/70">
-              {t("table.youSatOut")} {openBySeat.size > 0 && <span className="text-gold-400">{t("table.watchingHands")}</span>}
-            </p>
-          ) : mySeat >= 0 && myHand ? (
-            <div className="absolute inset-x-0 z-10" style={{ bottom: -cardWidth * (compact ? 0.14 : 0.3) }}>
-              <HandFan
-                hand={myHand as CardT[]}
-                deck={game.config.deck}
-                trump={trump}
-                trick={(round?.currentTrick as TrickInProgress | undefined) ?? null}
-                canPlay={isMyTurn && phase === "tricks" && me?.decision === "in"}
-                selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || ((phase === "pass" || phase === "dummy") && isMyTurn)}
-                selected={selected}
-                onToggle={toggle}
-                onPlay={onPlay}
-                cardWidth={cardWidth}
-                maxWidth={W * 0.92}
-                rules={rules}
-              />
-            </div>
-          ) : data.inTheDark ? (
-            <div className="absolute inset-x-0 z-10 flex justify-center gap-2" style={{ bottom: 10 }} aria-hidden>
-              {[0, 1, 2].map((i) => (
-                <CardBack key={i} width={cardWidth * 0.8} style={{ transform: `rotate(${(i - 1) * 5}deg)` }} />
-              ))}
-            </div>
-          ) : (
-            <p className="absolute inset-x-0 bottom-2 text-center text-sm text-cream-100/60">
-              {openBySeat.size > 0 ? <span className="text-gold-400">{t("table.spectatorHands")}</span> : t("table.spectating")}
-            </p>
-          )}
-
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                key={error}
-                initial={{ y: 12, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 12, opacity: 0 }}
-                className="absolute inset-x-0 z-30 flex justify-center px-3"
-                style={{ bottom: handHeight + 8 }}
-                role="alert"
-              >
-                <button
-                  type="button"
-                  onClick={() => setError(null)}
-                  className="max-w-md rounded-xl border border-heart/60 bg-black/80 px-4 py-2 text-center text-sm font-medium text-cream-50 shadow-xl backdrop-blur"
-                >
-                  {t(`table.illegal.${error}`, { defaultValue: t(`errors.${error}`, { defaultValue: error }) })}
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <Drawer open={drawer === "lobby"} title={t("tabs.lobby")} onClose={() => setDrawer(null)}>
-          <LobbyView gameId={game._id} embedded />
-        </Drawer>
-        <Drawer open={drawer === "standings"} title={t("tabs.standings")} onClose={() => setDrawer(null)}>
-          <StandingsView gameId={game._id} />
-        </Drawer>
-        <Drawer open={drawer === "history"} title={t("tabs.history")} onClose={() => setDrawer(null)}>
-          <HistoryView gameId={game._id} />
-        </Drawer>
-
-        {round && phase === "scored" && (
-          <div
-            className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 ${gameOver ? "items-start" : "items-center"}`}
-          >
-            <div className={`w-full space-y-3 ${gameOver ? "max-w-3xl" : "max-w-md"}`}>
-            <RoundResult
-              seats={seats}
-              trump={trump}
-              dark={isDark}
-              party={party}
-              winnerName={winnerName}
-              gameOver={gameOver}
-              onBack={() => void navigate({ to: "/g/$gameId", params: { gameId: game._id } })}
-              isOwner={data.isOwner}
-              hasRematch={Boolean(game.rematchGameId)}
-              onRematch={goRematch}
-              busy={busy}
-            />
-            {/* The final round alone does not say how the game went: show the classification. */}
-            {gameOver && <StandingsView gameId={game._id} readOnly />}
             </div>
           </div>
         )}
+
+        {POWERUPS_ENABLED && party && me && !standIn && me.decision !== "out" && (phase === "discard" || phase === "tricks") && data.myPowerups.length > 0 && (
+          <div className="absolute right-2 z-20" style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}>
+            <PowerupTray
+              stash={data.myPowerups as Powerup[]}
+              targets={seats.filter((s) => s.seat !== mySeat && s.decision !== "out")}
+              shielded={party.shielded[mySeat] ?? false}
+              busy={busy}
+              onUse={onUsePowerup}
+              compact={compact}
+            />
+          </div>
+        )}
+
+        {mySeat >= 0 && myHand && iAmOut && tricksStarted ? (
+          <p className="absolute inset-x-0 bottom-2 text-center text-sm text-cream-100/70">
+            {t("table.youSatOut")} {openBySeat.size > 0 && <span className="text-gold-400">{t("table.watchingHands")}</span>}
+          </p>
+        ) : mySeat >= 0 && myHand ? (
+          <div className="absolute inset-x-0 z-10" style={{ bottom: -cardWidth * (compact ? 0.14 : 0.3) }}>
+            <HandFan
+              hand={myHand as CardT[]}
+              deck={game.config.deck}
+              trump={trump}
+              trick={(round?.currentTrick as TrickInProgress | undefined) ?? null}
+              canPlay={isMyTurn && phase === "tricks" && me?.decision === "in"}
+              selectable={(phase === "discard" && maxDiscardNow > 0 && me?.decision === "pending" && pending === null) || ((phase === "pass" || phase === "dummy") && isMyTurn)}
+              selected={selected}
+              onToggle={toggle}
+              onPlay={onPlay}
+              cardWidth={cardWidth}
+              maxWidth={W * 0.92}
+              rules={rules}
+            />
+          </div>
+        ) : data.inTheDark ? (
+          <div className="absolute inset-x-0 z-10 flex justify-center gap-2" style={{ bottom: 10 }} aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <CardBack key={i} width={cardWidth * 0.8} style={{ transform: `rotate(${(i - 1) * 5}deg)` }} />
+            ))}
+          </div>
+        ) : (
+          <p className="absolute inset-x-0 bottom-2 text-center text-sm text-cream-100/60">
+            {openBySeat.size > 0 ? <span className="text-gold-400">{t("table.spectatorHands")}</span> : t("table.spectating")}
+          </p>
+        )}
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              key={error}
+              initial={{ y: 12, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 12, opacity: 0 }}
+              className="absolute inset-x-0 z-30 flex justify-center px-3"
+              style={{ bottom: handHeight + 8 }}
+              role="alert"
+            >
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="max-w-md rounded-xl border border-heart/60 bg-black/80 px-4 py-2 text-center text-sm font-medium text-cream-50 shadow-xl backdrop-blur"
+              >
+                {t(`table.illegal.${error}`, { defaultValue: t(`errors.${error}`, { defaultValue: error }) })}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </LayoutGroup>
+
+      <Drawer open={drawer === "lobby"} title={t("tabs.lobby")} onClose={() => setDrawer(null)}>
+        <LobbyView gameId={game._id} embedded />
+      </Drawer>
+      <Drawer open={drawer === "standings"} title={t("tabs.standings")} onClose={() => setDrawer(null)}>
+        <StandingsView gameId={game._id} />
+      </Drawer>
+      <Drawer open={drawer === "history"} title={t("tabs.history")} onClose={() => setDrawer(null)}>
+        <HistoryView gameId={game._id} />
+      </Drawer>
+
+      {/* Not before the fifth trick has had its moment on the felt: the result card would
+          otherwise cover the card that decided the round before anyone had read it. */}
+      {round && phase === "scored" && !display.holding && (
+        <div
+          className={`fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 ${gameOver ? "items-start" : "items-center"}`}
+        >
+          <div className={`w-full space-y-3 ${gameOver ? "max-w-3xl" : "max-w-md"}`}>
+          <RoundResult
+            seats={seats}
+            trump={trump}
+            dark={isDark}
+            party={party}
+            winnerName={winnerName}
+            gameOver={gameOver}
+            onBack={() => void navigate({ to: "/g/$gameId", params: { gameId: game._id } })}
+            isOwner={data.isOwner}
+            hasRematch={Boolean(game.rematchGameId)}
+            onRematch={goRematch}
+            busy={busy}
+          />
+          {/* The final round alone does not say how the game went: show the classification. */}
+          {gameOver && <StandingsView gameId={game._id} readOnly />}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

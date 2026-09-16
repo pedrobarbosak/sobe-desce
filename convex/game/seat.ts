@@ -86,5 +86,5 @@ async function withdrawFromRound(ctx: MutationCtx, roundId: Id<"rounds">, seat: 
   }
   // The last seat still deciding may have been the one that left, which scores the round.
   if (next.phase === "scored") await finalizeRound(ctx, loaded, next);
-  else await setTurn(ctx, roundId);
+  else await setTurn(ctx, roundId, { session: loaded.session, game: loaded.game });
 }

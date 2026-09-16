@@ -28,7 +28,6 @@ export const get = query({
         myWard: null,
         inTheDark: false,
         openHands: null,
-        serverNow: Date.now(),
         isOwner,
       };
     }
@@ -183,7 +182,6 @@ export const get = query({
       myWard,
       inTheDark,
       openHands,
-      serverNow: now,
       isOwner,
     };
   },

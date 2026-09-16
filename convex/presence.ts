@@ -14,7 +14,8 @@ export const PRESENCE_TTL_MS = 40_000;
  * its timers for a while without the person having gone anywhere.
  */
 export const SEAT_TAKEOVER_MS = 150_000;
-export const SWEEP_INTERVAL_MS = 15_000;
+/** Half a minute between looks is plenty for a takeover that waits two and a half. */
+export const SWEEP_INTERVAL_MS = 30_000;
 
 /** Whether a tab of theirs has checked in on this game recently. */
 export async function isOnline(ctx: QueryCtx | MutationCtx, gameId: Id<"games">, userId: Id<"users">): Promise<boolean> {
@@ -85,7 +86,7 @@ async function reclaimSeat(ctx: MutationCtx, gameId: Id<"games">, userId: Id<"us
   const seat = session.seats.indexOf(me._id);
   if (seat < 0) return;
   const round = await ctx.db.get(session.currentRoundId);
-  if (round && round.phase !== "scored" && round.turnSeat === seat) await setTurn(ctx, round._id);
+  if (round && round.phase !== "scored" && round.turnSeat === seat) await setTurn(ctx, round._id, { session, game });
 }
 
 /**
