@@ -98,7 +98,10 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   const winner = game.winnerPlayerId ? players.find((p) => p._id === game.winnerPlayerId) : null;
   // The one question everyone in the room has: can we start? Answered in one place.
   const showReady = !sittingActive && !finished;
-  const showHostPanel = isOwner && rosterOpen;
+  // Deleting the whole table belongs with the other host controls, but not in the drawer
+  // over a live felt, where it would sit one confirm away from the cards.
+  const canDelete = isOwner && !embedded && !sittingActive;
+  const showHostPanel = isOwner && (rosterOpen || canDelete);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -478,10 +481,12 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
         {showHostPanel && (
           <Panel className="space-y-3">
             <p className="text-xs font-semibold text-cream-100/60">{t("lobby.hostControls")}</p>
-            <Button variant="ghost" className="w-full" disabled={busy || rosterFull} onClick={() => void run(() => addBot({ gameId }))}>
-              {t("lobby.addBot")}
-            </Button>
-            {isCampaign && (
+            {rosterOpen && (
+              <Button variant="ghost" className="w-full" disabled={busy || rosterFull} onClick={() => void run(() => addBot({ gameId }))}>
+                {t("lobby.addBot")}
+              </Button>
+            )}
+            {isCampaign && rosterOpen && (
               <form
                 className="flex gap-2"
                 onSubmit={(e) => {
@@ -506,12 +511,31 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 </Button>
               </form>
             )}
-            {isCampaign && !sittingActive && (
+            {isCampaign && rosterOpen && !sittingActive && (
               <Link to="/g/$gameId/sessions/new" params={{ gameId }} className="block">
                 <Button variant="secondary" className="w-full">
                   {t("lobby.manualEntry")}
                 </Button>
               </Link>
+            )}
+            {canDelete && (
+              <div className={`space-y-2 ${rosterOpen ? "border-t border-white/10 pt-3" : ""}`}>
+                <p className="text-xs text-cream-100/60">{t("lobby.deleteHint")}</p>
+                <Button
+                  variant="danger"
+                  className="w-full"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!window.confirm(t("lobby.deleteConfirm", { name: game.name }))) return;
+                    void run(async () => {
+                      await removeGame({ gameId });
+                      await navigate({ to: "/" });
+                    });
+                  }}
+                >
+                  {t("lobby.deleteTable")}
+                </Button>
+              </div>
             )}
           </Panel>
         )}
@@ -535,28 +559,6 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
           </div>
         )}
 
-        {/* Not in the drawer over a live table: deleting the whole game does not belong one
-            confirm away from the felt. */}
-        {isOwner && !embedded && !sittingActive && (
-          <Panel className="space-y-2 border-heart/40">
-            <p className="text-xs font-semibold text-cream-100/60">{t("lobby.danger")}</p>
-            <p className="text-xs text-cream-100/60">{t("lobby.deleteHint")}</p>
-            <Button
-              variant="danger"
-              className="w-full"
-              disabled={busy}
-              onClick={() => {
-                if (!window.confirm(t("lobby.deleteConfirm", { name: game.name }))) return;
-                void run(async () => {
-                  await removeGame({ gameId });
-                  await navigate({ to: "/" });
-                });
-              }}
-            >
-              {t("lobby.deleteTable")}
-            </Button>
-          </Panel>
-        )}
       </div>
     </div>
   );
