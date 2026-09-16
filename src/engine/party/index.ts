@@ -503,13 +503,22 @@ export function partyDeltas(input: PartyScoreInput): number[] {
     const bomb = input.completedTricks.find((t) => t.plays.some((p) => p.card === party.markedCard));
     if (bomb) own[bomb.winner] = (own[bomb.winner] ?? 0) + MARKED_CARD_POINTS;
   }
-  const n = own.length;
-  if (party.guardians) return own.map((_, seat) => own[party.guardians![seat]!] ?? 0);
-  if (party.teams) return own.map((_, seat) => (own[seat] ?? 0) + (own[party.teams![seat]!] ?? 0));
+  // Results only move onto seats that played: sitting out takes nothing, whoever it is tied to.
+  const played = (seat: number) => results[seat]!.participated;
+  if (party.guardians) return own.map((_, seat) => (played(seat) ? (own[party.guardians![seat]!] ?? 0) : 0));
+  if (party.teams) return own.map((_, seat) => (played(seat) ? (own[seat] ?? 0) + (own[party.teams![seat]!] ?? 0) : 0));
   // Written as a subtraction so a zero stays a plain zero rather than a negative one.
-  if (party.nemeses) return own.map((_, seat) => 0 - (own[party.nemeses![seat]!] ?? 0));
+  if (party.nemeses) return own.map((_, seat) => (played(seat) ? 0 - (own[party.nemeses![seat]!] ?? 0) : 0));
   // Mirror: my result goes to my left, so I receive the result of the seat on my right.
-  if (party.twist === "mirror") return own.map((_, seat) => own[(seat - 1 + n) % n] ?? 0);
+  // Only those who played pass results round; a seat that sat out is skipped and keeps its zero.
+  if (party.twist === "mirror") {
+    const playing = results.filter((r) => r.participated).map((r) => r.seat);
+    const out = own.map(() => 0);
+    playing.forEach((seat, i) => {
+      out[seat] = own[playing[(i - 1 + playing.length) % playing.length]!] ?? 0;
+    });
+    return out;
+  }
   if (party.twist === "robinHood") {
     const pair = robinHoodPair(results, input.scores);
     if (pair) {

@@ -539,8 +539,8 @@ describe("guardian", () => {
 
     const p = party({ twist: "guardian", guardians: [1, 2, 3, 0] });
     const seats = [...allIn([3, 0, 2]), { decision: "out" as const, tricksWon: 0 }];
-    // Own deltas would be [-3, 5, -2, 0]; each seat takes the next one's.
-    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([5, -2, 0, -3]);
+    // Own deltas would be [-3, 5, -2, 0]; each seat takes the next one's, but seat 3 sat out and takes nothing.
+    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([5, -2, 0, 0]);
   });
 });
 
@@ -720,9 +720,9 @@ describe("team, nemesis, mirror, Robin Hood", () => {
     const p = party({ twist: "team", teams: [1, 0, 3, 2] });
     // Own deltas [-3, 5, -2, 5]: each pair takes its sum.
     expect(partyDeltas({ party: p, seats: allIn([3, 0, 2, 0]), completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([2, 2, 3, 3]);
-    // A partner who sat out still rides along.
+    // A partner who sat out neither shares nor adds anything.
     const seats = [...allIn([3, 0, 2]), { decision: "out" as const, tricksWon: 0 }];
-    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([2, 2, -2, -2]);
+    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([2, 2, -2, 0]);
   });
 
   it("nemesis: a hidden cycle, and every seat takes the opposite of its target's result", () => {
@@ -733,15 +733,21 @@ describe("team, nemesis, mirror, Robin Hood", () => {
     expect(viewFor(fresh, 0).peeked).toEqual([]);
     const p = party({ twist: "nemesis", nemeses: [1, 2, 3, 0] });
     const seats = [...allIn([3, 0, 2]), { decision: "out" as const, tricksWon: 0 }];
-    // Own [-3, 5, -2, 0]: seat 0 is after seat 1, and so on round the cycle.
-    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([-5, 2, 0, 3]);
+    // Own [-3, 5, -2, 0]: seat 0 is after seat 1, and so on round the cycle; seat 3 sat out and takes nothing.
+    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([-5, 2, 0, 0]);
   });
 
-  it("mirror: results move one seat to the left", () => {
+  it("mirror: results move one seat to the left, among those who played", () => {
     const p = party({ twist: "mirror" });
+    const base = { party: p, completedTricks: [], trump: "S" as const, blankPenalty: 5, darkHearts: false };
+    // Own [-3, 5, -2, 5]: seat 1 receives seat 0's, seat 0 receives seat 3's.
+    expect(partyDeltas({ ...base, seats: allIn([3, 0, 2, 0]) })).toEqual([5, -3, 5, -2]);
+    // Seat 3 sat out: it takes nothing, and seat 0 receives seat 2's instead.
     const seats = [...allIn([3, 0, 2]), { decision: "out" as const, tricksWon: 0 }];
-    // Own [-3, 5, -2, 0]: seat 1 receives seat 0's, seat 0 receives seat 3's.
-    expect(partyDeltas({ party: p, seats, completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([0, -3, 5, -2]);
+    expect(partyDeltas({ ...base, seats })).toEqual([-2, -3, 5, 0]);
+    // Seat 1 sat out in the middle: seat 2 receives seat 0's.
+    const gap = [allIn([3])[0]!, { decision: "out" as const, tricksWon: 0 }, ...allIn([2, 0])];
+    expect(partyDeltas({ ...base, seats: gap })).toEqual([5, 0, -3, -2]);
     expect(rulesFor(make(seedFor("mirror"))).mirror).toBe(true);
   });
 
