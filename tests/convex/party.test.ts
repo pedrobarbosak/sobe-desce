@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { TWISTS, configFromPreset } from "../../src/engine";
+import { type Card, HIDDEN_CARD, type Suit, TWISTS, type TrickInProgress, configFromPreset, legalPlays, partyRules } from "../../src/engine";
 import { as, seedUsers, setup } from "./setup";
 
 const NAMES = ["ana", "bruno", "carla", "duarte"];
@@ -115,5 +115,133 @@ describe("party tables", () => {
     const twists = rounds.sort((a, b) => a.index - b.index).map((r) => r.party!.twist);
     expect(twists.length).toBe(sessions[0]!.roundsPlayed);
     for (let i = 1; i < twists.length; i++) expect(twists[i]).not.toBe(twists[i - 1]);
+  });
+});
+
+describe("party twists the server has to keep secrets for", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** A party table whose round is pinned to `twist` before anyone has acted. */
+  async function pinned(twist: "voteTrump" | "fog" | "blindLead" | "team") {
+    const t = setup();
+    const { gameId } = await createPartyGame(t);
+    await as(t, "ana").mutation(api.sessions.start, { gameId });
+    const tableFor = async (name: string) => (await as(t, name).query(api.game.table.get, { gameId }))!;
+    const first = await tableFor("ana");
+    const roundId = first.round!._id as Id<"rounds">;
+    await t.run(async (ctx) => {
+      const round = (await ctx.db.get(roundId))!;
+      const seatCount = round.participants.length;
+      const teams = twist === "team" ? [1, 0, 3, 2] : undefined;
+      await ctx.db.patch(roundId, {
+        party: { ...round.party!, twist, goldenSuit: undefined, teams, voted: Array.from({ length: seatCount }, () => false) },
+        // A vote round opens on the vote rather than on the namer.
+        phase: twist === "voteTrump" ? "vote" : "trump",
+        turnSeat: (round.dealerSeat + 1) % seatCount,
+        darkUntil: undefined,
+      });
+    });
+    const table = await tableFor("ana");
+    const nameAt = (seat: number) => table.seats[seat]!.name;
+    return { t, gameId, roundId, tableFor, nameAt, table };
+  }
+
+  /** Name the trump and keep every hand as dealt, so the tricks can start. */
+  async function intoTricks(p: Awaited<ReturnType<typeof pinned>>) {
+    const { t, roundId, tableFor, nameAt } = p;
+    let table = await tableFor("ana");
+    await as(t, nameAt(table.round!.turnSeat!)).mutation(api.game.actions.nameTrump, { roundId, suit: "S" });
+    for (let i = 0; i < 4; i++) {
+      table = await tableFor("ana");
+      await as(t, nameAt(table.round!.turnSeat!)).mutation(api.game.actions.discard, { roundId, cards: [] });
+    }
+    table = await tableFor("ana");
+    expect(table.round!.phase).toBe("tricks");
+    return table;
+  }
+
+  /** The seat on turn plays its first legal card, as that seat's user. */
+  async function playOne(p: Awaited<ReturnType<typeof pinned>>) {
+    const { t, roundId, tableFor, nameAt } = p;
+    const table = await tableFor("ana");
+    const seat = table.round!.turnSeat!;
+    const mine = await tableFor(nameAt(seat));
+    const rules = partyRules(mine.round!.party! as never);
+    const legal = legalPlays(mine.myHand as Card[], mine.round!.currentTrick as TrickInProgress, mine.round!.trump as Suit | null, mine.game.config.deck, rules);
+    await as(t, nameAt(seat)).mutation(api.game.actions.playCard, { roundId, card: legal[0]! });
+  }
+
+  it("vote for trump: votes are taken in turn, hidden until all are in, and settle the trump", async () => {
+    const p = await pinned("voteTrump");
+    const { t, roundId, tableFor, nameAt } = p;
+    let table = await tableFor("ana");
+    expect(table.round!.phase).toBe("vote");
+    const order = [1, 2, 3, 0].map((i) => (table.round!.dealerSeat + i) % 4);
+    const votes: ("S" | "H")[] = ["H", "S", "H", "S"];
+    for (let i = 0; i < 4; i++) {
+      table = await tableFor("ana");
+      expect(table.round!.turnSeat).toBe(order[i]);
+      await expect(as(t, nameAt(order[(i + 1) % 4]!)).mutation(api.game.actions.vote, { roundId, suit: "S" })).rejects.toThrow();
+      await as(t, nameAt(order[i]!)).mutation(api.game.actions.vote, { roundId, suit: votes[i]! });
+      table = await tableFor("ana");
+      if (i < 3) {
+        expect(table.round!.party!.voted.filter(Boolean)).toHaveLength(i + 1);
+        expect(table.round!.party).not.toHaveProperty("votes");
+      }
+    }
+    // Two each: the first vote cast was hearts.
+    expect(table.round!.phase).toBe("discard");
+    expect(table.round!.trump).toBe("H");
+    expect(table.round!.trumpSeat).toBeNull();
+    expect((await tableFor(nameAt(order[0]!))).myHand).toHaveLength(5);
+    const log = await as(t, "ana").query(api.history.actions, { roundId });
+    expect(log.filter((a) => a.type === "vote")).toHaveLength(4);
+    expect(log.find((a) => a.type === "vote")!.payload).toEqual({});
+  });
+
+  it("fog: trick counts and winners are hidden until the round is scored, and the lead moves left", async () => {
+    const p = await pinned("fog");
+    const { tableFor } = p;
+    let table = await intoTricks(p);
+    const leader = table.round!.currentTrick.leader;
+    for (let i = 0; i < 4; i++) await playOne(p);
+    table = await tableFor("ana");
+    expect(table.round!.completedTricks).toHaveLength(1);
+    expect(table.round!.completedTricks[0]!.winner).toBe(-1);
+    expect(table.seats.every((s) => s.tricksWon === 0)).toBe(true);
+    expect(table.round!.currentTrick.leader).toBe((leader + 1) % 4);
+    // The server itself still knows.
+    const round = await p.t.run((ctx) => ctx.db.get(p.roundId));
+    expect(round!.participants.reduce((n, s) => n + s.tricksWon, 0)).toBe(1);
+    expect(round!.completedTricks[0]!.winner).toBeGreaterThanOrEqual(0);
+  });
+
+  it("blind lead: the lead card shows its back to everyone but its player until the trick is done", async () => {
+    const p = await pinned("blindLead");
+    const { tableFor, nameAt } = p;
+    let table = await intoTricks(p);
+    const leader = table.round!.currentTrick.leader;
+    await playOne(p);
+    const mine = await tableFor(nameAt(leader));
+    const theirs = await tableFor(nameAt((leader + 1) % 4));
+    expect(mine.round!.currentTrick.plays[0]!.card).not.toBe(HIDDEN_CARD);
+    expect(theirs.round!.currentTrick.plays[0]!.card).toBe(HIDDEN_CARD);
+    // A follower may play anything, whatever was led.
+    for (let i = 0; i < 3; i++) await playOne(p);
+    table = await tableFor("ana");
+    expect(table.round!.completedTricks[0]!.plays.every((play) => play.card !== HIDDEN_CARD)).toBe(true);
+  });
+
+  it("team: partners are public and see each other's hands from the deal", async () => {
+    const p = await pinned("team");
+    const { tableFor, nameAt, table } = p;
+    expect(table.round!.party!.teams).toEqual([1, 0, 3, 2]);
+    const me = table.mySeat;
+    const partner = table.round!.party!.teams![me]!;
+    expect(table.myPartner).toBe(partner);
+    expect(table.openHands).toEqual([{ seat: partner, cards: (await tableFor(nameAt(partner))).myHand }]);
+    const other = (me + 2) % 4;
+    expect((await tableFor(nameAt(other))).openHands?.map((h) => h.seat)).toEqual([table.round!.party!.teams![other]]);
   });
 });

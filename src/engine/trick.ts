@@ -1,6 +1,12 @@
 import { type Card, type DeckSize, type Rank, type Suit, rankOf, rankValue, suitOf } from "./cards";
 
 export type Play = { seat: number; card: Card };
+
+/**
+ * What a client sees in place of a card it may not know yet: the lead under the party
+ * "blindLead" twist. Only ever produced by the server's redaction, never by the engine.
+ */
+export const HIDDEN_CARD = "??";
 export type TrickInProgress = { leader: number; plays: Play[] };
 export type CompletedTrick = TrickInProgress & { winner: number };
 

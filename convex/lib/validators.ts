@@ -38,6 +38,7 @@ export const completedTrick = v.object({
 
 export const decision = v.union(v.literal("pending"), v.literal("in"), v.literal("out"));
 export const phase = v.union(
+  v.literal("vote"),
   v.literal("trump"),
   v.literal("discard"),
   v.literal("pass"),
@@ -88,6 +89,15 @@ export const twist = v.union(
   v.literal("dummy"),
   v.literal("faceUp"),
   v.literal("inverted"),
+  v.literal("team"),
+  v.literal("nemesis"),
+  v.literal("mirror"),
+  v.literal("musicalTricks"),
+  v.literal("robinHood"),
+  v.literal("markedCard"),
+  v.literal("fog"),
+  v.literal("blindLead"),
+  v.literal("voteTrump"),
 );
 export const passDirection = v.union(v.literal("left"), v.literal("right"), v.literal("across"));
 export const powerup = v.union(v.literal("peek"), v.literal("curse"), v.literal("shield"));
@@ -102,6 +112,13 @@ export const partyRound = v.object({
   faceUpIndex: v.optional(v.array(v.number())),
   /** The guardian cycle. Public on the document; the table query filters it per viewer. */
   guardians: v.optional(v.array(v.number())),
+  /** Partners, by seat. Public from the deal. */
+  teams: v.optional(v.array(v.number())),
+  /** The nemesis cycle. On the document, hidden by the table query until scored. */
+  nemeses: v.optional(v.array(v.number())),
+  markedCard: v.optional(v.string()),
+  /** Who has voted for the trump; the votes themselves live in roundSecrets. */
+  voted: v.optional(v.array(v.boolean())),
   faceUp: v.optional(v.array(v.union(v.string(), v.null()))),
   market: v.optional(v.array(v.string())),
   marketOrder: v.optional(v.array(v.number())),

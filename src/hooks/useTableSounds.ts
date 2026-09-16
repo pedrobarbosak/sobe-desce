@@ -33,7 +33,9 @@ export function useTableSounds({ roundId, playCount, trickCount, lastTrick, mySe
     if (playCount > prev.playCount || trickCount > prev.trickCount) sound.play("card");
     if (trickCount > prev.trickCount) {
       const inTrick = lastTrick?.plays.some((p) => p.seat === mySeat) ?? false;
-      const cue = !inTrick ? "trick" : lastTrick?.winner === mySeat ? "trickWin" : "trickLose";
+      // A trick collected face down (party "fog") is nobody's win to hear.
+      const hidden = (lastTrick?.winner ?? -1) < 0;
+      const cue = !inTrick || hidden ? "trick" : lastTrick?.winner === mySeat ? "trickWin" : "trickLose";
       setTimeout(() => sound.play(cue), 250);
     }
   }, [roundId, playCount, trickCount]); // eslint-disable-line react-hooks/exhaustive-deps

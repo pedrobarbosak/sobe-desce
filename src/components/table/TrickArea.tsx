@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
-import type { Card as CardT } from "@/engine";
-import { CardFace } from "./Card";
+import { type Card as CardT, HIDDEN_CARD } from "@/engine";
+import { CardBack, CardFace } from "./Card";
 import type { ringPlacer } from "./geometry";
 
 export type DisplayPlay = { seat: number; card: CardT };
@@ -19,9 +19,12 @@ type Props = {
 /**
  * Cards fly in from their seat to a slot near the centre. When a trick is being
  * collected they all sweep to the winner and fade; the next render simply drops them.
+ * A trick with no known winner (party "fog") fades where it lies, and a card the viewer
+ * may not see yet (party "blindLead") shows its back.
  */
 export function TrickArea({ plays, leadingSeat, holding, collecting, placer, cardWidth }: Props) {
-  const winnerPos = leadingSeat !== null && collecting ? placer.seat(leadingSeat) : null;
+  const winnerKnown = leadingSeat !== null && leadingSeat >= 0;
+  const winnerPos = winnerKnown && collecting ? placer.seat(leadingSeat) : null;
   return (
     <div className="pointer-events-none absolute inset-0">
       {plays.map((p) => {
@@ -33,8 +36,8 @@ export function TrickArea({ plays, leadingSeat, holding, collecting, placer, car
           : {
               left: `${slot.x}%`,
               top: `${slot.y}%`,
-              opacity: 1,
-              scale: holding && isLeading ? 1.18 : 1,
+              opacity: collecting ? 0 : 1,
+              scale: collecting ? 0.6 : holding && isLeading ? 1.18 : 1,
               rotate: slot.rotate,
             };
         return (
@@ -47,7 +50,7 @@ export function TrickArea({ plays, leadingSeat, holding, collecting, placer, car
             transition={collecting ? { duration: 0.45, ease: "easeIn" } : { type: "spring", stiffness: 260, damping: 24 }}
           >
             <div className={`relative rounded-[10px] ${isLeading && !collecting ? (holding ? "winning-card" : "leading-card") : ""}`}>
-              <CardFace card={p.card} width={cardWidth} />
+              {(p.card as string) === HIDDEN_CARD ? <CardBack width={cardWidth} /> : <CardFace card={p.card} width={cardWidth} />}
             </div>
           </motion.div>
         );

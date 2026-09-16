@@ -25,7 +25,7 @@ import { type CompletedTrick, type TrickInProgress, trickWinner } from "./trick"
  * the tricks: choosing cards to pass or lay out, taking from the market, swapping with
  * the spare hand.
  */
-export type Phase = "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "scored";
+export type Phase = "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "scored";
 export type Decision = "pending" | "in" | "out";
 
 export type SeatState = {
@@ -74,6 +74,8 @@ export type RoundContext = {
 };
 
 export type Action =
+  /** Party "voteTrump": this seat's vote for the trump. */
+  | { type: "vote"; seat: number; suit: Suit }
   | { type: "nameTrump"; seat: number; suit: Suit }
   | { type: "flipTrump"; seat: number }
   | { type: "darkHearts"; seat: number }
@@ -89,6 +91,8 @@ export type Action =
   | PowerupAction;
 
 export type RoundEvent =
+  | { type: "voted"; seat: number }
+  | { type: "trumpVoted"; suit: Suit }
   | { type: "trumpNamed"; seat: number; suit: Suit }
   | { type: "trumpFlipped"; seat: number; suit: Suit; card: Card }
   | { type: "darkHeartsCalled"; seat: number }
@@ -157,6 +161,7 @@ function dealCards(state: RoundState, perPlayer: number): void {
  */
 export function createRound(input: CreateRoundInput): RoundState {
   const rng = rngFromSeed(input.seed);
+  const drawPile = shuffle(buildDeck(input.deck), rng);
   const state: RoundState = {
     deck: input.deck,
     seatCount: input.seatCount,
@@ -175,14 +180,14 @@ export function createRound(input: CreateRoundInput): RoundState {
       tricksWon: 0,
     })),
     hands: Array.from({ length: input.seatCount }, () => []),
-    drawPile: shuffle(buildDeck(input.deck), rng),
+    drawPile,
     currentTrick: { leader: leftOf(input.dealerSeat, input.seatCount), plays: [] },
     completedTricks: [],
     deltas: null,
     // Drawn after the shuffle so a classic and a party round from one seed deal alike.
     party:
       input.variant === "party"
-        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null)
+        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null, drawPile)
         : null,
   };
   const rules = rulesFor(state);
@@ -193,6 +198,8 @@ export function createRound(input: CreateRoundInput): RoundState {
     dealCards(state, HAND_SIZE - 3);
     state.phase = "discard";
   }
+  // Nobody names the trump: everyone votes for it first, starting left of the dealer.
+  if (rules.voteTrump) state.phase = "vote";
   return state;
 }
 
@@ -241,7 +248,8 @@ function nextInSeat(state: RoundState, from: number): number {
   throw new Error("No seats in the round");
 }
 
-function scoreRound(state: RoundState, events: RoundEvent[]): void {
+/** `scores` are the table's before the round; only Robin Hood reads them, and only a move can supply them. */
+function scoreRound(state: RoundState, events: RoundEvent[], scores?: readonly number[]): void {
   if (state.party) {
     state.deltas = partyDeltas({
       party: state.party,
@@ -250,6 +258,7 @@ function scoreRound(state: RoundState, events: RoundEvent[]): void {
       trump: state.trump,
       blankPenalty: state.blankPenalty,
       darkHearts: state.darkHearts,
+      scores,
     });
   } else {
     const deltas = roundDeltas(
@@ -284,16 +293,16 @@ function startTricks(state: RoundState): void {
   state.turnSeat = leader;
 }
 
-function finishDiscardPhase(state: RoundState, events: RoundEvent[]): void {
+function finishDiscardPhase(state: RoundState, events: RoundEvent[], ctx?: RoundContext): void {
   const players = inSeats(state);
   if (players.length === 0) {
-    scoreRound(state, events);
+    scoreRound(state, events, ctx?.scores);
     return;
   }
   if (players.length === 1) {
     // Nobody to play against: the lone player takes every trick.
     state.seats[players[0]!]!.tricksWon = TRICKS_PER_ROUND;
-    scoreRound(state, events);
+    scoreRound(state, events, ctx?.scores);
     return;
   }
   const rules = rulesFor(state);
@@ -340,25 +349,52 @@ function deliverPasses(state: RoundState, ctx: RoundContext): void {
   startTricks(state);
 }
 
-function advanceDiscardTurn(state: RoundState, events: RoundEvent[]): void {
+function advanceDiscardTurn(state: RoundState, events: RoundEvent[], ctx?: RoundContext): void {
   const pending = playOrder(state.dealerSeat, state.seatCount).find(
     (s) => state.seats[s]!.decision === "pending",
   );
   if (pending === undefined) {
-    finishDiscardPhase(state, events);
+    finishDiscardPhase(state, events, ctx);
   } else {
     state.turnSeat = pending;
   }
 }
 
 /** Deal everyone up to a full hand and hand the turn to the first decider. */
-function finishTrumpPhase(state: RoundState, events: RoundEvent[]): void {
+function finishTrumpPhase(state: RoundState, events: RoundEvent[], ctx?: RoundContext): void {
   dealCards(state, HAND_SIZE - 3);
   events.push({ type: "dealt", count: HAND_SIZE - 3 });
   state.phase = "discard";
   // Left of the dealer decides first, which is where advanceDiscardTurn starts looking.
   // Going straight there would sit the turn on a seat that gave up during the trump phase.
-  advanceDiscardTurn(state, events);
+  advanceDiscardTurn(state, events, ctx);
+}
+
+/** The seat still to vote, in play order, or undefined once everyone still in has. */
+function nextVoter(state: RoundState): number | undefined {
+  return playOrder(state.dealerSeat, state.seatCount).find(
+    (s) => state.seats[s]!.decision === "pending" && state.party!.votes[s] === null,
+  );
+}
+
+/**
+ * Party "voteTrump": the suit with the most votes is trump. A tie goes to the earliest of
+ * the tied votes in play order. No seat is the namer, so nobody is committed by it.
+ */
+function resolveVotes(state: RoundState, events: RoundEvent[], ctx?: RoundContext): void {
+  const votes = state.party!.votes;
+  const count = new Map<Suit, number>();
+  for (const v of votes) if (v) count.set(v, (count.get(v) ?? 0) + 1);
+  let best: Suit | null = null;
+  for (const seat of playOrder(state.dealerSeat, state.seatCount)) {
+    const v = votes[seat];
+    if (v && (best === null || (count.get(v) ?? 0) > (count.get(best) ?? 0))) best = v;
+  }
+  // Nobody left to vote at all: the round still needs a trump to be scored under.
+  state.trump = best ?? "S";
+  state.trumpSeat = null;
+  events.push({ type: "trumpVoted", suit: state.trump });
+  finishTrumpPhase(state, events, ctx);
 }
 
 function fail(code: EngineError["code"], message?: string): ApplyResult {
@@ -403,13 +439,26 @@ export function applyAction(
   const hand = state.hands[action.seat]!;
 
   switch (action.type) {
+    case "vote": {
+      if (state.phase !== "vote") return fail("wrongPhase");
+      if (!SUITS.includes(action.suit)) return fail("invalidSuit");
+      const party = state.party!;
+      if (party.votes[action.seat] !== null) return fail("alreadyVoted");
+      party.votes[action.seat] = action.suit;
+      events.push({ type: "voted", seat: action.seat });
+      const waiting = nextVoter(state);
+      if (waiting === undefined) resolveVotes(state, events, ctx);
+      else state.turnSeat = waiting;
+      return { ok: true, state, events };
+    }
+
     case "nameTrump": {
       if (state.phase !== "trump") return fail("wrongPhase");
       if (!SUITS.includes(action.suit)) return fail("invalidSuit");
       state.trump = action.suit;
       state.trumpSeat = action.seat;
       events.push({ type: "trumpNamed", seat: action.seat, suit: action.suit });
-      finishTrumpPhase(state, events);
+      finishTrumpPhase(state, events, ctx);
       return { ok: true, state, events };
     }
 
@@ -426,7 +475,7 @@ export function applyAction(
       state.trumpSeat = action.seat;
       state.darkHearts = true;
       events.push({ type: "darkHeartsCalled", seat: action.seat });
-      finishTrumpPhase(state, events);
+      finishTrumpPhase(state, events, ctx);
       return { ok: true, state, events };
     }
 
@@ -443,7 +492,7 @@ export function applyAction(
       state.trumpSeat = action.seat;
       state.flipped = card;
       events.push({ type: "trumpFlipped", seat: action.seat, suit: state.trump, card });
-      finishTrumpPhase(state, events);
+      finishTrumpPhase(state, events, ctx);
       return { ok: true, state, events };
     }
 
@@ -467,7 +516,7 @@ export function applyAction(
       seatState.decision = "in";
       seatState.discardCount = action.cards.length;
       events.push({ type: "discarded", seat: action.seat, count: action.cards.length });
-      advanceDiscardTurn(state, events);
+      advanceDiscardTurn(state, events, ctx);
       return { ok: true, state, events };
     }
 
@@ -489,7 +538,7 @@ export function applyAction(
       if (blocked === "maxConsecutive") return fail("sitOutMaxConsecutive");
       seatState.decision = "out";
       events.push({ type: "satOut", seat: action.seat });
-      advanceDiscardTurn(state, events);
+      advanceDiscardTurn(state, events, ctx);
       return { ok: true, state, events };
     }
 
@@ -570,7 +619,7 @@ export function applyAction(
       state.completedTricks.push({ ...state.currentTrick, winner });
       events.push({ type: "trickWon", seat: winner, trickIndex: state.completedTricks.length - 1 });
       if (state.completedTricks.length >= TRICKS_PER_ROUND) {
-        scoreRound(state, events);
+        scoreRound(state, events, ctx.scores);
       } else {
         if (rules.carousel) {
           // Party "carousel": whatever is left in every hand moves one seat to the left,
@@ -578,8 +627,18 @@ export function applyAction(
           rotateHands(state, players, 1);
           if (rules.faceUp) state.party!.faceUp = state.party!.faceUp.map(() => null);
         }
-        state.currentTrick = { leader: winner, plays: [] };
-        state.turnSeat = winner;
+        if (rules.musicalTricks) {
+          // Party "musicalTricks": the tricks already won move one seat to the left too.
+          const won = players.map((s) => state.seats[s]!.tricksWon);
+          players.forEach((_, i) => {
+            state.seats[players[(i + 1) % players.length]!]!.tricksWon = won[i]!;
+          });
+        }
+        // Party "fog": the lead goes round the table rather than to the winner, so the
+        // trick collected face down gives nothing away.
+        const leader = rules.fog ? nextInSeat(state, state.currentTrick.leader) : winner;
+        state.currentTrick = { leader, plays: [] };
+        state.turnSeat = leader;
       }
       return { ok: true, state, events };
     }
@@ -610,6 +669,12 @@ export function withdrawSeat(prev: RoundState, seat: number): RoundState {
   state.seats[seat]!.decision = "out";
   state.seats[seat]!.discardCount = 0;
   if (state.turnSeat !== seat) return state;
+  if (state.phase === "vote") {
+    const next = nextVoter(state);
+    if (next === undefined) resolveVotes(state, events);
+    else state.turnSeat = next;
+    return state;
+  }
   if (state.phase === "trump") {
     // The trump is always settled by the first seat still in play order, so the first one
     // left pending is the one the choice falls to.

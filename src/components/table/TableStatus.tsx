@@ -8,7 +8,7 @@ import type { SeatView } from "./Seat";
 type Props = {
   /** Seat on turn, or the trick winner while the table holds a finished trick. */
   actor: SeatView | undefined;
-  kind: "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null;
+  kind: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null;
   isMe: boolean;
   deadline: number | null;
   totalMs: number;
@@ -31,7 +31,9 @@ export function TableStatus({ actor, kind, isMe, deadline, totalMs, skewMs, comp
       ? t("table.trickWon", { name: actor.name })
       : isMe
         ? t("table.yourTurnNow")
-        : kind === "trump"
+        : kind === "vote"
+          ? t("table.voting", { name: actor.name })
+          : kind === "trump"
           ? t("table.choosingTrump", { name: actor.name })
           : kind === "discard"
             ? t("table.deciding", { name: actor.name })

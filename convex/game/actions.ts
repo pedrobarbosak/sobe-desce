@@ -20,6 +20,8 @@ function contextFor(loaded: LoadedRound): RoundContext {
 
 function redactPayload(action: Action): unknown {
   switch (action.type) {
+    case "vote":
+      return {}; // secret until everyone has voted, and nobody's business after
     case "nameTrump":
       return { suit: action.suit };
     case "flipTrump":
@@ -117,6 +119,12 @@ async function move(ctx: MutationCtx, roundId: Id<"rounds">, build: (seat: numbe
 }
 
 type CardArg = Action extends { card: infer C } ? C : never;
+
+/** Party "voteTrump": this seat's vote. */
+export const vote = mutation({
+  args: { roundId: v.id("rounds"), suit },
+  handler: (ctx, { roundId, suit }) => move(ctx, roundId, (seat) => ({ type: "vote", seat, suit })),
+});
 
 export const nameTrump = mutation({
   args: { roundId: v.id("rounds"), suit },

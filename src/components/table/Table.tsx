@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { LuShield, LuSkull } from "react-icons/lu";
+import { LuShield, LuSkull, LuUsers } from "react-icons/lu";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
-import { CLASSIC_RULES, POWERUPS_ENABLED, type Card as CardT, type Powerup, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, partyRules, sitOutBlockedReason } from "@/engine";
+import { CLASSIC_RULES, HIDDEN_CARD, POWERUPS_ENABLED, type Card as CardT, type Powerup, type Suit, SUIT_SYMBOLS, type TrickInProgress, currentWinner, partyRules, sitOutBlockedReason } from "@/engine";
 import { errorCode } from "@/lib/errors";
 import { useTrickDisplay } from "@/hooks/useTrickDisplay";
 import { useElementSize } from "@/hooks/useElementSize";
@@ -79,6 +79,7 @@ export function Table({ data }: { data: TableData }) {
       return view;
     });
   }, [seatRows, onlineKey, seatCache]);
+  const vote = useMutation(api.game.actions.vote);
   const nameTrump = useMutation(api.game.actions.nameTrump);
   const flipTrump = useMutation(api.game.actions.flipTrump);
   const darkHearts = useMutation(api.game.actions.darkHearts);
@@ -126,7 +127,9 @@ export function Table({ data }: { data: TableData }) {
   const reveal = useReveals({
     roundId,
     roundPhase,
-    roundOpening: round !== null && (round.phase === "trump" || (round.phase === "discard" && seatRows.every((s) => s.decision === "pending"))),
+    roundOpening:
+      round !== null &&
+      (round.phase === "vote" || round.phase === "trump" || (round.phase === "discard" && seatRows.every((s) => s.decision === "pending"))),
     trump: roundTrump,
     namerSeat,
     mySeat,
@@ -278,6 +281,7 @@ export function Table({ data }: { data: TableData }) {
   );
   const peekedSeats = useMemo(() => new Set(party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []), [party, mySeat]);
   const myWard = data.myWard ?? null;
+  const myPartner = data.myPartner ?? null;
 
   const openBySeat = useMemo(() => {
     const map = new Map<number, string[]>();
@@ -287,11 +291,13 @@ export function Table({ data }: { data: TableData }) {
   const iAmOut = me?.decision === "out";
   // Who the status card is about: the trick winner while the table holds, else the turn.
   const statusActor = display.holding && display.winnerSeat !== null ? seats[display.winnerSeat] : turnSeat;
-  const statusKind: "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null =
+  const statusKind: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "trickWon" | null =
     display.holding && display.winnerSeat !== null
       ? "trickWon"
       : phase === "scored" || !turnSeat
         ? null
+        : phase === "vote"
+          ? "vote"
         : phase === "trump"
           ? "trump"
           : phase === "discard"
@@ -311,8 +317,9 @@ export function Table({ data }: { data: TableData }) {
   const layout = ringLayout(n, (seat) => !tricksStarted || seats[seat]?.decision !== "out");
   const placer = ringPlacer(layout, mySeat, ellipse);
   const satOut = tricksStarted ? seats.filter((s) => s.decision === "out") : [];
+  // No leader to show while a card of the trick is still face down (party "blindLead").
   const liveLeader =
-    round && !display.holding && round.currentTrick.plays.length > 0
+    round && !display.holding && round.currentTrick.plays.length > 0 && !round.currentTrick.plays.some((p) => p.card === HIDDEN_CARD)
       ? (currentWinner(round.currentTrick.plays as { seat: number; card: CardT }[], trump, game.config.deck, rules.lowWins, rules.wildRank)?.seat ?? null)
       : null;
   const leadingSeat = display.holding ? display.winnerSeat : liveLeader;
@@ -408,6 +415,7 @@ export function Table({ data }: { data: TableData }) {
                 shielded={party?.shielded[s.seat] ?? false}
                 peeked={peekedSeats.has(s.seat)}
                 ward={myWard === s.seat}
+                partner={myPartner === s.seat}
                 faceUp={phase === "tricks" ? party?.faceUp[s.seat] ?? null : null}
               />
             );
@@ -496,6 +504,11 @@ export function Table({ data }: { data: TableData }) {
               onCall={() => void run(() => darkHearts({ roundId: round._id }))}
               onSkip={() => void run(() => revealHand({ roundId: round._id }))}
             />
+          </div>
+        )}
+        {isMyTurn && phase === "vote" && !reveal && (
+          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+            <TrumpPicker vote busy={busy} compact={compact} onPick={(suit) => void run(() => vote({ roundId: round._id, suit }))} onFlip={() => {}} />
           </div>
         )}
         {isMyTurn && phase === "trump" && blindDeadline === null && !reveal && (
@@ -650,7 +663,12 @@ export function Table({ data }: { data: TableData }) {
                   <span className="rounded bg-purple-700/80 px-1 text-[10px] font-bold text-white" title={t("party.cursed")}><LuSkull className="icon" /></span>
                 )}
                 {party?.shielded[mySeat] && <span className="rounded bg-sky-700/80 px-1 text-[10px] text-white" title={t("party.shielded")}><LuShield className="icon" /></span>}
-                {myWard !== null && seats[myWard] && (
+                {myPartner !== null && seats[myPartner] && (
+                <span className="rounded bg-gold-400 px-1 text-[10px] font-semibold text-ink-900" title={t("party.partnerHint")}>
+                  <LuUsers className="icon" /> {t("party.withPartner", { name: seats[myPartner]!.name })}
+                </span>
+              )}
+              {myWard !== null && seats[myWard] && (
                   <span className="rounded bg-gold-400 px-1 text-[10px] font-semibold text-ink-900" title={t("party.wardHint")}>
                     <LuShield className="icon" /> {t("party.guarding", { name: seats[myWard]!.name })}
                   </span>

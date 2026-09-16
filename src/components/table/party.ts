@@ -1,6 +1,6 @@
 import type { IconType } from "react-icons";
 import { LuEye, LuShield, LuSkull } from "react-icons/lu";
-import { LIGHTNING_SECONDS, type PassSpec, type Powerup, type Rank, type Suit, type Twist } from "@/engine";
+import { type Card, LIGHTNING_SECONDS, MARKED_CARD_POINTS, type PassSpec, type Powerup, type Rank, SUIT_SYMBOLS, type Suit, type Twist, rankOf, suitOf } from "@/engine";
 
 /** The round's twist and the public trace of powerups, as the table query sends them. */
 export type PartyView = {
@@ -21,7 +21,20 @@ export type PartyView = {
   curses: number[];
   peeks: { seat: number; target: number }[];
   awards: { seat: number; powerup: Powerup }[];
+  /** `team`: each seat's partner, public from the deal. */
+  teams: number[] | null;
+  /** `nemesis`: only sent once the round is scored. */
+  nemeses: number[] | null;
+  /** `markedCard`: the card whose trick costs extra. */
+  markedCard: Card | null;
+  /** `voteTrump`: who has voted. */
+  voted: boolean[];
 };
+
+/** A card as a short label: rank and suit glyph. */
+export function cardLabel(card: string): string {
+  return `${rankOf(card as Card)}${SUIT_SYMBOLS[suitOf(card as Card)]}`;
+}
 
 /** `t` for keys built at runtime, which the typed one rejects. */
 export type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -35,6 +48,8 @@ export function twistVars(party: PartyView, t: Translate): Record<string, unknow
     seconds: LIGHTNING_SECONDS,
     rank: party.wildRank ?? "",
     count: party.pass?.count ?? 1,
+    card: party.markedCard ? cardLabel(party.markedCard) : "",
+    points: MARKED_CARD_POINTS,
   };
 }
 

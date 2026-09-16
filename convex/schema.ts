@@ -163,6 +163,8 @@ export default defineSchema({
     drawPile: v.array(v.string()),
     /** Party "pass" and "market": cards chosen but not yet delivered, by seat. */
     passes: v.optional(v.array(v.union(v.array(v.string()), v.string(), v.null()))),
+    /** Party "voteTrump": each seat's vote, by seat, until everyone has voted. */
+    votes: v.optional(v.array(v.union(suit, v.null()))),
   }).index("by_round", ["roundId"]),
 
   /** Per-round action log; payloads are redacted at write time. */

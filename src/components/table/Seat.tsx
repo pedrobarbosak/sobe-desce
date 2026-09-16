@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { LuEye, LuShield, LuSkull } from "react-icons/lu";
+import { LuEye, LuShield, LuSkull, LuUsers } from "react-icons/lu";
 import { CURSE_POINTS, type Card as CardT, type DeckSize, type Suit, SUIT_SYMBOLS, sortHand } from "@/engine";
 import { Avatar } from "@/components/ui/Avatar";
 import { CardBack, CardFace } from "./Card";
@@ -37,7 +37,7 @@ type Props = {
   deadline: number | null;
   totalMs: number;
   skewMs: number;
-  phase: "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "scored";
+  phase: "vote" | "trump" | "discard" | "pass" | "market" | "dummy" | "tricks" | "scored";
   compact?: boolean;
   size?: number;
   /** Face-up hand, shown only to a viewer who sat this round out. */
@@ -52,11 +52,13 @@ type Props = {
   peeked?: boolean;
   /** Party: the viewer guards this seat and scores its result. */
   ward?: boolean;
+  /** Party "team": this seat and the viewer play the round together. */
+  partner?: boolean;
   /** Party "faceUp": the one card of this hand everyone can see. */
   faceUp?: string | null;
 };
 
-export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTurn, deadline, totalMs, skewMs, phase, compact, size: sizeProp, openHand, deck, trump, cursed = 0, shielded = false, peeked = false, ward = false, faceUp = null }: Props) {
+export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTurn, deadline, totalMs, skewMs, phase, compact, size: sizeProp, openHand, deck, trump, cursed = 0, shielded = false, peeked = false, ward = false, partner = false, faceUp = null }: Props) {
   const { t } = useTranslation();
   const size = sizeProp ?? (compact ? 44 : 56);
   const open = openHand && openHand.length > 0 ? sortHand(openHand as CardT[], deck, trump ?? undefined) : null;
@@ -132,8 +134,13 @@ export const Seat = memo(function Seat({ seat, x, y, isTrumpSeat, flipped, isTur
       <div className="max-w-[7rem] truncate rounded-md bg-black/40 px-2 py-0.5 text-center text-[11px] font-semibold text-cream-50">
         {seat.isMe ? t("common.you") : seat.name}
       </div>
-      {(cursed > 0 || shielded || peeked || ward) && (
+      {(cursed > 0 || shielded || peeked || ward || partner) && (
         <div className="flex gap-1 text-[10px] font-semibold">
+          {partner && (
+            <span className="rounded bg-gold-400 px-1 text-ink-900" title={t("party.partnerHint")}>
+              <LuUsers className="icon" /> {t("party.partner")}
+            </span>
+          )}
           {ward && (
             <span className="rounded bg-gold-400 px-1 text-ink-900" title={t("party.wardHint")}>
               <LuShield className="icon" /> {t("party.ward")}

@@ -10,7 +10,7 @@
  * rotations, one-for-one swaps and the market all are; "steal a card" would not be.
  */
 import { type Card, type DeckSize, type Rank, type Suit, SUITS, ranksFor } from "../cards";
-import { TRICKS_PER_ROUND } from "../config";
+import { HAND_SIZE, TRICKS_PER_ROUND } from "../config";
 import type { EngineErrorCode } from "../errors";
 import type { Rng } from "../rng";
 import { CLASSIC_RULES, type PassDirection, type PassSpec, type RoundRules } from "../rules";
@@ -53,6 +53,24 @@ export type Twist =
   | "faceUp"
   /** Scoring upside down: every trick costs a point and a blank pays the penalty out. */
   | "inverted"
+  /** Random pairs: partners see each other's hands and both take the pair's combined result. */
+  | "team"
+  /** Everyone is secretly given a target and takes the opposite of that seat's result. */
+  | "nemesis"
+  /** Your result lands on the seat to your left. */
+  | "mirror"
+  /** After every trick but the last, the tricks already won move one seat to the left. */
+  | "musicalTricks"
+  /** At scoring, the seat furthest from zero and the seat closest to it swap results. */
+  | "robinHood"
+  /** One card is announced at the deal; whoever takes the trick holding it pays extra. */
+  | "markedCard"
+  /** Tricks are collected face down: nobody's count shows, and the lead moves left. */
+  | "fog"
+  /** The first card of every trick is played face down; followers may play anything. */
+  | "blindLead"
+  /** Nobody names the trump: everyone votes for it, in turn but secretly. */
+  | "voteTrump"
   /** Shelved: every hand face up. The visibility knob stays for other twists. */
   | "openHands"
   /** Shelved: nobody may sit out. "asDealt" still uses the knob. */
@@ -77,6 +95,15 @@ export const TWISTS: readonly Twist[] = [
   "dummy",
   "faceUp",
   "inverted",
+  "team",
+  "nemesis",
+  "mirror",
+  "musicalTricks",
+  "robinHood",
+  "markedCard",
+  "fog",
+  "blindLead",
+  "voteTrump",
 ];
 
 export const LIGHTNING_SECONDS = 8;
@@ -84,6 +111,8 @@ export const LAST_TRICK_WEIGHT = 5;
 export const MAX_PASS_COUNT = 2;
 export const DUMMY_SIZE = 7;
 export const PASS_DIRECTIONS: readonly PassDirection[] = ["left", "right", "across"];
+/** What taking the trick with the marked card costs. */
+export const MARKED_CARD_POINTS = 3;
 
 /**
  * Powerups are built and tested but switched off for now: nothing is awarded, so no seat
@@ -147,6 +176,14 @@ export type PartyState = {
   peeks: Peek[];
   /** PRIVATE: the cards each seat has chosen to pass, until everyone has chosen. */
   passes: (Card[] | null)[];
+  /** `team`: each seat's partner. Public from the deal. */
+  teams: number[] | null;
+  /** `nemesis`: the seat each seat is after, one big cycle. Hidden until the round is scored. */
+  nemeses: number[] | null;
+  /** `markedCard`: the card whose trick costs extra. Public from the deal. */
+  markedCard: Card | null;
+  /** PRIVATE: `voteTrump`, each seat's vote until everyone has voted. */
+  votes: (Suit | null)[];
 };
 
 export type PowerupAction = { type: "usePowerup"; seat: number; powerup: Powerup; target?: number };
@@ -156,15 +193,31 @@ function pick<T>(items: readonly T[], rng: Rng): T {
   return items[Math.floor(rng() * items.length)]!;
 }
 
-/** A single cycle through every seat, so nobody guards themselves and nobody is left over. */
-function guardianCycle(seatCount: number, rng: Rng): number[] {
+function shuffledSeats(seatCount: number, rng: Rng): number[] {
   const order = Array.from({ length: seatCount }, (_, i) => i);
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [order[i], order[j]] = [order[j]!, order[i]!];
   }
+  return order;
+}
+
+/** A single cycle through every seat, so nobody guards themselves and nobody is left over. */
+function guardianCycle(seatCount: number, rng: Rng): number[] {
+  const order = shuffledSeats(seatCount, rng);
   const out = Array.from({ length: seatCount }, () => 0);
   for (let i = 0; i < order.length; i++) out[order[i]!] = order[(i + 1) % order.length]!;
+  return out;
+}
+
+/** Random pairs: a shuffle read two at a time. Even tables only. */
+function teamPairs(seatCount: number, rng: Rng): number[] {
+  const order = shuffledSeats(seatCount, rng);
+  const out = Array.from({ length: seatCount }, () => 0);
+  for (let i = 0; i + 1 < order.length; i += 2) {
+    out[order[i]!] = order[i + 1]!;
+    out[order[i + 1]!] = order[i]!;
+  }
   return out;
 }
 
@@ -179,9 +232,12 @@ export function createPartyState(
   deck: DeckSize,
   inventory: readonly (readonly Powerup[])[],
   previousTwist: Twist | null = null,
+  /** The shuffled stock, top card last: the marked card is drawn from what will be dealt. */
+  drawPile: readonly Card[] = [],
 ): PartyState {
-  // Guardian wants an even table; the previous twist is never dealt twice running.
-  const pool = TWISTS.filter((t) => t !== previousTwist && (t !== "guardian" || seatCount % 2 === 0));
+  // Guardian and team want an even table; the previous twist is never dealt twice running.
+  const pairs = seatCount % 2 === 0;
+  const pool = TWISTS.filter((t) => t !== previousTwist && ((t !== "guardian" && t !== "team") || pairs));
   const twist = pick(pool.length > 0 ? pool : TWISTS, rng);
   // Hearts already doubles on its own; a golden hearts would change nothing. The Ace is
   // already the top card, so a wild Ace would change nothing either.
@@ -195,6 +251,12 @@ export function createPartyState(
   const swapOffset = twist === "swap" && swapCoin ? swapStep : 0;
   const faceUpIndex = Array.from({ length: seatCount }, () => Math.floor(rng() * 5));
   const guardians = twist === "guardian" ? guardianCycle(seatCount, rng) : null;
+  const teams = twist === "team" ? teamPairs(seatCount, rng) : null;
+  const nemeses = twist === "nemesis" ? guardianCycle(seatCount, rng) : null;
+  // The first hands come off the top of the stock, so the marked card is one of those:
+  // it may still be discarded, in which case the bomb simply never goes off.
+  const dealt = drawPile.slice(Math.max(0, drawPile.length - HAND_SIZE * seatCount));
+  const markedCard = twist === "markedCard" && dealt.length > 0 ? pick(dealt, rng) : null;
   const seats = <T,>(make: () => T) => Array.from({ length: seatCount }, make);
   return {
     twist,
@@ -214,6 +276,10 @@ export function createPartyState(
     curses: seats(() => 0),
     peeks: [],
     passes: seats(() => null),
+    teams,
+    nemeses,
+    markedCard,
+    votes: seats(() => null),
   };
 }
 
@@ -232,11 +298,14 @@ export function clonePartyState(p: PartyState): PartyState {
     curses: [...p.curses],
     peeks: p.peeks.map((k) => ({ ...k })),
     passes: p.passes.map((c) => (c ? [...c] : null)),
+    teams: p.teams ? [...p.teams] : null,
+    nemeses: p.nemeses ? [...p.nemeses] : null,
+    votes: [...p.votes],
   };
 }
 
 /** What each twist changes. Anything not mentioned plays as classic. */
-export function partyRules(p: Pick<PartyState, "twist" | "pass" | "wildRank">): RoundRules {
+export function partyRules(p: Pick<PartyState, "twist" | "pass" | "wildRank" | "markedCard">): RoundRules {
   const r = { ...CLASSIC_RULES };
   switch (p.twist) {
     case "desce":
@@ -289,6 +358,33 @@ export function partyRules(p: Pick<PartyState, "twist" | "pass" | "wildRank">): 
     case "faceUp":
       r.faceUp = true;
       break;
+    case "team":
+      r.team = true;
+      break;
+    case "nemesis":
+      r.nemesis = true;
+      break;
+    case "mirror":
+      r.mirror = true;
+      break;
+    case "musicalTricks":
+      r.musicalTricks = true;
+      break;
+    case "robinHood":
+      r.robinHood = true;
+      break;
+    case "markedCard":
+      r.markedCard = p.markedCard;
+      break;
+    case "fog":
+      r.fog = true;
+      break;
+    case "blindLead":
+      r.blindLead = true;
+      break;
+    case "voteTrump":
+      r.voteTrump = true;
+      break;
     case "golden":
     case "lastTrick":
       break;
@@ -323,12 +419,15 @@ export type PartyScoreInput = {
   trump: Suit | null;
   blankPenalty: number;
   darkHearts: boolean;
+  /** Scores before the round, by seat. Robin Hood needs them; nothing else does. */
+  scores?: readonly number[];
 };
 
 /**
  * Party scoring wraps classic scoring: tricks are re-weighted first, the classic deltas are
- * computed on those, the round's twist and any powerups adjust the result, and guardians
- * finally take their ward's number instead of their own.
+ * computed on those, the round's twist and any powerups adjust the result, and finally the
+ * twists that move results between seats (guardian, team, nemesis, mirror, Robin Hood)
+ * decide who actually takes which number.
  */
 export function partyDeltas(input: PartyScoreInput): number[] {
   const { party, seats, trump, blankPenalty, darkHearts } = input;
@@ -354,8 +453,31 @@ export function partyDeltas(input: PartyScoreInput): number[] {
     if (party.twist === "inverted") delta = -delta;
     return delta + (party.curses[r.seat] ?? 0) * CURSE_POINTS;
   });
-  if (!party.guardians) return own;
-  return own.map((_, seat) => own[party.guardians![seat]!] ?? 0);
+  // The bomb: whoever took the trick with the marked card pays for it.
+  if (party.markedCard) {
+    const bomb = input.completedTricks.find((t) => t.plays.some((p) => p.card === party.markedCard));
+    if (bomb) own[bomb.winner] = (own[bomb.winner] ?? 0) + MARKED_CARD_POINTS;
+  }
+  const n = own.length;
+  if (party.guardians) return own.map((_, seat) => own[party.guardians![seat]!] ?? 0);
+  if (party.teams) return own.map((_, seat) => (own[seat] ?? 0) + (own[party.teams![seat]!] ?? 0));
+  // Written as a subtraction so a zero stays a plain zero rather than a negative one.
+  if (party.nemeses) return own.map((_, seat) => 0 - (own[party.nemeses![seat]!] ?? 0));
+  // Mirror: my result goes to my left, so I receive the result of the seat on my right.
+  if (party.twist === "mirror") return own.map((_, seat) => own[(seat - 1 + n) % n] ?? 0);
+  if (party.twist === "robinHood" && input.scores) {
+    const playing = results.filter((r) => r.participated).map((r) => r.seat);
+    const score = (s: number) => input.scores![s] ?? 0;
+    const far = playing.reduce<number | null>((a, b) => (a === null || score(b) > score(a) ? b : a), null);
+    const near = playing.reduce<number | null>((a, b) => (a === null || score(b) < score(a) ? b : a), null);
+    if (far !== null && near !== null && far !== near) {
+      const out = [...own];
+      out[far] = own[near]!;
+      out[near] = own[far]!;
+      return out;
+    }
+  }
+  return own;
 }
 
 export type PowerupContext = {
@@ -404,11 +526,12 @@ export function applyPowerup(p: PartyState, action: PowerupAction): void {
   }
 }
 
-/** Seats whose hands `seat` may see: through a peek, or as the guardian of a ward. */
+/** Seats whose hands `seat` may see: through a peek, as the guardian of a ward, or as a partner. */
 export function visibleSeats(p: PartyState, seat: number): number[] {
   const out = p.peeks.filter((k) => k.seat === seat).map((k) => k.target);
-  const ward = p.guardians?.[seat];
-  if (ward !== undefined && ward !== seat && !out.includes(ward)) out.push(ward);
+  for (const other of [p.guardians?.[seat], p.teams?.[seat]]) {
+    if (other !== undefined && other !== seat && !out.includes(other)) out.push(other);
+  }
   return out;
 }
 
@@ -447,10 +570,12 @@ export function awardPowerups(input: AwardInput): { inventory: Powerup[][]; awar
   return { inventory, awards };
 }
 
-export type PublicPartyState = Omit<PartyState, "inventory" | "passes" | "guardians" | "swapOffset"> & {
+export type PublicPartyState = Omit<PartyState, "inventory" | "passes" | "guardians" | "swapOffset" | "nemeses" | "votes"> & {
   inventorySizes: number[];
   /** Who has already chosen their cards to pass. */
   passed: boolean[];
+  /** Who has already voted for the trump. */
+  voted: boolean[];
 };
 
 /**
@@ -459,8 +584,13 @@ export type PublicPartyState = Omit<PartyState, "inventory" | "passes" | "guardi
  * "did they move" once the coin is tossed.
  */
 export function redactParty(p: PartyState): PublicPartyState {
-  const { inventory, passes, guardians: _guardians, swapOffset: _swapOffset, ...rest } = p;
-  return { ...rest, inventorySizes: inventory.map((i) => i.length), passed: passes.map((c) => c !== null) };
+  const { inventory, passes, guardians: _guardians, swapOffset: _swapOffset, nemeses: _nemeses, votes, ...rest } = p;
+  return {
+    ...rest,
+    inventorySizes: inventory.map((i) => i.length),
+    passed: passes.map((c) => c !== null),
+    voted: votes.map((v) => v !== null),
+  };
 }
 
 /** The cards a viewer may see of other seats' hands: peeked at, or their ward's. */

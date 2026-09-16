@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
+import { HIDDEN_CARD } from "../../src/engine";
 import { currentUser } from "../lib/auth";
 import { rulesOfDoc } from "./state";
 
@@ -26,6 +27,7 @@ export const get = query({
         myHand: null,
         myPowerups: [],
         myWard: null,
+        myPartner: null,
         inTheDark: false,
         openHands: null,
         isOwner,
@@ -72,6 +74,13 @@ export const get = query({
     const peeked = new Set(round?.party?.peeks.filter((k) => k.seat === mySeat).map((k) => k.target) ?? []);
     const myWard = mySeat >= 0 ? round?.party?.guardians?.[mySeat] ?? null : null;
     if (myWard !== null && myWard !== mySeat && round?.phase !== "trump") peeked.add(myWard);
+    // Partners see each other from the deal: the whole point is to play the round together.
+    const myPartner = mySeat >= 0 ? round?.party?.teams?.[mySeat] ?? null : null;
+    if (myPartner !== null && myPartner !== mySeat) peeked.add(myPartner);
+    // Party "fog": tricks are collected face down until the round is scored.
+    const fogged = round?.phase === "tricks" && rules?.fog === true;
+    // Party "blindLead": the lead of the trick in progress is face down to everyone but its player.
+    const blind = round?.phase === "tricks" && rules?.blindLead === true;
     const allOpen = round !== null && mySeat >= 0 && rules?.openHands === true && round.phase !== "trump";
     let openHands: { seat: number; cards: string[] }[] | null = null;
     if (round && ((iAmOut && tricksVisible) || peeked.size > 0 || allOpen)) {
@@ -106,7 +115,7 @@ export const get = query({
         userId: p?.userId ?? null,
         isMe: seat === mySeat,
         decision: part?.decision ?? "pending",
-        tricksWon: part?.tricksWon ?? 0,
+        tricksWon: fogged ? 0 : part?.tricksWon ?? 0,
         handSize: part?.handSize ?? 0,
         discardCount: part?.discardCount ?? 0,
         delta: part?.delta,
@@ -141,8 +150,11 @@ export const get = query({
             turnSeat: round.turnSeat,
             turnNonce: round.turnNonce,
             turnDeadline: round.turnDeadline ?? null,
-            currentTrick: round.currentTrick,
-            completedTricks: round.completedTricks,
+            currentTrick:
+              blind && round.currentTrick.plays.length > 0 && round.currentTrick.leader !== mySeat
+                ? { ...round.currentTrick, plays: round.currentTrick.plays.map((p, i) => (i === 0 ? { ...p, card: HIDDEN_CARD } : p)) }
+                : round.currentTrick,
+            completedTricks: fogged ? round.completedTricks.map((t) => ({ ...t, winner: -1 })) : round.completedTricks,
             deltas: round.deltas ?? null,
             party: round.party
               ? {
@@ -168,6 +180,11 @@ export const get = query({
                   curses: round.party.curses,
                   peeks: round.party.peeks,
                   awards: round.party.awards ?? [],
+                  teams: round.party.teams ?? null,
+                  // Who was after whom is the round's other reveal.
+                  nemeses: round.phase === "scored" ? round.party.nemeses ?? null : null,
+                  markedCard: round.party.markedCard ?? null,
+                  voted: round.party.voted ?? [],
                 }
               : null,
             winnerSeat: round.winnerSeat ?? null,
@@ -180,6 +197,7 @@ export const get = query({
       myHand,
       myPowerups,
       myWard,
+      myPartner,
       inTheDark,
       openHands,
       isOwner,

@@ -1,4 +1,4 @@
-import type { Rank } from "./cards";
+import type { Card, Rank } from "./cards";
 
 export type PassDirection = "left" | "right" | "across";
 /** How many cards go, and which way round the ring of seats still in the round. */
@@ -42,6 +42,24 @@ export type RoundRules = {
   wildRank: Rank | null;
   /** Each seat is secretly assigned another and scores that seat's delta. */
   guardian: boolean;
+  /** Seats are paired; partners see each other's hands and share their combined result. */
+  team: boolean;
+  /** Each seat is secretly assigned a target and scores the opposite of that seat's delta. */
+  nemesis: boolean;
+  /** Each seat's result lands on the seat to its left. */
+  mirror: boolean;
+  /** After every trick but the last, the tricks already won move one seat to the left. */
+  musicalTricks: boolean;
+  /** At scoring, the seat furthest from zero and the seat closest to it swap results. */
+  robinHood: boolean;
+  /** Whoever takes the trick that holds this card pays extra. */
+  markedCard: Card | null;
+  /** Tricks are collected face down: counts stay hidden and the lead moves left. Enforced by the server. */
+  fog: boolean;
+  /** The lead card is face down until the trick is complete; followers may play anything. */
+  blindLead: boolean;
+  /** Nobody names the trump: everyone votes for it, in turn, before the deal is finished. */
+  voteTrump: boolean;
 };
 
 export const CLASSIC_RULES: RoundRules = {
@@ -61,4 +79,13 @@ export const CLASSIC_RULES: RoundRules = {
   freeForAll: false,
   wildRank: null,
   guardian: false,
+  team: false,
+  nemesis: false,
+  mirror: false,
+  musicalTricks: false,
+  robinHood: false,
+  markedCard: null,
+  fog: false,
+  blindLead: false,
+  voteTrump: false,
 };

@@ -336,6 +336,7 @@
     "powerupBadTarget": "Escolhe outro jogador que esteja em jogo.",
     "alreadyPeeked": "Já estás a ver essa mão.",
     "alreadyShielded": "Já estás protegido nesta ronda.",
+    "alreadyVoted": "Já votaste.",
     "sitOutAllIn": "Ninguém fica de fora nesta ronda.",
     "alreadyPassed": "Já passaste uma carta.",
     "wrongPassCount": "Escolhe o número certo de cartas.",
@@ -352,6 +353,9 @@
     "cardLabel": "{{rank}} de {{suit}}",
     "handLabel": "A tua mão",
     "choosingTrump": "{{name}} está a escolher o trunfo…",
+    "voting": "{{name}} está a votar…",
+    "voteTrump": "Vota no trunfo",
+    "voteHint": "Cada um vota uma vez, à vez e em segredo. O naipe mais votado é o trunfo; em caso de empate, vale o primeiro voto.",
     "chooseTrump": "Escolhe o trunfo",
     "heartsNote": "Copas: tudo a dobrar",
     "clubsNote": "Paus: ninguém pode ficar de fora",
@@ -654,6 +658,42 @@
       "inverted": {
         "name": "Pontuação ao contrário",
         "desc": "As vazas somam pontos em vez de os subtrair; não fazer nenhuma subtrai a penalização habitual. Os multiplicadores do trunfo continuam a aplicar-se."
+      },
+      "team": {
+        "name": "Equipas",
+        "desc": "Pares sorteados, à vista de todos desde o início. Os parceiros veem as mãos um do outro e ambos recebem o resultado somado da dupla. Só em mesas com um número par de lugares."
+      },
+      "nemesis": {
+        "name": "Inimigo secreto",
+        "desc": "Recebes em segredo um alvo e ficas com o contrário do resultado dele: o que ele perde, ganhas tu. Quem perseguia quem revela-se no fim."
+      },
+      "mirror": {
+        "name": "Espelho",
+        "desc": "O teu resultado vai para o jogador à tua esquerda, e tu recebes o do jogador à tua direita."
+      },
+      "musicalTricks": {
+        "name": "Vazas musicais",
+        "desc": "Depois de cada vaza, menos a última, as vazas já ganhas passam um lugar para a esquerda. Ninguém fica à frente por muito tempo."
+      },
+      "robinHood": {
+        "name": "Robin dos Bosques",
+        "desc": "No fim da ronda, quem estiver mais longe do zero troca de resultado com quem estiver mais perto."
+      },
+      "markedCard": {
+        "name": "Carta marcada: {{card}}",
+        "desc": "Quem ganhar a vaza onde cair o {{card}} soma {{points}} pontos por cima. Foge dela, ou vai a ela."
+      },
+      "fog": {
+        "name": "Nevoeiro",
+        "desc": "As vazas recolhem-se viradas para baixo: ninguém vê quantas cada um tem até ao fim da ronda, e a saída passa um lugar para a esquerda em vez de ir para quem ganhou."
+      },
+      "blindLead": {
+        "name": "Saída às cegas",
+        "desc": "A primeira carta de cada vaza joga-se virada para baixo e só se revela quando todos tiverem jogado. Quem assiste pode jogar qualquer carta; o trunfo, e depois o naipe de saída, continuam a decidir."
+      },
+      "voteTrump": {
+        "name": "Trunfo por votação",
+        "desc": "Ninguém escolhe o trunfo: cada um vota à vez, em segredo, e ganha o naipe mais votado. Em caso de empate, vale o primeiro voto. Ninguém fica obrigado a jogar a ronda."
       }
     },
     "golden": "×2 ouro",
@@ -695,6 +735,11 @@
       "across_one": "Passa {{count}} carta em frente",
       "across_other": "Passa {{count}} cartas em frente"
     },
+    "partner": "Equipa",
+    "partnerHint": "O teu parceiro nesta ronda: veem as mãos um do outro e partilham o resultado.",
+    "withPartner": "com {{name}}",
+    "teamed": "{{a}} e {{b}} jogaram em equipa",
+    "nemesisOf": "{{name}} perseguia {{target}}",
     "ward": "Teu",
     "wardHint": "Apadrinhas este jogador: vês a mão dele e recebes a alteração de pontos dele nesta ronda.",
     "guarding": "padrinho de {{name}}",

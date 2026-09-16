@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { LuDices, LuShield, LuShuffle } from "react-icons/lu";
+import { LuDices, LuShield, LuShuffle, LuSwords, LuUsers } from "react-icons/lu";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { Button } from "@/components/ui/Button";
 import { POWERUP_ICONS, type PartyView, type Translate, twistName } from "./party";
@@ -60,6 +60,28 @@ export function RoundResult({
         <p className="mt-1 text-xs text-cream-100/80">
           <LuShuffle className="icon" /> {party.swapped ? t("party.swapped") : t("party.notSwapped")}
         </p>
+      )}
+      {party?.teams && (
+        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
+          {party.teams.map((partner, seat) =>
+            seat < partner ? (
+              <li key={seat} className={seats[seat]?.isMe || seats[partner]?.isMe ? "font-semibold text-gold-400" : ""}>
+                <LuUsers className="icon" />{" "}
+                {t("party.teamed", { a: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", b: seats[partner]?.isMe ? t("common.you") : seats[partner]?.name ?? "?" })}
+              </li>
+            ) : null,
+          )}
+        </ul>
+      )}
+      {party?.nemeses && (
+        <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">
+          {party.nemeses.map((target, seat) => (
+            <li key={seat} className={seats[seat]?.isMe ? "font-semibold text-gold-400" : ""}>
+              <LuSwords className="icon" />{" "}
+              {t("party.nemesisOf", { name: seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "?", target: seats[target]?.isMe ? t("common.you") : seats[target]?.name ?? "?" })}
+            </li>
+          ))}
+        </ul>
       )}
       {party?.guardians && (
         <ul className="mt-2 space-y-0.5 text-xs text-cream-100/80">

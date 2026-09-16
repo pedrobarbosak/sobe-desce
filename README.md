@@ -8,7 +8,8 @@ Online, real-time multiplayer version of the Portuguese trick-taking game **Sobe
 - **Rules engine**: pure TypeScript in `src/engine`, shared by server validation and client card-greying
 - **Variants**: *Classic* is the game as played at the table. *Party* flips a public twist every round:
   Desce, Golden suit, Last trick ×5, Blank pays, No trump, Lightning, As dealt, Pass (1–2 cards, left/right/across),
-  Swap hands, Guardian, Free-for-all, Wild rank, Carousel, Market, Dummy hand, One face up, Upside down.
+  Swap hands, Guardian, Free-for-all, Wild rank, Carousel, Market, Dummy hand, One face up, Upside down,
+  Teams, Secret nemesis, Mirror, Musical tricks, Robin Hood, Marked card, Fog, Blind lead, Vote for trump.
   A twist never repeats two rounds running.
   Everything party-specific lives in `src/engine/party`; every hand-moving twist is count-preserving because
   a round is always five cards and five tricks. Powerups (Peek, Curse, Shield) are built and tested there

@@ -336,6 +336,7 @@
     "powerupBadTarget": "Pick another player who is in the round.",
     "alreadyPeeked": "You are already looking at that hand.",
     "alreadyShielded": "You are already shielded this round.",
+    "alreadyVoted": "You already voted.",
     "sitOutAllIn": "Nobody sits out this round.",
     "alreadyPassed": "You already passed a card.",
     "wrongPassCount": "Pick the right number of cards.",
@@ -352,6 +353,9 @@
     "cardLabel": "{{rank}} of {{suit}}",
     "handLabel": "Your hand",
     "choosingTrump": "{{name}} is naming the trump…",
+    "voting": "{{name}} is voting…",
+    "voteTrump": "Vote for the trump",
+    "voteHint": "Everyone votes once, in turn and in secret. The suit with the most votes is trump; a tie goes to the earliest vote.",
     "chooseTrump": "Name the trump",
     "heartsNote": "Hearts: everything doubles",
     "clubsNote": "Clubs: nobody may sit out",
@@ -654,6 +658,42 @@
       "inverted": {
         "name": "Reverse scoring",
         "desc": "Tricks add points instead of subtracting them; winning none subtracts the usual penalty. Trump multipliers still apply."
+      },
+      "team": {
+        "name": "Teams",
+        "desc": "Random pairs, shown from the deal. Partners see each other's hands, and both take the pair's combined result. Even tables only."
+      },
+      "nemesis": {
+        "name": "Secret nemesis",
+        "desc": "You are secretly given a target and take the opposite of their result: their loss is your gain. Who was after whom is revealed at the end."
+      },
+      "mirror": {
+        "name": "Mirror",
+        "desc": "Your result is applied to the player on your left, and you receive the result of the player on your right."
+      },
+      "musicalTricks": {
+        "name": "Musical tricks",
+        "desc": "After every trick but the last, the tricks already won move one seat to the left. Nobody keeps a lead for long."
+      },
+      "robinHood": {
+        "name": "Robin Hood",
+        "desc": "At scoring, the player furthest from zero swaps results with the player closest to it."
+      },
+      "markedCard": {
+        "name": "Marked card: {{card}}",
+        "desc": "Whoever takes the trick that holds the {{card}} pays {{points}} points on top. Play around it, or into it."
+      },
+      "fog": {
+        "name": "Fog",
+        "desc": "Tricks are collected face down: nobody's count shows until the round is scored, and the lead moves one seat left after each trick instead of going to the winner."
+      },
+      "blindLead": {
+        "name": "Blind lead",
+        "desc": "The first card of every trick is played face down and revealed once everyone has followed. Followers may play anything; trump, then the led suit, still decides."
+      },
+      "voteTrump": {
+        "name": "Vote for trump",
+        "desc": "Nobody names the trump: everyone votes in turn, secretly, and the suit with the most votes wins. Ties go to the earliest vote. Nobody is committed to the round by it."
       }
     },
     "golden": "×2 golden",
@@ -695,6 +735,11 @@
       "across_one": "Pass {{count}} card across",
       "across_other": "Pass {{count}} cards across"
     },
+    "partner": "Team",
+    "partnerHint": "Your partner this round: you see each other's hands and share the result.",
+    "withPartner": "with {{name}}",
+    "teamed": "{{a}} and {{b}} played as a team",
+    "nemesisOf": "{{name}} was after {{target}}",
     "ward": "Yours",
     "wardHint": "You guard this player: you see their hand and receive their score change for the round.",
     "guarding": "guarding {{name}}",

@@ -30,7 +30,8 @@ export function TrickHistory({ tricks, seats, compact }: { tricks: PlayedTrick[]
   const { t } = useTranslation();
   const [open, setOpen] = useState(!compact);
   if (tricks.length === 0) return null;
-  const nameOf = (seat: number) => (seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "");
+  // A trick collected face down (party "fog") has no name to show until the round is scored.
+  const nameOf = (seat: number) => (seat < 0 ? "?" : seats[seat]?.isMe ? t("common.you") : seats[seat]?.name ?? "");
 
   if (!open) {
     return (

@@ -59,6 +59,8 @@ export function autoPlay(state: RoundState, seat: number): Action {
   const hand = state.hands[seat]!;
   const rules = rulesFor(state);
   switch (state.phase) {
+    case "vote":
+      return { type: "vote", seat, suit: bestSuit(hand, state, rules) };
     case "trump":
       return { type: "nameTrump", seat, suit: bestSuit(hand, state, rules) };
     case "discard":
@@ -90,6 +92,9 @@ export function chooseAction(state: RoundState, seat: number, ctx: RoundContext)
   const hand = state.hands[seat]!;
   const rules = rulesFor(state);
   switch (state.phase) {
+    case "vote":
+      return { type: "vote", seat, suit: bestSuit(hand, state, rules) };
+
     case "trump": {
       // Three cards in three different suits says nothing about what to call, so let the
       // deck decide and keep the right to sit the round out.

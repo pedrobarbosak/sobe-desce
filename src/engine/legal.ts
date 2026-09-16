@@ -32,7 +32,9 @@ export function unbeatableTrump(trump: Suit | null, deck: DeckSize, rules: Round
  * Under `rules.lowWins` every "beats" above reads the other way round, and the card you
  * must lead is the lowest trump rather than the Ace. Under `rules.freeForAll` none of it
  * applies. A card of `rules.wildRank` may always be played and is never forced: it beats
- * everything, so the climb rule would otherwise make you spend it at once.
+ * everything, so the climb rule would otherwise make you spend it at once. Under
+ * `rules.blindLead` the lead is face down, so followers cannot be held to a suit they
+ * cannot see: anything goes once a card has been led.
  */
 export function legalPlays(
   hand: readonly Card[],
@@ -42,7 +44,7 @@ export function legalPlays(
   rules: RoundRules = CLASSIC_RULES,
 ): Card[] {
   if (hand.length === 0) return [];
-  if (rules.freeForAll) return [...hand];
+  if (rules.freeForAll || (rules.blindLead && trick.plays.length > 0)) return [...hand];
   const wilds = rules.wildRank === null ? [] : hand.filter((c) => rankOf(c) === rules.wildRank);
   const withWilds = (cards: Card[]) => [...cards, ...wilds.filter((w) => !cards.includes(w))];
   const led = ledSuit(trick.plays);

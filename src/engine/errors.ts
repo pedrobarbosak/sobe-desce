@@ -26,7 +26,8 @@ export type EngineErrorCode =
   | "powerupSatOut"
   | "powerupBadTarget"
   | "alreadyPeeked"
-  | "alreadyShielded";
+  | "alreadyShielded"
+  | "alreadyVoted";
 
 export class EngineError extends Error {
   constructor(public readonly code: EngineErrorCode, message?: string) {

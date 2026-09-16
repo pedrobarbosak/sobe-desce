@@ -10,11 +10,14 @@ export function TrumpPicker({
   onFlip,
   busy,
   compact = false,
+  vote = false,
 }: {
   onPick: (s: Suit) => void;
   onFlip: () => void;
   busy: boolean;
   compact?: boolean;
+  /** Party "voteTrump": a vote rather than a call, so there is nothing to flip for. */
+  vote?: boolean;
 }) {
   const { t } = useTranslation();
   const box = compact ? "h-20 w-20" : "h-28 w-28";
@@ -24,7 +27,7 @@ export function TrumpPicker({
       animate={{ scale: 1, opacity: 1 }}
       className={`rounded-3xl border-2 border-gold-400/60 bg-black/80 text-center shadow-2xl backdrop-blur ${compact ? "p-4" : "p-7"}`}
     >
-      <p className={`font-display font-extrabold text-cream-50 ${compact ? "text-xl" : "text-3xl"}`}>{t("table.chooseTrump")}</p>
+      <p className={`font-display font-extrabold text-cream-50 ${compact ? "text-xl" : "text-3xl"}`}>{vote ? t("table.voteTrump") : t("table.chooseTrump")}</p>
       <div className={`flex justify-center ${compact ? "mt-4 gap-2.5" : "mt-6 gap-4"}`}>
         {SUITS.map((s) => (
           <button
@@ -41,21 +44,25 @@ export function TrumpPicker({
             </span>
           </button>
         ))}
-        <span className={`self-center text-cream-100/40 ${compact ? "text-xs" : "text-sm"}`}>{t("table.orFlip")}</span>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onFlip}
-          className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gold-400/60 bg-black/40 text-cream-50 transition hover:-translate-y-1.5 hover:border-gold-400 hover:bg-black/60 disabled:opacity-50 ${box}`}
-          aria-label={t("table.flip")}
-        >
-          <CardBack width={compact ? 30 : 42} />
-          <span className={`mt-1.5 font-semibold uppercase tracking-wider ${compact ? "text-[10px]" : "text-xs"}`}>
-            {t("table.flip")}
-          </span>
-        </button>
+        {!vote && (
+          <>
+            <span className={`self-center text-cream-100/40 ${compact ? "text-xs" : "text-sm"}`}>{t("table.orFlip")}</span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onFlip}
+              className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gold-400/60 bg-black/40 text-cream-50 transition hover:-translate-y-1.5 hover:border-gold-400 hover:bg-black/60 disabled:opacity-50 ${box}`}
+              aria-label={t("table.flip")}
+            >
+              <CardBack width={compact ? 30 : 42} />
+              <span className={`mt-1.5 font-semibold uppercase tracking-wider ${compact ? "text-[10px]" : "text-xs"}`}>
+                {t("table.flip")}
+              </span>
+            </button>
+          </>
+        )}
       </div>
-      <p className={`mx-auto max-w-md text-cream-100/70 ${compact ? "mt-3 text-xs" : "mt-5 text-sm"}`}>{t("table.flipHint")}</p>
+      <p className={`mx-auto max-w-md text-cream-100/70 ${compact ? "mt-3 text-xs" : "mt-5 text-sm"}`}>{vote ? t("table.voteHint") : t("table.flipHint")}</p>
       <p className={`text-cream-100/50 ${compact ? "mt-1 text-[11px]" : "mt-2 text-xs"}`}>
         {t("table.heartsNote")} · {t("table.clubsNote")}
       </p>

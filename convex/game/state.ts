@@ -5,6 +5,7 @@ import {
   type Rank,
   type RoundRules,
   type RoundState,
+  type Suit,
   type TrickInProgress,
   type CompletedTrick,
   type Twist,
@@ -45,6 +46,10 @@ export function partyDoc(party: PartyState): PartyDoc {
     shielded: party.shielded,
     curses: party.curses,
     peeks: party.peeks,
+    teams: party.teams ?? undefined,
+    nemeses: party.nemeses ?? undefined,
+    markedCard: party.markedCard ?? undefined,
+    voted: party.votes.map((v) => v !== null),
   };
 }
 
@@ -54,9 +59,10 @@ export function twistIdOf(doc: Pick<PartyDoc, "twist">): Twist {
 }
 
 /** The twist as the engine knows it, with the parameters it was drawn with. */
-function twistOf(doc: PartyDoc): Pick<PartyState, "twist" | "pass" | "wildRank"> {
-  if (doc.twist === "passLeft") return { twist: "pass", pass: { count: 1, direction: "left" }, wildRank: null };
-  return { twist: doc.twist as Twist, pass: doc.pass ?? null, wildRank: (doc.wildRank as Rank | undefined) ?? null };
+function twistOf(doc: PartyDoc): Pick<PartyState, "twist" | "pass" | "wildRank" | "markedCard"> {
+  const markedCard = (doc.markedCard as Card | undefined) ?? null;
+  if (doc.twist === "passLeft") return { twist: "pass", pass: { count: 1, direction: "left" }, wildRank: null, markedCard };
+  return { twist: doc.twist as Twist, pass: doc.pass ?? null, wildRank: (doc.wildRank as Rank | undefined) ?? null, markedCard };
 }
 
 /** The rules a stored party round plays by. */
@@ -120,6 +126,9 @@ export function toEngineState(
             if (stored === undefined || stored === null) return null;
             return (typeof stored === "string" ? [stored] : stored) as Card[];
           }),
+          teams: round.party.teams ?? null,
+          nemeses: round.party.nemeses ?? null,
+          votes: Array.from({ length: session.seatCount }, (_, seat) => (secrets.votes?.[seat] as Suit | null | undefined) ?? null),
         }
       : null,
   };
@@ -194,7 +203,14 @@ export async function persistRound(ctx: MutationCtx, loaded: LoadedRound, next: 
   const passesBefore = loaded.state.party?.passes ?? [];
   const passesAfter = next.party?.passes ?? [];
   const passesChanged = passesAfter.some((c, i) => JSON.stringify(c) !== JSON.stringify(passesBefore[i] ?? null));
-  if (next.drawPile.length !== secrets.drawPile.length || passesChanged) {
-    await ctx.db.patch(secrets._id, { drawPile: next.drawPile, passes: next.party ? next.party.passes : undefined });
+  const votesBefore = loaded.state.party?.votes ?? [];
+  const votesAfter = next.party?.votes ?? [];
+  const votesChanged = votesAfter.some((v, i) => v !== (votesBefore[i] ?? null));
+  if (next.drawPile.length !== secrets.drawPile.length || passesChanged || votesChanged) {
+    await ctx.db.patch(secrets._id, {
+      drawPile: next.drawPile,
+      passes: next.party ? next.party.passes : undefined,
+      votes: next.party ? next.party.votes : undefined,
+    });
   }
 }
