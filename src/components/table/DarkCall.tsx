@@ -47,7 +47,7 @@ export function DarkCall({
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className={`rounded-3xl border-2 border-heart/70 bg-black/85 text-center shadow-2xl backdrop-blur ${short ? "p-3" : compact ? "p-4" : "p-6"}`}
+      className={`rounded-3xl border-2 border-heart/70 bg-black/85 text-center shadow-2xl backdrop-blur short:bg-black/95 ${short ? "p-3" : compact ? "p-4" : "p-6"}`}
     >
       {!short && (
         <div className="flex items-center justify-center gap-3">

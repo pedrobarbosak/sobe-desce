@@ -6,7 +6,7 @@ import { PARTY_TWIST_ICONS } from "./partyIcons";
 import { type PartyView, type Translate, twistName, twistVars } from "./party";
 
 /** The round's twist, kept in the corner of the felt for the whole round. */
-export function TwistBanner({ party, compact = false }: { party: PartyView; compact?: boolean }) {
+export function TwistBanner({ party, compact = false, short = false }: { party: PartyView; compact?: boolean; short?: boolean }) {
   const { t } = useTranslation();
   const tr = t as unknown as Translate;
   const Icon = PARTY_TWIST_ICONS[party.twist];
@@ -16,9 +16,12 @@ export function TwistBanner({ party, compact = false }: { party: PartyView; comp
       animate={{ x: 0, opacity: 1 }}
       className={`rounded-xl border border-purple-400/50 bg-purple-950/70 text-cream-50 shadow-lg backdrop-blur ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
-        <LuDices className="icon" /> {t("party.twistOfRound")}
-      </p>
+      {/* One line on a short felt: the bar already says a twist is on. */}
+      {!short && (
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
+          <LuDices className="icon" /> {t("party.twistOfRound")}
+        </p>
+      )}
       <p className={`font-display font-bold ${compact ? "text-sm" : "text-base"}`}>
         <span className="mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-purple-400/30 px-1 text-xs">
           <Icon className="icon" />
@@ -41,7 +44,7 @@ export function TwistReveal({ party, compact = false }: { party: PartyView; comp
       animate={{ scale: [0.3, 1.12, 1], opacity: [0, 1, 1], rotate: [-8, 2, 0] }}
       exit={{ scale: 0.6, opacity: 0 }}
       transition={{ duration: 0.7, times: [0, 0.6, 1] }}
-      className={`pointer-events-none flex flex-col items-center rounded-3xl border border-purple-400/60 bg-black/70 text-center shadow-2xl ${
+      className={`pointer-events-none flex flex-col items-center rounded-3xl border border-purple-400/60 bg-black/70 text-center shadow-2xl short:bg-black/90 ${
         compact ? "max-w-[20rem] px-5 py-4" : "max-w-md px-8 py-5"
       }`}
     >

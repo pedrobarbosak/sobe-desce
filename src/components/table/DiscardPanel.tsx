@@ -44,7 +44,7 @@ export function DiscardPanel({
   onClear?: () => void;
 }) {
   const { t } = useTranslation();
-  const box = `rounded-2xl border bg-black/70 text-center backdrop-blur ${short ? "p-2.5" : compact ? "p-3" : "p-4"} ${
+  const box = `rounded-2xl border bg-black/70 text-center backdrop-blur short:bg-black/90 ${short ? "p-2.5" : compact ? "p-3" : "p-4"} ${
     prepare ? "border-white/20" : "border-gold-400/50"
   }`;
 

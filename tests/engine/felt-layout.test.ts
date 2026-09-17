@@ -57,6 +57,21 @@ describe("felt layout on a phone on its side", () => {
     }
   });
 
+  it("lays a crowded trick out in a row, one slot per seat, left to right", () => {
+    const l = at(740, 316);
+    const seats = [0, 1, 2, 3, 4, 5, 6, 7];
+    const placer = ringPlacer(seats, 0, l.ellipse, { ...l.trickSpread, row: true });
+    const xs = seats.map((s) => placer.slot(s).x).sort((a, b) => a - b);
+    const cardW = (Math.round(l.cardWidth * 0.6) / 740) * 100;
+    for (let i = 1; i < xs.length; i++) expect(xs[i]! - xs[i - 1]!).toBeGreaterThanOrEqual(cardW * 0.8);
+    // Inside the ring, clear of the side seats' labels.
+    expect(xs[0]).toBeGreaterThan(l.ellipse.cx - l.ellipse.rx + 8);
+    expect(xs[xs.length - 1]).toBeLessThan(l.ellipse.cx + l.ellipse.rx - 8);
+    // The seat on the left of the felt gets the leftmost card.
+    const leftSeat = seats.reduce((best, s) => (placer.seat(s).x < placer.seat(best).x ? s : best), 0);
+    expect(placer.slot(leftSeat).x).toBe(xs[0]);
+  });
+
   it("still scales below the old floors", () => {
     expect(at(640, 256).cardWidth).toBeLessThan(at(740, 316).cardWidth);
     expect(at(640, 256).avatarSize).toBeLessThan(36);

@@ -37,7 +37,7 @@ export function PassPanel({
     <motion.div
       initial={{ y: 30, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur short:bg-black/90 ${compact ? "p-3" : "p-4"}`}
     >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
         {market ? <LuStore className="icon" /> : <Arrow className="icon" />}{" "}
@@ -81,7 +81,7 @@ export function MarketPanel({
     <motion.div
       initial={{ y: 30, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur short:bg-black/90 ${compact ? "p-3" : "p-4"}`}
     >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
         <LuStore className="icon" /> {t("party.twists.market.name")}
@@ -141,7 +141,7 @@ export function RaidPanel({
     <motion.div
       initial={{ y: 30, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur short:bg-black/90 ${compact ? "p-3" : "p-4"}`}
     >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
         <LuHandCoins className="icon" /> {t("party.twists.communism.name")}
@@ -207,7 +207,7 @@ export function DummyPanel({
     <motion.div
       initial={{ y: 30, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"}`}
+      className={`rounded-2xl border border-purple-400/60 bg-black/70 text-center backdrop-blur short:bg-black/90 ${compact ? "p-3" : "p-4"}`}
     >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">
         <LuLayers className="icon" /> {t("party.twists.dummy.name")}

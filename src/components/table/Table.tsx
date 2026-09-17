@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { LuShield, LuSkull, LuUsers, LuZap } from "react-icons/lu";
+import { LuShield, LuSkull, LuUserX, LuUsers, LuZap } from "react-icons/lu";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "@tanstack/react-router";
@@ -62,8 +62,10 @@ const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
  * whole box between the bar and the hand, to scroll in if it must.
  */
 function PanelSlot({ short, style, children }: { short: boolean; style: React.CSSProperties; children: React.ReactNode }) {
+  // On a short felt the panel covers seats and cards, so the box behind it goes dim: a
+  // panel that shows the felt through itself reads as clutter there.
   return short ? (
-    <div className="absolute z-20 flex overflow-y-auto px-3" style={style}>
+    <div className="absolute z-20 flex overflow-y-auto bg-black/40 px-3 backdrop-blur-[2px]" style={style}>
       <div className="m-auto max-w-full">{children}</div>
     </div>
   ) : (
@@ -349,7 +351,9 @@ export function Table({ data }: { data: TableData }) {
   const gameOver = game.status === "finished";
   const tricksStarted = phase === "tricks" || phase === "scored";
   const layout = ringLayout(n, (seat) => !tricksStarted || seats[seat]?.decision !== "out");
-  const placer = ringPlacer(layout, mySeat, ellipse, trickSpread);
+  // A crowded short ring lays the trick out in a row; the slots would otherwise overlap.
+  const crowded = short && layout.length > 5;
+  const placer = ringPlacer(layout, mySeat, ellipse, crowded ? { ...trickSpread, row: true } : trickSpread);
   const satOut = tricksStarted ? seats.filter((s) => s.decision === "out") : [];
   // No leader to show while a card of the trick is still face down (party "blindLead").
   const liveLeader =
@@ -502,13 +506,26 @@ export function Table({ data }: { data: TableData }) {
           holding={display.holding}
           collecting={display.collecting}
           placer={placer}
-          cardWidth={Math.round(cardWidth * (short ? 0.72 : 0.78))}
+          cardWidth={Math.round(cardWidth * (crowded ? 0.6 : short ? 0.72 : 0.78))}
         />
 
         {/* Kept clear of the status card when it is centred at the top of the felt. */}
-        <div className={`absolute left-2 z-20 flex flex-col items-start gap-2 ${short ? "max-w-[40%]" : "max-w-[45%]"}`} style={{ top: short ? 6 : compact && !statusBelow ? 54 : 8 }}>
-          {party && phase !== "scored" && <TwistBanner party={party} compact={compact} />}
-          {satOut.length > 0 && (
+        {/* On a short felt this is one row of chips along the top edge, not a column down
+            the side, where a crowded ring has seats. */}
+        <div
+          className={`absolute left-2 z-20 flex items-start ${short ? "max-w-[50%] flex-row flex-wrap items-center gap-1.5" : "max-w-[45%] flex-col gap-2"}`}
+          style={{ top: short ? 6 : compact && !statusBelow ? 54 : 8 }}
+        >
+          {party && phase !== "scored" && <TwistBanner party={party} compact={compact} short={short} />}
+          {satOut.length > 0 && short && (
+            <div
+              className="flex items-center gap-1 rounded-xl bg-black/50 px-2 py-1 text-xs font-semibold text-cream-100/80"
+              title={`${t("table.satOutList")}: ${satOut.map((s) => (s.isMe ? t("common.you") : s.name)).join(", ")}`}
+            >
+              <LuUserX className="icon" /> {satOut.length}
+            </div>
+          )}
+          {satOut.length > 0 && !short && (
             <div className="rounded-xl bg-black/40 px-3 py-2 text-xs text-cream-100/80">
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-cream-100/50">{t("table.satOutList")}</p>
               {satOut.map((s) => (
@@ -520,14 +537,14 @@ export function Table({ data }: { data: TableData }) {
               ))}
             </div>
           )}
-          <TrickHistory tricks={(round?.completedTricks ?? []) as PlayedTrick[]} seats={seats} compact={compact} />
+          <TrickHistory tricks={(round?.completedTricks ?? []) as PlayedTrick[]} seats={seats} compact={compact} short={short} />
         </div>
 
         <AnimatePresence mode="wait">
           {reveal && round && (
             <motion.div
               key={`${reveal.roundId}-${reveal.kind}`}
-              className="absolute inset-0 z-30 flex items-center justify-center px-3"
+              className="absolute inset-0 z-30 flex items-center justify-center px-3 short:bg-black/40"
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
@@ -883,7 +900,7 @@ export function Table({ data }: { data: TableData }) {
           {/* Margins rather than `items-center`: a card taller than a phone on its side can
               then still be scrolled to its top. On that phone the final standings sit beside
               the card rather than under it. */}
-          <div className={`w-full ${gameOver ? "mb-auto max-w-3xl space-y-3 short:flex short:max-w-none short:items-start short:gap-3 short:space-y-0" : "m-auto max-w-md space-y-3"}`}>
+          <div className={`w-full ${gameOver ? "mb-auto max-w-3xl space-y-3 short:flex short:max-w-none short:items-start short:gap-3 short:space-y-0" : "m-auto max-w-md space-y-3 short:max-w-2xl"}`}>
           <RoundResult
             seats={seats}
             trump={trump}

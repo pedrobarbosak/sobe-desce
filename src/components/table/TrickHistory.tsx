@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { LuHistory } from "react-icons/lu";
 import { type Card as CardT, HIDDEN_CARD, SUIT_SYMBOLS, rankOf, suitOf } from "@/engine";
 import type { SeatView } from "./Seat";
 
@@ -30,7 +31,7 @@ function Chip({ card, won }: { card: string; won: boolean }) {
  * What has already been played this round. People forget which high cards are gone, and
  * the trick area only ever shows the current one, so it lives beside the felt.
  */
-export function TrickHistory({ tricks, seats, compact }: { tricks: PlayedTrick[]; seats: SeatView[]; compact?: boolean }) {
+export function TrickHistory({ tricks, seats, compact, short = false }: { tricks: PlayedTrick[]; seats: SeatView[]; compact?: boolean; short?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(!compact);
   if (tricks.length === 0) return null;
@@ -42,15 +43,16 @@ export function TrickHistory({ tricks, seats, compact }: { tricks: PlayedTrick[]
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-xl bg-black/50 px-2.5 py-1.5 text-xs font-semibold text-cream-100/80 backdrop-blur hover:bg-black/70"
+        className={`rounded-xl bg-black/50 text-xs font-semibold text-cream-100/80 backdrop-blur hover:bg-black/70 ${short ? "px-2 py-1" : "px-2.5 py-1.5"}`}
+        title={t("table.showTricks")}
       >
-        {t("table.showTricks")} <span className="ml-1 rounded bg-gold-400 px-1 text-ink-900">{tricks.length}</span>
+        {short ? <LuHistory className="icon" /> : t("table.showTricks")} <span className="ml-1 rounded bg-gold-400 px-1 text-ink-900">{tricks.length}</span>
       </button>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="rounded-xl bg-black/50 p-2 backdrop-blur">
+    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="rounded-xl bg-black/50 p-2 backdrop-blur short:bg-black/85">
       <div className="mb-1 flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-cream-100/50">{t("table.trickHistory")}</p>
         {compact && (

@@ -28,7 +28,7 @@ export function TrumpPicker({
     <motion.div
       initial={{ scale: 0.85, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className={`rounded-3xl border-2 border-gold-400/60 bg-black/80 text-center shadow-2xl backdrop-blur ${short ? "p-3" : compact ? "p-4" : "p-7"}`}
+      className={`rounded-3xl border-2 border-gold-400/60 bg-black/80 text-center shadow-2xl backdrop-blur short:bg-black/95 ${short ? "p-3" : compact ? "p-4" : "p-7"}`}
     >
       <p className={`font-display font-extrabold text-cream-50 ${short ? "text-base" : compact ? "text-xl" : "text-3xl"}`}>{vote ? t("table.voteTrump") : t("table.chooseTrump")}</p>
       <div className={`flex justify-center ${short ? "mt-2 gap-2" : compact ? "mt-4 gap-2.5" : "mt-6 gap-4"}`}>
@@ -107,7 +107,7 @@ export function TrumpReveal({ trump, byName, flipped, dark, compact = false }: {
       animate={{ scale: [0.3, 1.15, 1], opacity: [0, 1, 1], rotate: [-12, 3, 0] }}
       exit={{ scale: 0.6, opacity: 0 }}
       transition={{ duration: 0.7, times: [0, 0.6, 1] }}
-      className={`pointer-events-none flex flex-col items-center rounded-3xl border border-gold-400/50 bg-black/65 text-center shadow-2xl ${compact ? "px-5 py-3" : "px-8 py-5"}`}
+      className={`pointer-events-none flex flex-col items-center rounded-3xl border border-gold-400/50 bg-black/65 text-center shadow-2xl short:bg-black/90 ${compact ? "px-5 py-3" : "px-8 py-5"}`}
     >
       <p className="text-[11px] uppercase tracking-[0.3em] text-cream-100/70">
         {dark

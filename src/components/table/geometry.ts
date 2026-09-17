@@ -1,7 +1,11 @@
 /** Seat placement around an ellipse. The viewer always sits at the bottom (6 o'clock). */
 export type Ellipse = { cx: number; cy: number; rx: number; ry: number };
-/** How far out from the centre played cards land, as fractions of the ellipse's radii. */
-export type TrickSpread = { x: number; y: number };
+/**
+ * How far out from the centre played cards land, as fractions of the ellipse's radii.
+ * `row` lays them in one line across the middle instead, left to right in the order of
+ * the seats: on a flat ring with many players the slots would land on each other.
+ */
+export type TrickSpread = { x: number; y: number; row?: boolean };
 
 export const DEFAULT_ELLIPSE: Ellipse = { cx: 50, cy: 47, rx: 43, ry: 38 };
 export const DEFAULT_SPREAD: TrickSpread = { x: 0.36, y: 0.4 };
@@ -18,6 +22,17 @@ export function seatPosition(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPS
 /** Where a played card lands: between the centre and the seat. */
 export function trickSlot(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPSE, spread: TrickSpread = DEFAULT_SPREAD) {
   const a = seatAngle(rel, n);
+  if (spread.row) {
+    // Rank the seats from the left of the felt to the right (top before bottom on a tie),
+    // and space the cards evenly across the middle of the ring.
+    const order = Array.from({ length: n }, (_, i) => i + (rel % 1))
+      .map((r) => ({ r, x: Math.cos(seatAngle(r, n)), y: Math.sin(seatAngle(r, n)) }))
+      .sort((p, q) => p.x - q.x || p.y - q.y)
+      .map((p) => p.r);
+    const rank = order.indexOf(rel);
+    const step = Math.min(8, (e.rx * 1.4) / Math.max(1, n - 1));
+    return { x: e.cx + (rank - (n - 1) / 2) * step, y: e.cy, rotate: (rank - (n - 1) / 2) * 3 };
+  }
   return {
     x: e.cx + e.rx * spread.x * Math.cos(a),
     y: e.cy + e.ry * spread.y * Math.sin(a),
