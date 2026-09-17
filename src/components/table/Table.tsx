@@ -27,9 +27,10 @@ import { Seat } from "./Seat";
 import { TimerRing } from "./TimerRing";
 import { TrickArea } from "./TrickArea";
 import { TableStatus } from "./TableStatus";
+import { TableMenu } from "./TableMenu";
 import { DarkCall } from "./DarkCall";
 import { type PlayedTrick, TrickHistory } from "./TrickHistory";
-import { Drawer } from "./Drawer";
+import { Drawer } from "@/components/ui/Drawer";
 import { type DrawerName, TableBar } from "./TableBar";
 import type { PartyView } from "./party";
 import { TrumpPicker, TrumpReveal } from "./TrumpPanels";
@@ -56,6 +57,22 @@ const RACE_CODES = ["notYourTurn", "wrongPhase", "alreadyDecided"];
  * on top lives in hooks of its own: the centre-felt announcements (useReveals), the turn
  * clock (useTurnClock), the sound cues (useTableSounds) and the geometry (useFeltLayout).
  */
+/**
+ * Where an action panel sits: a line above the hand, centred; or, on a short felt, the
+ * whole box between the bar and the hand, to scroll in if it must.
+ */
+function PanelSlot({ short, style, children }: { short: boolean; style: React.CSSProperties; children: React.ReactNode }) {
+  return short ? (
+    <div className="absolute z-20 flex overflow-y-auto px-3" style={style}>
+      <div className="m-auto max-w-full">{children}</div>
+    </div>
+  ) : (
+    <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={style}>
+      {children}
+    </div>
+  );
+}
+
 export function Table({ data }: { data: TableData }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -185,7 +202,7 @@ export function Table({ data }: { data: TableData }) {
   // The status card normally hangs from the top of the felt, right over the seat opposite.
   // With face-up hands there that covers the cards, so it moves to the free bottom edge.
   const statusBelow = !handShown && !data.inTheDark;
-  const { W, compact, portrait, cardWidth, avatarSize, myBadge, handHeight, statusBottom, ellipse, panelStyle } = useFeltLayout({
+  const { W, compact, short, portrait, cardWidth, avatarSize, myBadge, handOffset, handReserve, statusBottom, ellipse, panelStyle, trickSpread } = useFeltLayout({
     felt,
     statusBelow,
     hasOpenHands: (data.openHands?.length ?? 0) > 0,
@@ -332,7 +349,7 @@ export function Table({ data }: { data: TableData }) {
   const gameOver = game.status === "finished";
   const tricksStarted = phase === "tricks" || phase === "scored";
   const layout = ringLayout(n, (seat) => !tricksStarted || seats[seat]?.decision !== "out");
-  const placer = ringPlacer(layout, mySeat, ellipse);
+  const placer = ringPlacer(layout, mySeat, ellipse, trickSpread);
   const satOut = tricksStarted ? seats.filter((s) => s.decision === "out") : [];
   // No leader to show while a card of the trick is still face down (party "blindLead").
   const liveLeader =
@@ -366,8 +383,21 @@ export function Table({ data }: { data: TableData }) {
       await navigate({ to: "/g/$gameId", params: { gameId: game._id } });
     });
   };
+  // On a short felt the status lives in the bar, in the room the round number left.
+  const statusInBar = short && !statusBelow;
+  const statusProps = {
+    actor: statusActor,
+    kind: statusKind,
+    isMe: statusKind !== "trickWon" && isMyTurn,
+    deadline: statusKind === "trickWon" ? null : round?.turnDeadline ?? null,
+    totalMs: totalTurnMs,
+    skewMs,
+    compact,
+  };
+  const myAvatar = avatarSize * (short ? 0.7 : 0.8);
+  const canAbandon = mySeat >= 0 && !standIn && game.status !== "finished";
   return (
-    <div className="safe-top safe-bottom fixed inset-0 z-40 flex flex-col bg-felt-900">
+    <div className="safe-top safe-bottom safe-x fixed inset-0 z-40 flex flex-col bg-felt-900">
       <TableBar
         gameName={game.name}
         roundIndex={round ? round.index : null}
@@ -380,11 +410,22 @@ export function Table({ data }: { data: TableData }) {
         busy={busy}
         canEndSitting={canEndSitting}
         onEndSitting={goEndSitting}
-        canAbandon={mySeat >= 0 && !standIn && game.status !== "finished"}
+        canAbandon={canAbandon}
         isCampaign={isCampaign}
         onAbandon={goAbandon}
         onOpen={setDrawer}
-      />
+        short={short}
+        autoPlayOn={handShown && !standIn && autoPlay.enabled}
+        onAutoPlayOff={() => autoPlay.setEnabled(false)}
+      >
+        {statusInBar && (
+          <div role="status" aria-live="polite" aria-atomic="true" className="flex min-w-0 flex-1 items-center">
+            <AnimatePresence mode="wait">
+              <TableStatus {...statusProps} inBar />
+            </AnimatePresence>
+          </div>
+        )}
+      </TableBar>
 
       {/* felt */}
       <div ref={feltRef} className="perspective relative flex-1 overflow-hidden">
@@ -424,6 +465,7 @@ export function Table({ data }: { data: TableData }) {
                 skewMs={skewMs}
                 phase={phase}
                 compact={compact}
+                short={short}
                 size={avatarSize}
                 openHand={openBySeat.get(s.seat) ?? null}
                 deck={game.config.deck}
@@ -440,25 +482,19 @@ export function Table({ data }: { data: TableData }) {
 
         {/* Whose turn it is, and who took the trick, are the two things a player who
             cannot see the felt has to be told. Polite, so it waits for a pause. */}
-        <div
-          className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2"
-          style={statusBelow ? { bottom: statusBottom } : { top: 8 }}
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <AnimatePresence mode="wait">
-            <TableStatus
-              actor={statusActor}
-              kind={statusKind}
-              isMe={statusKind !== "trickWon" && isMyTurn}
-              deadline={statusKind === "trickWon" ? null : round?.turnDeadline ?? null}
-              totalMs={totalTurnMs}
-              skewMs={skewMs}
-              compact={compact}
-            />
-          </AnimatePresence>
-        </div>
+        {!statusInBar && (
+          <div
+            className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2"
+            style={statusBelow ? { bottom: statusBottom } : { top: 8 }}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <AnimatePresence mode="wait">
+              <TableStatus {...statusProps} />
+            </AnimatePresence>
+          </div>
+        )}
 
         <TrickArea
           plays={phase === "scored" && !display.holding ? [] : display.plays}
@@ -466,11 +502,11 @@ export function Table({ data }: { data: TableData }) {
           holding={display.holding}
           collecting={display.collecting}
           placer={placer}
-          cardWidth={Math.round(cardWidth * 0.78)}
+          cardWidth={Math.round(cardWidth * (short ? 0.72 : 0.78))}
         />
 
         {/* Kept clear of the status card when it is centred at the top of the felt. */}
-        <div className="absolute left-2 z-20 flex max-w-[45%] flex-col items-start gap-2" style={{ top: compact && !statusBelow ? 54 : 8 }}>
+        <div className={`absolute left-2 z-20 flex flex-col items-start gap-2 ${short ? "max-w-[40%]" : "max-w-[45%]"}`} style={{ top: short ? 6 : compact && !statusBelow ? 54 : 8 }}>
           {party && phase !== "scored" && <TwistBanner party={party} compact={compact} />}
           {satOut.length > 0 && (
             <div className="rounded-xl bg-black/40 px-3 py-2 text-xs text-cream-100/80">
@@ -501,9 +537,10 @@ export function Table({ data }: { data: TableData }) {
                   byName={(round.trumpSeat !== null ? seats[round.trumpSeat]?.name : undefined) ?? seats[(round.dealerSeat + 1) % n]?.name ?? ""}
                   flipped={flippedCard}
                   dark={isDark}
+                  compact={compact}
                 />
               ) : reveal.kind === "coin" ? (
-                <CoinFlip swapped={reveal.swapped} compact={compact} />
+                <CoinFlip swapped={reveal.swapped} compact={compact} short={short} />
               ) : (
                 party && <TwistReveal party={party} compact={compact} />
               )}
@@ -512,36 +549,39 @@ export function Table({ data }: { data: TableData }) {
         </AnimatePresence>
 
         {isMyTurn && phase === "trump" && blindDeadline !== null && !reveal && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <DarkCall
               deadline={blindDeadline}
               skewMs={skewMs}
               busy={busy}
               compact={compact}
+              short={short}
               onCall={() => void run(() => darkHearts({ roundId: round._id }))}
               onSkip={() => void run(() => revealHand({ roundId: round._id }))}
             />
-          </div>
+          </PanelSlot>
         )}
         {isMyTurn && phase === "vote" && !reveal && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
-            <TrumpPicker vote busy={busy} compact={compact} onPick={(suit) => void run(() => vote({ roundId: round._id, suit }))} onFlip={() => {}} />
-          </div>
+          <PanelSlot short={short} style={panelStyle}>
+            <TrumpPicker vote busy={busy} compact={compact} short={short} onPick={(suit) => void run(() => vote({ roundId: round._id, suit }))} onFlip={() => {}} />
+          </PanelSlot>
         )}
         {isMyTurn && phase === "trump" && blindDeadline === null && !reveal && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <TrumpPicker
               busy={busy}
               compact={compact}
+              short={short}
               onPick={(suit) => void run(() => nameTrump({ roundId: round._id, suit }))}
               onFlip={() => void run(() => flipTrump({ roundId: round._id }))}
             />
-          </div>
+          </PanelSlot>
         )}
         {canPrepare && session && !reveal && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <DiscardPanel
               compact={compact}
+              short={short}
               prepare
               pending={pending}
               onClear={() => setPending(null)}
@@ -556,12 +596,13 @@ export function Table({ data }: { data: TableData }) {
               onDiscard={() => setPending({ kind: "discard", cards: [...selected] })}
               onSitOut={() => setPending({ kind: "sitOut" })}
             />
-          </div>
+          </PanelSlot>
         )}
         {isMyTurn && phase === "discard" && session && !reveal && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <DiscardPanel
               compact={compact}
+              short={short}
               cap={maxDiscardNow}
               trump={trump}
               flipped={flippedCard}
@@ -573,10 +614,10 @@ export function Table({ data }: { data: TableData }) {
               onDiscard={() => void run(() => discard({ roundId: round._id, cards: [...selected] }))}
               onSitOut={() => void run(() => sitOut({ roundId: round._id }))}
             />
-          </div>
+          </PanelSlot>
         )}
         {isMyTurn && phase === "pass" && party && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <PassPanel
               compact={compact}
               market={rules.market}
@@ -598,10 +639,10 @@ export function Table({ data }: { data: TableData }) {
               busy={busy}
               onPass={() => void run(() => passCards({ roundId: round._id, cards: [...selected] }))}
             />
-          </div>
+          </PanelSlot>
         )}
         {phase === "market" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <MarketPanel
               compact={compact}
               cards={party.market as CardT[]}
@@ -609,10 +650,10 @@ export function Table({ data }: { data: TableData }) {
               busy={busy}
               onTake={(card) => void run(() => takeCard({ roundId: round._id, card }))}
             />
-          </div>
+          </PanelSlot>
         )}
         {phase === "dummy" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <DummyPanel
               compact={compact}
               cards={party.dummy as CardT[]}
@@ -627,11 +668,11 @@ export function Table({ data }: { data: TableData }) {
               }}
               onSkip={() => void run(() => dummySwap({ roundId: round._id }))}
             />
-          </div>
+          </PanelSlot>
         )}
 
         {phase === "raid" && party && round && mySeat >= 0 && !standIn && me?.decision === "in" && (
-          <div className="absolute inset-x-0 z-20 flex justify-center px-3" style={panelStyle}>
+          <PanelSlot short={short} style={panelStyle}>
             <RaidPanel
               compact={compact}
               victimName={party.raidVictim !== null ? seats[party.raidVictim]?.name ?? "" : ""}
@@ -646,19 +687,19 @@ export function Table({ data }: { data: TableData }) {
                 if (give && dummyTake) void run(() => raid({ roundId: round._id, take: dummyTake, give }));
               }}
             />
-          </div>
+          </PanelSlot>
         )}
 
         {/* my seat chip + hand, pinned to the bottom of the felt */}
         {me && (
           <div
             className={`absolute left-2 z-20 flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-xs text-cream-50 ${isMyTurn ? "bg-gold-400/25 ring-2 ring-gold-400" : "bg-black/45"}`}
-            style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}
+            style={{ bottom: short ? 6 : compact || portrait ? handReserve + 10 : 8 }}
           >
-            <div className="relative" style={{ width: avatarSize * 0.8, height: avatarSize * 0.8 }}>
-              <Avatar seed={me.avatarSeed} size={avatarSize * 0.8} className={me.decision === "out" ? "opacity-50 grayscale" : ""} />
+            <div className="relative" style={{ width: myAvatar, height: myAvatar }}>
+              <Avatar seed={me.avatarSeed} size={myAvatar} className={me.decision === "out" ? "opacity-50 grayscale" : ""} />
               {isMyTurn && round?.turnDeadline && (
-                <TimerRing deadline={round.turnDeadline} totalMs={totalTurnMs} size={avatarSize * 0.8} skewMs={skewMs} />
+                <TimerRing deadline={round.turnDeadline} totalMs={totalTurnMs} size={myAvatar} skewMs={skewMs} />
               )}
               {trumpSeatNow === mySeat && (
                 <span
@@ -672,9 +713,10 @@ export function Table({ data }: { data: TableData }) {
                 </span>
               )}
             </div>
-            <div className="leading-tight">
+            <div className={`leading-tight ${short ? "max-w-[9rem] overflow-hidden" : ""}`}>
+              {/* On a short felt the chip's place says who it is. */}
               <div className="flex items-center gap-1.5 font-semibold">
-                {t("common.you")}
+                {!short && t("common.you")}
                 {standIn && (
                   <span
                     className="rounded bg-white/15 px-1 text-[10px] font-semibold text-cream-100/80"
@@ -720,8 +762,8 @@ export function Table({ data }: { data: TableData }) {
           </div>
         )}
 
-        {handShown && !standIn && (
-          <div className="absolute right-2 z-20" style={{ bottom: compact || portrait ? handHeight + 10 : 8 }}>
+        {handShown && !standIn && !short && (
+          <div className="absolute right-2 z-20" style={{ bottom: compact || portrait ? handReserve + 10 : 8 }}>
             <button
               type="button"
               onClick={() => autoPlay.setEnabled(!autoPlay.enabled)}
@@ -737,7 +779,7 @@ export function Table({ data }: { data: TableData }) {
         )}
 
         {POWERUPS_ENABLED && party && me && !standIn && me.decision !== "out" && (phase === "discard" || phase === "tricks") && data.myPowerups.length > 0 && (
-          <div className="absolute right-2 z-20" style={{ bottom: (compact || portrait ? handHeight + 10 : 8) + 40 }}>
+          <div className="absolute right-2 z-20" style={{ bottom: short ? handReserve + 6 : (compact || portrait ? handReserve + 10 : 8) + 40 }}>
             <PowerupTray
               stash={data.myPowerups as Powerup[]}
               targets={seats.filter((s) => s.seat !== mySeat && s.decision !== "out")}
@@ -754,7 +796,7 @@ export function Table({ data }: { data: TableData }) {
             {t("table.youSatOut")} {openBySeat.size > 0 && <span className="text-gold-400">{t("table.watchingHands")}</span>}
           </p>
         ) : mySeat >= 0 && myHand ? (
-          <div className="absolute inset-x-0 z-10" style={{ bottom: -cardWidth * (compact ? 0.14 : 0.3) }}>
+          <div className="absolute inset-x-0 z-10" style={{ bottom: -handOffset }}>
             <HandFan
               hand={myHand as CardT[]}
               deck={game.config.deck}
@@ -791,7 +833,7 @@ export function Table({ data }: { data: TableData }) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 12, opacity: 0 }}
               className="absolute inset-x-0 z-30 flex justify-center px-3"
-              style={{ bottom: handHeight + 8 }}
+              style={short ? { top: 6 } : { bottom: handReserve + 8 }}
               role="alert"
             >
               <button
@@ -815,14 +857,33 @@ export function Table({ data }: { data: TableData }) {
       <Drawer open={drawer === "history"} title={t("tabs.history")} onClose={() => setDrawer(null)}>
         <HistoryView gameId={game._id} />
       </Drawer>
+      <Drawer open={drawer === "menu"} title={t("table.moreMenu")} onClose={() => setDrawer(null)}>
+        <TableMenu
+          gameName={game.name}
+          roundIndex={round ? round.index : null}
+          cap={session ? maxDiscardNow : null}
+          autoPlay={handShown && !standIn ? autoPlay.enabled : null}
+          onAutoPlay={(on) => autoPlay.setEnabled(on)}
+          busy={busy}
+          canEndSitting={canEndSitting}
+          onEndSitting={goEndSitting}
+          canAbandon={canAbandon}
+          isCampaign={isCampaign}
+          onAbandon={goAbandon}
+          onOpen={setDrawer}
+        />
+      </Drawer>
 
       {/* Not before the fifth trick has had its moment on the felt: the result card would
           otherwise cover the card that decided the round before anyone had read it. */}
       {round && phase === "scored" && !display.holding && (
         <div
-          className={`safe-top safe-bottom fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 ${gameOver ? "items-start" : "items-center"}`}
+          className="safe-top safe-bottom fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/55 p-4 short:p-2"
         >
-          <div className={`w-full space-y-3 ${gameOver ? "max-w-3xl" : "max-w-md"}`}>
+          {/* Margins rather than `items-center`: a card taller than a phone on its side can
+              then still be scrolled to its top. On that phone the final standings sit beside
+              the card rather than under it. */}
+          <div className={`w-full ${gameOver ? "mb-auto max-w-3xl space-y-3 short:flex short:max-w-none short:items-start short:gap-3 short:space-y-0" : "m-auto max-w-md space-y-3"}`}>
           <RoundResult
             seats={seats}
             trump={trump}
@@ -837,7 +898,11 @@ export function Table({ data }: { data: TableData }) {
             busy={busy}
           />
           {/* The final round alone does not say how the game went: show the classification. */}
-          {gameOver && <StandingsView gameId={game._id} readOnly />}
+          {gameOver && (
+            <div className="short:min-w-0 short:flex-1">
+              <StandingsView gameId={game._id} readOnly />
+            </div>
+          )}
           </div>
         </div>
       )}

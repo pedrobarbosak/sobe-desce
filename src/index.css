@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* A landscape phone: wide, but with very little height. Pages fold their chrome and use
+   the width instead. */
+@custom-variant short (@media (max-height: 480px));
 
 @theme {
   /* Bundled with the app (see main.tsx), so the first paint never waits on a font server. */
@@ -62,6 +65,8 @@ body {
    page keeps its own edges clear; zero in a desktop browser. */
 .safe-top { padding-top: env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+/* On its side a phone's camera cutout sits at the left or right edge. */
+.safe-x { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 
 :focus-visible { outline: 3px solid var(--color-brass-400); outline-offset: 2px; border-radius: 6px; }
 

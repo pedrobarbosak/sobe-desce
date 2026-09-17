@@ -31,12 +31,12 @@ function GameLayout() {
   const tabCls =
     "rounded-lg px-2.5 py-1 text-xs font-semibold text-cream-100/70 hover:bg-white/10 sm:px-3 sm:py-1.5 sm:text-sm [&.active]:bg-cream-100 [&.active]:text-ink-900";
   return (
-    <div className={onTable ? "space-y-2" : "space-y-4"}>
+    <div className={onTable ? "space-y-2" : "space-y-4 short:space-y-2"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className={onTable ? "flex items-baseline gap-3" : "space-y-1"}>
           {!onTable && <Crumbs trail={[{ label: game.name }]} />}
-          <h1 className={`font-display font-extrabold text-cream-50 ${onTable ? "text-lg" : "text-2xl sm:text-3xl"}`}>{game.name}</h1>
-          <p className="text-sm text-cream-100/60">
+          <h1 className={`font-display font-extrabold text-cream-50 ${onTable ? "text-lg" : "text-2xl sm:text-3xl short:text-lg"}`}>{game.name}</h1>
+          <p className="text-sm text-cream-100/60 short:hidden">
             {t(`modes.${game.mode}`)}, {t(`presets.${game.config.preset}.name`)}, {game.config.deck} {t("new.cards")}
             {variantOf(game.config) === "party" && <span className="ml-2 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">
                 <LuDices className="icon" /> {t("variants.party")}
@@ -46,6 +46,11 @@ function GameLayout() {
         {/* Standings and history are empty until a card has been dealt. */}
         {game.status !== "lobby" && (
         <nav className="flex gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
+          {game.status === "active" && (
+            <Link to="/g/$gameId/table" params={{ gameId }} className={tabCls}>
+              {t("tabs.table")}
+            </Link>
+          )}
           <Link to="/g/$gameId" params={{ gameId }} activeOptions={{ exact: true }} className={tabCls}>
             {t("tabs.lobby")}
           </Link>

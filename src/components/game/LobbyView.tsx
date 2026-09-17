@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { useShortScreen } from "@/hooks/useMediaQuery";
 import type { IconType } from "react-icons";
 import { LuCheck, LuChevronDown, LuChevronUp, LuCoins, LuHand, LuLink, LuPlus, LuShare2, LuTrash2, LuUserX } from "react-icons/lu";
 import { api } from "../../../convex/_generated/api";
@@ -23,6 +24,7 @@ import { Loading } from "@/routes/__root";
  */
 export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; embedded?: boolean }) {
   const { t } = useTranslation();
+  const shortScreen = useShortScreen();
   const navigate = useNavigate();
   const data = useQuery(api.games.get, { gameId });
   // Separate subscription on purpose: heartbeats churn every few seconds, and this keeps
@@ -145,18 +147,19 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
   // Where each block sits: one column in the drawer; on a wide page the roster takes the
   // left, the invite and the rest stack on the right. On a narrow page the order is what
   // the DOM says, and the invite comes first because on a fresh table it is the next step.
+  // A phone on its side is wide enough for the two columns too, drawer or page.
   const cols = {
-    invite: embedded ? "" : "lg:col-start-2 lg:row-start-1",
-    main: embedded ? "space-y-4" : "space-y-4 lg:col-start-1 lg:row-start-1 lg:row-span-2",
-    side: embedded ? "space-y-4" : "space-y-4 lg:col-start-2 lg:row-start-2",
+    invite: `${embedded ? "" : "lg:col-start-2 lg:row-start-1"} short:col-start-2 short:row-start-1`,
+    main: `${embedded ? "space-y-4" : "space-y-4 lg:col-start-1 lg:row-start-1 lg:row-span-2"} short:col-start-1 short:row-start-1 short:row-span-2 short:space-y-3`,
+    side: `${embedded ? "space-y-4" : "space-y-4 lg:col-start-2 lg:row-start-2"} short:col-start-2 short:row-start-2 short:space-y-3`,
   };
 
   return (
-    <div className={embedded ? "grid gap-4" : "grid gap-4 lg:grid-cols-[1fr_20rem] lg:grid-rows-[auto_1fr]"}>
+    <div className={`${embedded ? "grid gap-4" : "grid gap-4 lg:grid-cols-[1fr_20rem] lg:grid-rows-[auto_1fr]"} short:grid-cols-[1fr_17rem] short:grid-rows-[auto_1fr] short:gap-3`}>
       <Panel className={cols.invite}>
         <p className="text-xs font-semibold text-cream-100/60">{t("lobby.inviteCode")}</p>
-        <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-gold-400">{game.code}</p>
-        <p className="mt-2 text-xs text-cream-100/60">{t("lobby.shareHint")}</p>
+        <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-gold-400 short:text-2xl">{game.code}</p>
+        <p className="mt-2 text-xs text-cream-100/60 short:hidden">{t("lobby.shareHint")}</p>
         {isCampaign && !finished && <p className="mt-1 text-xs text-gold-400">{t("lobby.joinAnytime")}</p>}
         <div className="mt-3 flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={() => void copy("code")}>
@@ -177,11 +180,11 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
         {askToPlay && !me.checkedIn && (
           <Panel className="flex flex-wrap items-center justify-between gap-4 border-2 border-gold-400 bg-gold-400/15 shadow-[0_0_40px_rgba(232,184,74,0.25)]">
             <div className="min-w-0 flex-1">
-              <p className="font-display text-2xl font-extrabold text-cream-50">{t("lobby.wantToPlayTitle")}</p>
+              <p className="font-display text-2xl font-extrabold text-cream-50 short:text-lg">{t("lobby.wantToPlayTitle")}</p>
               <p className="mt-1 text-sm text-cream-100/80">{t("lobby.wantToPlayHint")}</p>
             </div>
             <Button
-              className="want-to-play px-8 py-4 text-lg"
+              className="want-to-play px-8 py-4 text-lg short:px-5 short:py-2.5 short:text-base"
               disabled={busy}
               onClick={() => void run(() => setCheckedIn({ gameId, checkedIn: true }))}
             >
@@ -329,7 +332,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                   actions.push({ icon: LuTrash2, label: t("common.remove"), danger: true, onPick: () => void run(() => removePlayer({ gameId, playerId: p._id })) });
                 }
                 return (
-                  <li key={p._id} className="flex flex-wrap items-center gap-3 py-2.5">
+                  <li key={p._id} className="flex flex-wrap items-center gap-3 py-2.5 short:py-1.5">
                     {canArrange && (
                       <div className="flex flex-col -space-y-1">
                         <button
@@ -495,8 +498,12 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
 
       <div className={cols.side}>
         {showHostPanel && (
-          <Panel className="space-y-3">
-            <p className="text-xs font-semibold text-cream-100/60">{t("lobby.hostControls")}</p>
+          <Panel>
+            {/* Folded on a phone on its side: the roster is what the room looks at. */}
+            <details open={!shortScreen} className="space-y-3">
+              <summary className="cursor-pointer list-none text-xs font-semibold text-cream-100/60 [&::-webkit-details-marker]:hidden">
+                {t("lobby.hostControls")} <span className="text-cream-100/40">▾</span>
+              </summary>
             {rosterOpen && (
               <Button variant="ghost" className="w-full" disabled={busy || rosterFull} onClick={() => void run(() => addBot({ gameId }))}>
                 {t("lobby.addBot")}
@@ -553,6 +560,7 @@ export function LobbyView({ gameId, embedded = false }: { gameId: Id<"games">; e
                 </Button>
               </div>
             )}
+            </details>
           </Panel>
         )}
 

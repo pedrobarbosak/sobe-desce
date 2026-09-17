@@ -137,12 +137,12 @@ function NewGame() {
     .join(" · ");
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <h1 className="font-display text-4xl font-extrabold text-cream-50">{t("new.title")}</h1>
+    <div className="mx-auto max-w-3xl space-y-5 short:space-y-3">
+      <h1 className="font-display text-4xl font-extrabold text-cream-50 short:text-2xl">{t("new.title")}</h1>
 
       <Panel>
         <span className="text-xs font-semibold text-cream-100/60">{t("new.preset")}</span>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 short:grid-cols-4">
           {OFFERED_PRESETS.map((id) => (
             <button
               key={id}
@@ -189,7 +189,7 @@ function NewGame() {
           </button>
 
           {showAdvanced && (
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 short:grid-cols-4 short:gap-3">
               <Field
                 label={t("new.variant")}
                 hint={cfg.variant === "party" ? t("new.variantPartyHint", { max: MAX_POWERUPS }) : t("new.variantClassicHint")}

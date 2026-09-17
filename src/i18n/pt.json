@@ -4,6 +4,7 @@
   },
   "nav": {
     "home": "Início",
+    "menu": "Menu",
     "myGames": "As minhas mesas",
     "account": "Conta",
     "rules": "Regras",
@@ -34,6 +35,9 @@
     "saved": "Guardado",
     "remove": "Remover",
     "close": "Fechar",
+    "on": "Ligado",
+    "off": "Desligado",
+    "language": "Idioma",
     "seat": "Lugar",
     "yes": "Sim",
     "no": "Não"
@@ -236,6 +240,7 @@
     "spectating": "A assistir"
   },
   "tabs": {
+    "table": "Mesa",
     "lobby": "Sala",
     "standings": "Classificação",
     "history": "Histórico"
@@ -366,6 +371,7 @@
     "choosingTrump": "{{name}} está a escolher o trunfo…",
     "voting": "{{name}} está a votar…",
     "autoPlay": "Auto",
+    "moreMenu": "Menu",
     "autoPlayHint": "Jogo automático: quando não há nada a decidir, a carta sai sozinha. A única carta possível, ou, quando nenhuma da tua mão ganha a vaza, a que menos custa perder.",
     "voteTrump": "Vota no trunfo",
     "voteHint": "Cada um vota uma vez, à vez e em segredo. O naipe mais votado é o trunfo; em caso de empate, vale o primeiro voto.",

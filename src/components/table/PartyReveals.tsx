@@ -88,9 +88,9 @@ function CoinFace({ icon: Icon, label, size, back = false }: { icon: IconType; l
  * felt. Heads (the hands move) is the front face; the coin spins a few full turns and
  * settles on whichever side actually came up, then the verdict is written out below it.
  */
-export function CoinFlip({ swapped, compact = false }: { swapped: boolean; compact?: boolean }) {
+export function CoinFlip({ swapped, compact = false, short = false }: { swapped: boolean; compact?: boolean; short?: boolean }) {
   const { t } = useTranslation();
-  const size = compact ? 110 : 160;
+  const size = short ? 84 : compact ? 110 : 160;
   const spins = 5;
   const landed = 360 * spins + (swapped ? 0 : 180);
   const flightMs = COIN_FLIGHT_MS;

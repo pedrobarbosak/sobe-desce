@@ -54,13 +54,13 @@ export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games"
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-cream-100/50">
             <tr>
-              <th className="px-4 py-3">#</th>
-              <th className="px-2 py-3">{t("lobby.players")}</th>
-              <th className="px-2 py-3 text-right">{t("standings.score")}</th>
-              <th className="hidden px-2 py-3 text-right sm:table-cell">{t("standings.rounds")}</th>
-              <th className="hidden px-2 py-3 text-right sm:table-cell">{t("standings.sessions")}</th>
-              <th className="px-2 py-3 text-right">{t("standings.lastSession")}</th>
-              <th className="hidden px-4 py-3 md:table-cell">{t("standings.trend")}</th>
+              <th className="px-4 py-3 short:py-1.5">#</th>
+              <th className="px-2 py-3 short:py-1.5">{t("lobby.players")}</th>
+              <th className="px-2 py-3 text-right short:py-1.5">{t("standings.score")}</th>
+              <th className="hidden px-2 py-3 text-right sm:table-cell short:py-1.5">{t("standings.rounds")}</th>
+              <th className="hidden px-2 py-3 text-right sm:table-cell short:py-1.5">{t("standings.sessions")}</th>
+              <th className="px-2 py-3 text-right short:py-1.5">{t("standings.lastSession")}</th>
+              <th className="hidden px-4 py-3 md:table-cell short:table-cell short:py-1.5">{t("standings.trend")}</th>
               {canStrike && <th className="px-2 py-3" />}
             </tr>
           </thead>
@@ -89,7 +89,7 @@ export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games"
                 <td className={`px-2 py-2.5 text-right font-semibold ${p.lastSessionDelta < 0 ? "text-emerald-300" : p.lastSessionDelta > 0 ? "text-heart" : "text-cream-100/40"}`}>
                   {p.lastSessionDelta > 0 ? `+${p.lastSessionDelta}` : p.lastSessionDelta === 0 ? "·" : p.lastSessionDelta}
                 </td>
-                <td className="hidden px-4 py-2.5 md:table-cell">
+                <td className="hidden px-4 py-2.5 md:table-cell short:table-cell short:py-1.5">
                   <Sparkline points={p.trajectory} max={startingPoints} />
                 </td>
                 {canStrike && (
@@ -117,7 +117,7 @@ export function StandingsView({ gameId, readOnly = false }: { gameId: Id<"games"
 
       {session && (
         <Panel className="p-0">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 short:py-2">
             <h2 className="font-display text-lg font-bold text-cream-50">{t("standings.roundsTitle")}</h2>
             {sessions.length > 1 && (
               <div className="flex flex-wrap gap-1">

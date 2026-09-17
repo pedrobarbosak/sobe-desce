@@ -104,9 +104,9 @@ function ManualSession() {
   const numCls = "w-16 rounded-md border border-white/20 bg-black/30 px-2 py-1 text-center text-cream-50 focus:border-gold-400 focus:outline-none";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4 short:space-y-3">
       <div>
-        <h2 className="font-display text-2xl font-bold text-cream-50">{t("manual.title")}</h2>
+        <h2 className="font-display text-2xl font-bold text-cream-50 short:text-lg">{t("manual.title")}</h2>
         <p className="text-sm text-cream-100/70">{t("manual.intro")}</p>
       </div>
 
@@ -174,7 +174,7 @@ function ManualSession() {
                     )}
                   </div>
                 </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 short:grid-cols-4">
                   {seated.map((p) => (
                     <div key={p._id} className="flex items-center justify-between gap-2 text-sm">
                       <span className="truncate text-cream-50">{p.name}</span>

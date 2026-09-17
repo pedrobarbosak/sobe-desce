@@ -14,18 +14,22 @@ type Props = {
   totalMs: number;
   skewMs: number;
   compact?: boolean;
+  /** Rendered inside the top bar (a phone on its side) rather than as a card on the felt. */
+  inBar?: boolean;
 };
 
 /**
  * The "who is doing what" card, parked over the middle of the felt where players are
  * already looking. It replaces the line that used to sit in the top bar, out of sight.
+ * On a phone on its side the felt has no row to spare, so it goes back into the bar,
+ * where the bar has been emptied for it.
  */
-export function TableStatus({ actor, kind, isMe, deadline, totalMs, skewMs, compact }: Props) {
+export function TableStatus({ actor, kind, isMe, deadline, totalMs, skewMs, compact, inBar = false }: Props) {
   const { t } = useTranslation();
   const secondsLeft = useCountdown(isMe ? deadline : null, skewMs);
   if (!actor || !kind) return null;
   const urgent = isMe && secondsLeft !== null && secondsLeft <= 10;
-  const size = compact ? 30 : 38;
+  const size = inBar ? 24 : compact ? 30 : 38;
   const what =
     kind === "trickWon"
       ? t("table.trickWon", { name: actor.name })
@@ -46,6 +50,32 @@ export function TableStatus({ actor, kind, isMe, deadline, totalMs, skewMs, comp
                   : kind === "raid"
                     ? t("table.raiding", { name: actor.name })
                     : t("table.waitingFor", { name: actor.name });
+  const tone = isMe || kind === "trickWon" ? "text-gold-400" : "text-cream-50";
+  const seconds = isMe && secondsLeft !== null && (
+    <span className={`shrink-0 rounded-md px-1.5 py-0.5 font-mono text-xs ${urgent ? "bg-heart text-white" : "bg-gold-400 text-ink-900"}`}>
+      {t("table.timeLeft", { s: secondsLeft })}
+    </span>
+  );
+
+  if (inBar) {
+    return (
+      <motion.div
+        key={`${actor.seat}-${kind}`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`pointer-events-none flex min-w-0 items-center gap-1.5 rounded-full px-1.5 py-0.5 text-xs ${
+          isMe ? `bg-gold-400/20 ${urgent ? "turn-pulse" : ""}` : ""
+        }`}
+      >
+        <div className="relative shrink-0" style={{ width: size, height: size }}>
+          <Avatar seed={actor.avatarSeed} size={size} />
+          {kind !== "trickWon" && deadline && <TimerRing deadline={deadline} totalMs={totalMs} size={size} skewMs={skewMs} />}
+        </div>
+        <span className={`truncate font-semibold ${tone}`}>{what}</span>
+        {seconds}
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -66,12 +96,8 @@ export function TableStatus({ actor, kind, isMe, deadline, totalMs, skewMs, comp
         <Avatar seed={actor.avatarSeed} size={size} />
         {kind !== "trickWon" && deadline && <TimerRing deadline={deadline} totalMs={totalMs} size={size} skewMs={skewMs} />}
       </div>
-      <span className={`whitespace-nowrap font-semibold ${isMe || kind === "trickWon" ? "text-gold-400" : "text-cream-50"}`}>{what}</span>
-      {isMe && secondsLeft !== null && (
-        <span className={`rounded-md px-1.5 py-0.5 font-mono text-xs ${urgent ? "bg-heart text-white" : "bg-gold-400 text-ink-900"}`}>
-          {t("table.timeLeft", { s: secondsLeft })}
-        </span>
-      )}
+      <span className={`whitespace-nowrap font-semibold ${tone}`}>{what}</span>
+      {seconds}
     </motion.div>
   );
 }

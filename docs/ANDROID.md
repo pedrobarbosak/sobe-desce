@@ -133,11 +133,16 @@ Inside the app, the page's own origin is `https://localhost`, which is why
 
 ## What the shell adds
 
-- Portrait only. On its side a phone leaves the felt about 320dp tall, which is not
-  enough for the ring of seats, the trick and a hand; upright it plays well. (Set in the
-  manifest, on the activity.)
-- Edge to edge, with the page keeping its own edges clear of the status bar and the
-  gesture strip (`.safe-top` and `.safe-bottom` in `src/index.css`). Nothing may push the
+- Landscape only, either way round (set in the manifest, on the activity). A card table
+  is wide: upright, a phone cuts seats and panels off the felt, and the smaller the phone
+  the worse it gets. The site follows suit on any window that short: a `short:` Tailwind
+  variant (`max-height: 480px`, in `src/index.css`) and `useShortScreen()` fold the
+  chrome away, the felt itself has a short tier in `useFeltLayout` (the status moves into
+  the bar, everything else into the `⋯` menu), and pages use the width instead.
+- Full screen. On its side a phone has little height to spare, and the status bar and the
+  gesture strip would take a sixth of it, so `MainActivity` hides both; a swipe from the
+  edge shows them for a moment. The page still keeps its edges clear of any cutout
+  (`.safe-top`, `.safe-bottom` and `.safe-x` in `src/index.css`). Nothing may push the
   page wider than the screen: a phone browser answers horizontal overflow by scaling the
   whole layout viewport, and every full-screen surface then runs off the bottom.
 - The back button closes an open drawer, otherwise goes back a page, and at the home page

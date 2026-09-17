@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { LuChevronDown } from "react-icons/lu";
+import { useShortScreen } from "@/hooks/useMediaQuery";
 import { LIGHTNING_SECONDS, TWISTS, type Twist } from "@/engine";
 import { PARTY_TWIST_ICONS } from "@/components/table/partyIcons";
 import { Panel } from "@/components/ui/Panel";
@@ -63,7 +65,7 @@ function PartyEventCatalog() {
         </h3>
         <p className="mt-1 text-sm text-ink-500">{t("party.eventCatalogHint")}</p>
       </div>
-      <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 short:grid-cols-3">
         {TWISTS.map((twist) => {
           const event = partyEventText(twist, tr);
           const Icon = PARTY_TWIST_ICONS[twist];
@@ -95,20 +97,27 @@ function PartyEventCatalog() {
 function RulesPage() {
   const { t, i18n } = useTranslation();
   const rules = i18n.language.startsWith("en") ? EN : PT;
+  // A phone on its side shows three lines at a time: the sections fold to their titles.
+  const short = useShortScreen();
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <h1 className="font-display text-4xl font-extrabold text-cream-50">{t("nav.rules")}</h1>
+    <div className="mx-auto max-w-5xl space-y-4 short:space-y-2">
+      <h1 className="font-display text-4xl font-extrabold text-cream-50 short:text-2xl">{t("nav.rules")}</h1>
       {rules.sections.map((s) => (
         <Panel key={s.h}>
-          <div className={s.partyEvents ? "" : "max-w-3xl"}>
-            <h2 className="font-display text-xl font-bold text-gold-400">{s.h}</h2>
-            <div className="mt-2 space-y-1.5 text-sm text-cream-100/90">
-              {s.p.map((line, i) => (
-                <p key={i}>{line}</p>
-              ))}
+          <details open={!short} className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <h2 className="font-display text-xl font-bold text-gold-400 short:text-base">{s.h}</h2>
+              <LuChevronDown className="icon shrink-0 text-cream-100/50 transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className={s.partyEvents ? "" : "max-w-3xl"}>
+              <div className="mt-2 space-y-1.5 text-sm text-cream-100/90">
+                {s.p.map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
             </div>
-          </div>
-          {s.partyEvents && <PartyEventCatalog />}
+            {s.partyEvents && <PartyEventCatalog />}
+          </details>
         </Panel>
       ))}
     </div>

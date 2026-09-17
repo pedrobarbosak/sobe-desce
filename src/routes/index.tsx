@@ -21,7 +21,7 @@ const HERO_HAND = [
 
 function HeroHand() {
   return (
-    <div className="relative mx-auto h-56 w-[19rem] sm:h-64 sm:w-[22rem]" aria-hidden>
+    <div className="relative mx-auto h-56 w-[19rem] sm:h-64 sm:w-[22rem] short:hidden" aria-hidden>
       {HERO_HAND.map((c, i) => {
         const angle = (i - 2) * 11;
         return (
@@ -92,16 +92,17 @@ function Landing() {
   const liveGames = myGames?.filter((g) => g.status !== "finished") ?? [];
   const finishedGames = myGames?.filter((g) => g.status === "finished") ?? [];
 
+  // A phone on its side: the hero and the games side by side, open tables below.
   return (
-    <div className="space-y-10">
-      <section className="grid items-center gap-8 py-6 sm:py-10 lg:grid-cols-[1.2fr_1fr] lg:gap-4">
+    <div className="space-y-10 short:grid short:grid-cols-[1fr_1.3fr] short:gap-x-6 short:gap-y-4 short:space-y-0">
+      <section className="grid items-center gap-8 py-6 sm:py-10 lg:grid-cols-[1.2fr_1fr] lg:gap-4 short:block short:py-0">
         <div className="max-w-xl">
-          <p className="font-display text-lg italic text-cream-100/80">{t("landing.kicker")}</p>
-          <h1 className="mt-2 font-display text-6xl font-extrabold leading-[0.95] tracking-tight text-cream-50 sm:text-8xl">
+          <p className="font-display text-lg italic text-cream-100/80 short:hidden">{t("landing.kicker")}</p>
+          <h1 className="mt-2 font-display text-6xl font-extrabold leading-[0.95] tracking-tight text-cream-50 sm:text-8xl short:mt-0 short:text-4xl">
             {t("landing.title")}
           </h1>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-cream-100/85 sm:text-lg">{t("landing.subtitle")}</p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <p className="mt-5 max-w-md text-base leading-relaxed text-cream-100/85 sm:text-lg short:hidden">{t("landing.subtitle")}</p>
+          <div className="mt-8 flex flex-wrap items-center gap-3 short:mt-4">
             <Link to="/new">
               <Button className="px-6 py-3 text-base">{t("landing.create")}</Button>
             </Link>
@@ -143,9 +144,9 @@ function Landing() {
         <HeroHand />
       </section>
 
-      <section>
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-display text-2xl font-bold text-cream-50">{t("landing.myGames")}</h2>
+      <section className="short:min-w-0">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 short:mb-2">
+          <h2 className="font-display text-2xl font-bold text-cream-50 short:text-lg">{t("landing.myGames")}</h2>
           {finishedGames.length > 0 && (
             <button
               type="button"
@@ -160,7 +161,7 @@ function Landing() {
         {myGames === undefined ? null : liveGames.length === 0 && !showFinished ? (
           <Panel className="text-sm text-cream-100/70">{t("landing.noMyGames")}</Panel>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 short:grid-cols-1 short:gap-2">
             {liveGames.map((g) => (
               <GameCard key={g.gameId} game={g} />
             ))}
@@ -169,7 +170,7 @@ function Landing() {
         {showFinished && finishedGames.length > 0 && (
           <div className="mt-4">
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-cream-100/50">{t("landing.finishedGames")}</h3>
-            <div className="grid gap-3 opacity-80 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 opacity-80 sm:grid-cols-2 lg:grid-cols-3 short:grid-cols-1 short:gap-2">
               {finishedGames.map((g) => (
                 <GameCard key={g.gameId} game={g} />
               ))}
@@ -178,12 +179,12 @@ function Landing() {
         )}
       </section>
 
-      <section>
-        <h2 className="mb-3 font-display text-2xl font-bold text-cream-50">{t("landing.openTables")}</h2>
+      <section className="short:col-span-2">
+        <h2 className="mb-3 font-display text-2xl font-bold text-cream-50 short:mb-2 short:text-lg">{t("landing.openTables")}</h2>
         {openTables === undefined ? null : openTables.length === 0 ? (
           <Panel className="text-sm text-cream-100/70">{t("landing.noOpenTables")}</Panel>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 short:grid-cols-3">
             {openTables.map((g) => (
               <Panel key={g.gameId} className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">

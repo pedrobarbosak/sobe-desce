@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { LuArrowLeft, LuDices, LuMusic, LuRotateCcw, LuVolume2, LuVolumeX } from "react-icons/lu";
+import { LuArrowLeft, LuDices, LuEllipsis, LuMusic, LuRotateCcw, LuVolume2, LuVolumeX, LuZap } from "react-icons/lu";
 import { SUIT_SYMBOLS, type Suit } from "@/engine";
 import { useSoundSettings } from "@/hooks/useSound";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { type PartyView, type Translate, twistName, twistVars } from "./party";
 
-export type DrawerName = "lobby" | "standings" | "history";
+export type DrawerName = "lobby" | "standings" | "history" | "menu";
 
 type Props = {
   gameName: string;
@@ -31,14 +31,54 @@ type Props = {
   isCampaign: boolean;
   onAbandon: () => void;
   onOpen: (drawer: DrawerName) => void;
+  /**
+   * A phone on its side: the bar keeps the way out, the status (passed as children),
+   * the trump and one menu button; everything else waits in the menu.
+   */
+  short?: boolean;
+  /** Short only: auto-play is on, and a tap here turns it off. */
+  autoPlayOn?: boolean;
+  onAutoPlayOff?: () => void;
+  children?: React.ReactNode;
 };
 
 /** The thin strip above the felt: where we are in the game, and the way out of it. */
-export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, goldenTrump, party, busy, canEndSitting, onEndSitting, canAbandon, isCampaign, onAbandon, onOpen }: Props) {
+export function TableBar({
+  gameName,
+  roundIndex,
+  cap,
+  trump,
+  flipped,
+  dark,
+  goldenTrump,
+  party,
+  busy,
+  canEndSitting,
+  onEndSitting,
+  canAbandon,
+  isCampaign,
+  onAbandon,
+  onOpen,
+  short = false,
+  autoPlayOn = false,
+  onAutoPlayOff,
+  children,
+}: Props) {
   const { t } = useTranslation();
   // Twist names and descriptions are built from dynamic keys, which the typed `t` rejects.
   const tr = t as unknown as Translate;
   const soundSettings = useSoundSettings();
+  const sfxButton = (
+    <button
+      type="button"
+      onClick={() => soundSettings.setSfx(!soundSettings.sfx)}
+      aria-pressed={soundSettings.sfx}
+      title={t("table.sfx")}
+      className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.sfx ? "text-cream-50" : "text-cream-100/40"}`}
+    >
+      {soundSettings.sfx ? <LuVolume2 className="icon" /> : <LuVolumeX className="icon" />}
+    </button>
+  );
   return (
     <div className="flex h-11 shrink-0 items-center gap-2 overflow-hidden whitespace-nowrap border-b border-white/10 bg-black/40 px-2 text-xs text-cream-100/80 sm:gap-3 sm:px-3 sm:text-sm">
       <Link to="/" className="rounded-md px-2 py-1 font-semibold text-gold-400 hover:bg-white/10" aria-label={t("table.home")} title={t("table.home")}>
@@ -53,13 +93,19 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
       >
         <LuArrowLeft className="icon" />
       </button>
-      <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{gameName}</span>
-      {roundIndex !== null && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: roundIndex + 1 })}</span>}
-      {cap !== null && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap })}</span>}
+      {short ? (
+        <div className="flex min-w-0 flex-1 items-center">{children}</div>
+      ) : (
+        <>
+          <span className="hidden max-w-[14rem] truncate font-display font-bold text-cream-50 lg:inline">{gameName}</span>
+          {roundIndex !== null && <span className="whitespace-nowrap font-semibold text-cream-50">{t("table.round", { n: roundIndex + 1 })}</span>}
+          {cap !== null && <span className="hidden whitespace-nowrap lg:inline">{t("table.cap", { cap })}</span>}
+        </>
+      )}
       {trump ? (
-        <span className={`flex items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
+        <span className={`flex shrink-0 items-center gap-1 rounded-md bg-cream-50 px-1.5 py-0.5 font-bold ${trump === "H" || trump === "D" ? "text-heart" : "text-ink-900"}`}>
           <span className="text-base leading-none">{SUIT_SYMBOLS[trump]}</span>
-          <span className="hidden sm:inline">{t(`suits.${trump}`).split(" ")[0]}</span>
+          <span className={short ? "hidden" : "hidden sm:inline"}>{t(`suits.${trump}`).split(" ")[0]}</span>
           {flipped && (
             <span className="rounded bg-ink-900 px-1 text-[10px] text-white" title={t("table.flippedCard")}>
               <LuRotateCcw className="icon" />
@@ -74,73 +120,91 @@ export function TableBar({ gameName, roundIndex, cap, trump, flipped, dark, gold
           {goldenTrump && <span className="rounded bg-gold-400 px-1 text-[10px] font-bold text-ink-900">×2</span>}
         </span>
       ) : (
-        <span className="whitespace-nowrap text-cream-100/50">{t("table.noTrump")}</span>
+        !short && <span className="whitespace-nowrap text-cream-100/50">{t("table.noTrump")}</span>
       )}
       {party && (
         <span
-          className="flex items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
+          className="flex shrink-0 items-center gap-1 rounded-md border border-purple-400/50 bg-purple-900/60 px-1.5 py-0.5 font-semibold text-cream-50"
           title={tr(`party.twists.${party.twist}.desc`, twistVars(party, tr))}
         >
           <LuDices className="icon" />
-          <span className="hidden sm:inline">{twistName(party, tr)}</span>
+          <span className={short ? "hidden" : "hidden sm:inline"}>{twistName(party, tr)}</span>
           {party.twist === "golden" && party.goldenSuit && (
             <span className={`rounded bg-cream-50 px-1 text-[11px] leading-none ${party.goldenSuit === "D" ? "text-heart" : "text-ink-900"}`}>{SUIT_SYMBOLS[party.goldenSuit]}</span>
           )}
         </span>
       )}
-      <nav className="ml-auto flex shrink-0 items-center gap-1">
-        <button type="button" onClick={() => onOpen("lobby")} className="rounded-md px-2 py-1 hover:bg-white/10">
-          {t("tabs.lobby")}
-        </button>
-        <button type="button" onClick={() => onOpen("standings")} className="rounded-md px-2 py-1 hover:bg-white/10">
-          {t("tabs.standings")}
-        </button>
-        <button type="button" onClick={() => onOpen("history")} className="hidden rounded-md px-2 py-1 hover:bg-white/10 sm:inline">
-          {t("tabs.history")}
-        </button>
-        {canEndSitting && (
+      {short ? (
+        <nav className="flex shrink-0 items-center gap-1">
+          {autoPlayOn && (
+            <button
+              type="button"
+              onClick={onAutoPlayOff}
+              aria-pressed
+              title={t("table.autoPlayHint")}
+              className="rounded-md px-2 py-1 text-gold-400 hover:bg-white/10"
+            >
+              <LuZap className="icon" />
+            </button>
+          )}
+          {sfxButton}
           <button
             type="button"
-            onClick={onEndSitting}
-            disabled={busy}
-            className="hidden rounded-md px-2 py-1 text-cream-100/70 hover:bg-white/10 hover:text-gold-400 lg:inline"
+            onClick={() => onOpen("menu")}
+            className="rounded-md px-2 py-1 text-cream-50 hover:bg-white/10"
+            aria-label={t("table.moreMenu")}
+            title={t("table.moreMenu")}
           >
-            {t("table.endSession")}
+            <LuEllipsis className="icon" />
           </button>
-        )}
-        {canAbandon && (
+        </nav>
+      ) : (
+        <nav className="ml-auto flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => onOpen("lobby")} className="rounded-md px-2 py-1 hover:bg-white/10">
+            {t("tabs.lobby")}
+          </button>
+          <button type="button" onClick={() => onOpen("standings")} className="rounded-md px-2 py-1 hover:bg-white/10">
+            {t("tabs.standings")}
+          </button>
+          <button type="button" onClick={() => onOpen("history")} className="hidden rounded-md px-2 py-1 hover:bg-white/10 sm:inline">
+            {t("tabs.history")}
+          </button>
+          {canEndSitting && (
+            <button
+              type="button"
+              onClick={onEndSitting}
+              disabled={busy}
+              className="hidden rounded-md px-2 py-1 text-cream-100/70 hover:bg-white/10 hover:text-gold-400 lg:inline"
+            >
+              {t("table.endSession")}
+            </button>
+          )}
+          {canAbandon && (
+            <button
+              type="button"
+              onClick={onAbandon}
+              disabled={busy}
+              className="hidden rounded-md px-2 py-1 text-cream-100/60 hover:bg-white/10 hover:text-heart lg:inline"
+            >
+              {t(isCampaign ? "table.abandonCampaign" : "table.abandon")}
+            </button>
+          )}
+          {sfxButton}
           <button
             type="button"
-            onClick={onAbandon}
-            disabled={busy}
-            className="hidden rounded-md px-2 py-1 text-cream-100/60 hover:bg-white/10 hover:text-heart lg:inline"
+            onClick={() => soundSettings.setMusic(!soundSettings.music)}
+            aria-pressed={soundSettings.music}
+            title={t("table.music")}
+            className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.music ? "text-cream-50" : "text-cream-100/40"}`}
           >
-            {t(isCampaign ? "table.abandonCampaign" : "table.abandon")}
+            <LuMusic className="icon" />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => soundSettings.setSfx(!soundSettings.sfx)}
-          aria-pressed={soundSettings.sfx}
-          title={t("table.sfx")}
-          className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.sfx ? "text-cream-50" : "text-cream-100/40"}`}
-        >
-          {soundSettings.sfx ? <LuVolume2 className="icon" /> : <LuVolumeX className="icon" />}
-        </button>
-        <button
-          type="button"
-          onClick={() => soundSettings.setMusic(!soundSettings.music)}
-          aria-pressed={soundSettings.music}
-          title={t("table.music")}
-          className={`rounded-md px-2 py-1 hover:bg-white/10 ${soundSettings.music ? "text-cream-50" : "text-cream-100/40"}`}
-        >
-          <LuMusic className="icon" />
-        </button>
-        {/* Off the bar on a phone: the language is a home-page setting, and the bar has no room. */}
-        <div className="hidden sm:block">
-          <LanguageToggle />
-        </div>
-      </nav>
+          {/* Off the bar on a phone: the language is a home-page setting, and the bar has no room. */}
+          <div className="hidden sm:block">
+            <LanguageToggle />
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

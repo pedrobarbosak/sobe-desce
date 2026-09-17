@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
+import { useShortScreen } from "@/hooks/useMediaQuery";
 import { LuDices, LuImage, LuMail, LuPalette } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
 import { authClient, signInCallback, signInWithProvider } from "@/lib/auth-client";
@@ -35,6 +36,7 @@ function MicrosoftLogo() {
 
 function AccountPage() {
   const { t } = useTranslation();
+  const shortScreen = useShortScreen();
   const me = useQuery(api.users.me);
   const update = useMutation(api.users.updateProfile);
   const [name, setName] = useState<string | null>(null);
@@ -92,21 +94,21 @@ function AccountPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <div className="space-y-2">
+    <div className="mx-auto max-w-2xl space-y-5 short:grid short:max-w-none short:grid-cols-2 short:items-start short:gap-4 short:space-y-0">
+      <div className="space-y-2 short:col-span-2 short:space-y-1">
         <Crumbs trail={[{ label: t("nav.account") }]} />
-        <h1 className="font-display text-4xl font-extrabold text-cream-50">{t("account.title")}</h1>
+        <h1 className="font-display text-4xl font-extrabold text-cream-50 short:text-2xl">{t("account.title")}</h1>
       </div>
 
       {me.isAnonymous && (
-        <Panel className="border-gold-400/40">
+        <Panel className="border-gold-400/40 short:col-span-2">
           <p className="text-sm text-cream-100/90">{t("account.anonymousBanner")}</p>
         </Panel>
       )}
 
       <Panel className="space-y-4">
         <div className="flex flex-wrap items-center gap-4">
-          <Avatar seed={me.avatarSeed} size={88} />
+          <Avatar seed={me.avatarSeed} size={shortScreen ? 56 : 88} />
           <div className="min-w-0 flex-1 space-y-2">
             <label className="block text-xs font-semibold text-cream-100/60">{t("account.name")}</label>
             <input
@@ -139,8 +141,8 @@ function AccountPage() {
               <p className="text-xs font-semibold text-cream-100/60">{t("account.iconTitle")}</p>
               <p className="mt-0.5 text-xs text-cream-100/50">{t("account.iconHint")}</p>
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2">
-              <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-9">
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 short:max-h-36">
+              <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-9 short:grid-cols-8">
                 {ANIMALS.map((a, i) => (
                   <button
                     key={a.name}
@@ -169,7 +171,7 @@ function AccountPage() {
                     aria-label={c.name}
                     aria-pressed={i === colourIndex}
                     onClick={() => void chooseColour(i)}
-                    className={`h-8 w-8 rounded-full transition hover:scale-110 ${
+                    className={`h-8 w-8 rounded-full transition hover:scale-110 short:h-6 short:w-6 ${
                       i === colourIndex ? "ring-2 ring-gold-400 ring-offset-2 ring-offset-felt-900" : "ring-1 ring-white/20"
                     }`}
                     style={{ background: `hsl(${c.hue} ${c.sat}% ${c.light}%)` }}
@@ -238,7 +240,7 @@ function AccountPage() {
 
       {!me.isAnonymous && (
         <>
-          <Panel className="border-felt-600">
+          <Panel className="border-felt-600 short:col-span-2">
             <SignedInWith />
           </Panel>
           <Button

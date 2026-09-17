@@ -1,7 +1,10 @@
 /** Seat placement around an ellipse. The viewer always sits at the bottom (6 o'clock). */
 export type Ellipse = { cx: number; cy: number; rx: number; ry: number };
+/** How far out from the centre played cards land, as fractions of the ellipse's radii. */
+export type TrickSpread = { x: number; y: number };
 
 export const DEFAULT_ELLIPSE: Ellipse = { cx: 50, cy: 47, rx: 43, ry: 38 };
+export const DEFAULT_SPREAD: TrickSpread = { x: 0.36, y: 0.4 };
 
 export function seatAngle(rel: number, n: number): number {
   return Math.PI / 2 + (rel * 2 * Math.PI) / n;
@@ -13,11 +16,11 @@ export function seatPosition(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPS
 }
 
 /** Where a played card lands: between the centre and the seat. */
-export function trickSlot(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPSE) {
+export function trickSlot(rel: number, n: number, e: Ellipse = DEFAULT_ELLIPSE, spread: TrickSpread = DEFAULT_SPREAD) {
   const a = seatAngle(rel, n);
   return {
-    x: e.cx + e.rx * 0.36 * Math.cos(a),
-    y: e.cy + e.ry * 0.4 * Math.sin(a),
+    x: e.cx + e.rx * spread.x * Math.cos(a),
+    y: e.cy + e.ry * spread.y * Math.sin(a),
     rotate: ((a - Math.PI / 2) * 180) / Math.PI,
   };
 }
@@ -39,7 +42,7 @@ export function ringLayout(seatCount: number, inRing: (seat: number) => boolean)
  * belongs to the viewer. (An odd ring still puts someone at 12 o'clock, which is why the
  * table moves its status card to the bottom for these viewers.)
  */
-export function ringPlacer(layout: number[], mySeat: number, e: Ellipse = DEFAULT_ELLIPSE) {
+export function ringPlacer(layout: number[], mySeat: number, e: Ellipse = DEFAULT_ELLIPSE, spread: TrickSpread = DEFAULT_SPREAD) {
   const n = Math.max(1, layout.length);
   const myIdx = layout.indexOf(mySeat);
   const anchorIdx = Math.max(0, myIdx);
@@ -52,6 +55,6 @@ export function ringPlacer(layout: number[], mySeat: number, e: Ellipse = DEFAUL
     n,
     rel,
     seat: (seat: number) => seatPosition(rel(seat), n, e),
-    slot: (seat: number) => trickSlot(rel(seat), n, e),
+    slot: (seat: number) => trickSlot(rel(seat), n, e, spread),
   };
 }

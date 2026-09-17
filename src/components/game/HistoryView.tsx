@@ -35,7 +35,7 @@ export function HistoryView({ gameId }: { gameId: Id<"games"> }) {
     <div className="space-y-3">
       {sessions.map((s) => (
         <Panel key={s._id} className="p-0">
-          <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left" onClick={() => setOpen(open === s._id ? null : s._id)}>
+          <button type="button" className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left short:py-2" onClick={() => setOpen(open === s._id ? null : s._id)}>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display text-lg font-bold text-cream-50">{t("history.session", { n: s.index + 1 })}</span>

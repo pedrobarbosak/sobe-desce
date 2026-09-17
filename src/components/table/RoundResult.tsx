@@ -38,7 +38,7 @@ export function RoundResult({
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="mx-auto w-full max-w-md rounded-2xl border border-gold-400/50 bg-black/75 p-5 text-center shadow-2xl"
+      className={`mx-auto w-full rounded-2xl border border-gold-400/50 bg-black/75 p-5 text-center shadow-2xl short:p-3 ${gameOver ? "max-w-md short:max-w-[19rem] short:shrink-0" : "max-w-md"}`}
     >
       <p className="text-xs uppercase tracking-widest text-gold-400">{gameOver ? t("table.gameOver") : t("table.roundOver")}</p>
       {gameOver && winnerName && <p className="mt-1 font-display text-2xl font-bold text-cream-50">{t("table.winner", { name: winnerName })}</p>}
@@ -72,9 +72,9 @@ export function RoundResult({
       )}
       {/* At the end of the game the classification below says this and more. */}
       {!gameOver && (
-        <ul className="mt-3 divide-y divide-white/10">
+        <ul className="mt-3 divide-y divide-white/10 short:grid short:grid-cols-2 short:gap-x-4 short:divide-y-0">
           {ordered.map((s) => (
-            <li key={s.seat} className="flex items-center gap-3 py-2 text-sm">
+            <li key={s.seat} className="flex items-center gap-3 py-2 text-sm short:py-1">
               <span className={`flex-1 truncate text-left ${s.isMe ? "font-semibold text-gold-400" : "text-cream-50"}`}>{s.isMe ? t("common.you") : s.name}</span>
               <span className="text-cream-100/60">
                 {s.decision === "out" ? "–" : `${s.tricksWon} ${t("table.tricks")}${s.tricksWon === 0 ? ` · ${t("table.blank")}` : ""}`}

@@ -7,15 +7,15 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <!-- Portrait only. A phone on its side leaves the felt about 320dp tall, which is not
-             enough for the ring of seats, the trick and a hand; upright it plays well. -->
+        <!-- Landscape only, either way round. A card table is wide: upright, a phone cuts
+             seats and panels off the felt, and the smaller the phone the worse it gets. -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
+            android:screenOrientation="sensorLandscape"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

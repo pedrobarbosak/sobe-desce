@@ -16,6 +16,7 @@ export function DarkCall({
   onCall,
   onSkip,
   compact = false,
+  short = false,
 }: {
   deadline: number;
   skewMs: number;
@@ -23,6 +24,8 @@ export function DarkCall({
   onCall: () => void;
   onSkip: () => void;
   compact?: boolean;
+  /** A phone on its side: the box above the hand is about 180px tall. */
+  short?: boolean;
 }) {
   const { t } = useTranslation();
   const [left, setLeft] = useState(() => Math.max(0, Math.ceil((deadline - (Date.now() + skewMs)) / 1000)));
@@ -44,18 +47,20 @@ export function DarkCall({
     <motion.div
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className={`rounded-3xl border-2 border-heart/70 bg-black/85 text-center shadow-2xl backdrop-blur ${compact ? "p-4" : "p-6"}`}
+      className={`rounded-3xl border-2 border-heart/70 bg-black/85 text-center shadow-2xl backdrop-blur ${short ? "p-3" : compact ? "p-4" : "p-6"}`}
     >
-      <div className="flex items-center justify-center gap-3">
-        {[0, 1, 2].map((i) => (
-          <CardBack key={i} width={compact ? 30 : 40} style={{ transform: `rotate(${(i - 1) * 7}deg)` }} />
-        ))}
-      </div>
-      <p className={`mt-3 font-display font-extrabold text-cream-50 ${compact ? "text-xl" : "text-3xl"}`}>
+      {!short && (
+        <div className="flex items-center justify-center gap-3">
+          {[0, 1, 2].map((i) => (
+            <CardBack key={i} width={compact ? 30 : 40} style={{ transform: `rotate(${(i - 1) * 7}deg)` }} />
+          ))}
+        </div>
+      )}
+      <p className={`font-display font-extrabold text-cream-50 ${short ? "text-base" : compact ? "mt-3 text-xl" : "mt-3 text-3xl"}`}>
         <span className="text-heart">{SUIT_SYMBOLS.H}</span> {t("table.darkTitle")}
       </p>
-      <p className={`mx-auto mt-2 max-w-sm text-cream-100/80 ${compact ? "text-xs" : "text-sm"}`}>{t("table.darkHint")}</p>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+      <p className={`mx-auto max-w-sm text-cream-100/80 ${short ? "mt-1 text-[11px]" : compact ? "mt-2 text-xs" : "mt-2 text-sm"}`}>{t("table.darkHint")}</p>
+      <div className={`flex flex-wrap items-center justify-center gap-2 ${short ? "mt-2" : "mt-4"}`}>
         <Button variant="danger" disabled={busy || left <= 0} onClick={onCall} className={compact ? "" : "px-6 py-3 text-base"}>
           {t("table.darkHearts")} <span className="ml-1 rounded bg-black/30 px-1.5 font-mono">×4</span>
         </Button>
@@ -63,7 +68,7 @@ export function DarkCall({
           {t("table.darkSkip")}
         </Button>
       </div>
-      <div className="mt-3">
+      <div className={short ? "mt-2" : "mt-3"}>
         <p className="text-xs text-cream-100/60">{t("table.darkWait", { s: left })}</p>
         <div className="mx-auto mt-1.5 h-1 w-40 overflow-hidden rounded-full bg-white/15">
           {barSeconds !== null && (

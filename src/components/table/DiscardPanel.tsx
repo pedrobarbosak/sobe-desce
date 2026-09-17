@@ -19,6 +19,7 @@ export function DiscardPanel({
   onDiscard,
   onSitOut,
   compact = false,
+  short = false,
   prepare = false,
   pending = null,
   onClear,
@@ -29,6 +30,8 @@ export function DiscardPanel({
   /** The viewer flipped for the trump, so the round has not committed them. */
   youFlipped?: boolean;
   compact?: boolean;
+  /** A phone on its side: tighter still. */
+  short?: boolean;
   selectedCount: number;
   sitOutBlock: SitOutBlock | null;
   threshold: number;
@@ -41,7 +44,7 @@ export function DiscardPanel({
   onClear?: () => void;
 }) {
   const { t } = useTranslation();
-  const box = `rounded-2xl border bg-black/70 text-center backdrop-blur ${compact ? "p-3" : "p-4"} ${
+  const box = `rounded-2xl border bg-black/70 text-center backdrop-blur ${short ? "p-2.5" : compact ? "p-3" : "p-4"} ${
     prepare ? "border-white/20" : "border-gold-400/50"
   }`;
 
@@ -73,8 +76,8 @@ export function DiscardPanel({
       ) : (
         <TrumpBig trump={trump} flipped={flipped} compact={compact} />
       )}
-      <p className={`text-cream-50 ${compact ? "mt-2 text-xs" : "mt-3 text-sm"}`}>{cap > 0 ? t("table.yourDiscard", { cap }) : t("table.noDiscards")}</p>
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
+      <p className={`text-cream-50 ${short ? "mt-1 text-xs" : compact ? "mt-2 text-xs" : "mt-3 text-sm"}`}>{cap > 0 ? t("table.yourDiscard", { cap }) : t("table.noDiscards")}</p>
+      <div className={`flex flex-wrap justify-center gap-2 ${short ? "mt-2" : "mt-3"}`}>
         <Button disabled={busy || selectedCount > cap} onClick={onDiscard}>
           {selectedCount > 0 ? t("table.discardN", { count: selectedCount }) : cap > 0 ? t("table.keepAll") : t("table.playAsDealt")}
         </Button>

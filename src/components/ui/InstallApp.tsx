@@ -49,12 +49,12 @@ export function InstallAppBanner() {
     setUrl(null);
   };
   return (
-    <Panel className="mb-4 flex flex-col gap-3 border-gold-400/40 sm:flex-row sm:items-center">
+    <Panel className="mb-4 flex flex-col gap-3 border-gold-400/40 sm:flex-row sm:items-center short:mb-2 short:gap-2">
       <div className="min-w-0 flex-1">
-        <p className="font-display text-lg font-bold text-cream-50">
+        <p className="font-display text-lg font-bold text-cream-50 short:text-base">
           <LuSmartphone className="icon" /> {t("install.title")}
         </p>
-        <p className="mt-0.5 text-xs text-cream-100/70">{t("install.hint")}</p>
+        <p className="mt-0.5 text-xs text-cream-100/70 short:hidden">{t("install.hint")}</p>
       </div>
       <div className="flex gap-2">
         <a
