@@ -108,13 +108,27 @@ export const TWISTS: readonly Twist[] = [
   "communism",
 ];
 
+/** Chaos mode: the twists that move cards between hands, the table or the tricks. */
+export const CARD_TWISTS: readonly Twist[] = ["pass", "swap", "carousel", "dummy", "communism", "musicalTricks"];
+/** Chaos mode: the twists that turn the usual rules or the results upside down. */
+export const WILD_TWISTS: readonly Twist[] = ["freeForAll", "mirror", "robinHood", "nemesis", "blindLead", "wildRank", "markedCard", "desce"];
+const CHAOS_WEIGHT = { card: 6, wild: 3, calm: 1 };
+
+/** How often a twist comes up relative to the others: all alike, unless the table is in chaos. */
+export function twistWeight(twist: Twist, chaos: boolean): number {
+  if (!chaos) return 1;
+  if (CARD_TWISTS.includes(twist)) return CHAOS_WEIGHT.card;
+  if (WILD_TWISTS.includes(twist)) return CHAOS_WEIGHT.wild;
+  return CHAOS_WEIGHT.calm;
+}
+
 export const LIGHTNING_SECONDS = 8;
 export const LAST_TRICK_WEIGHT = 5;
 export const MAX_PASS_COUNT = 2;
 export const DUMMY_SIZE = 7;
 export const PASS_DIRECTIONS: readonly PassDirection[] = ["left", "right", "across"];
-/** What taking the trick with the marked card costs. */
-export const MARKED_CARD_POINTS = 3;
+/** What taking the trick with the marked card costs, before the trump's multiplier. */
+export const MARKED_CARD_POINTS = 5;
 /** The most cards a raid shows. */
 export const MAX_RAID_CARDS = 3;
 
@@ -211,6 +225,17 @@ function pick<T>(items: readonly T[], rng: Rng): T {
   return items[Math.floor(rng() * items.length)]!;
 }
 
+/** One draw, like `pick`, but each item counts `weight` times. */
+function pickWeighted<T>(items: readonly T[], weight: (item: T) => number, rng: Rng): T {
+  const total = items.reduce((sum, item) => sum + weight(item), 0);
+  let roll = rng() * total;
+  for (const item of items) {
+    roll -= weight(item);
+    if (roll < 0) return item;
+  }
+  return items[items.length - 1]!;
+}
+
 function shuffledSeats(seatCount: number, rng: Rng): number[] {
   const order = Array.from({ length: seatCount }, (_, i) => i);
   for (let i = order.length - 1; i > 0; i--) {
@@ -254,13 +279,15 @@ export function createPartyState(
   drawPile: readonly Card[] = [],
   /** The last few twists dealt, kept out of the draw so the weather keeps changing. */
   recentTwists: readonly Twist[] = [],
+  /** Chaos mode: the card-moving and rule-breaking twists come up far more often. */
+  chaos = false,
 ): PartyState {
   // Guardian and team want an even table; recent twists are not dealt again just yet.
   const pairs = seatCount % 2 === 0;
   const pool = TWISTS.filter(
     (t) => t !== previousTwist && !recentTwists.includes(t) && ((t !== "guardian" && t !== "team") || pairs),
   );
-  const twist = pick(pool.length > 0 ? pool : TWISTS, rng);
+  const twist = pickWeighted(pool.length > 0 ? pool : TWISTS, (t) => twistWeight(t, chaos), rng);
   // Hearts already doubles on its own; a golden hearts would change nothing. The Ace is
   // already the top card, so a wild Ace would change nothing either.
   const goldenSuit = twist === "golden" ? pick(SUITS.filter((s) => s !== "H"), rng) : null;
@@ -282,9 +309,10 @@ export function createPartyState(
   const seats = <T,>(make: () => T) => Array.from({ length: seatCount }, make);
   // Pass: the slots that will go, two distinct ones per seat, however many the twist takes.
   const passIndex = twist === "pass" ? seats(() => shuffledSeats(HAND_SIZE, rng).slice(0, MAX_PASS_COUNT)) : [];
-  // Communism: whom each seat raids (never itself), which slots it is shown, and how many.
+  // Communism: whom each seat raids, which slots it is shown, and how many. The targets are
+  // one big cycle in a random order, so nobody raids themselves and nobody is raided twice.
   const raiding = twist === "communism";
-  const raidTarget = raiding ? Array.from({ length: seatCount }, (_, seat) => (seat + 1 + Math.floor(rng() * (seatCount - 1))) % seatCount) : [];
+  const raidTarget = raiding ? guardianCycle(seatCount, rng) : [];
   const raidSlots = raiding ? seats(() => shuffledSeats(HAND_SIZE, rng).slice(0, MAX_RAID_CARDS)) : [];
   const raidCount = raiding ? seats(() => 1 + Math.floor(rng() * MAX_RAID_CARDS)) : [];
   return {
@@ -498,10 +526,10 @@ export function partyDeltas(input: PartyScoreInput): number[] {
     if (party.twist === "inverted") delta = -delta;
     return delta + (party.curses[r.seat] ?? 0) * CURSE_POINTS;
   });
-  // The bomb: whoever took the trick with the marked card pays for it.
+  // The bomb: whoever took the trick with the marked card pays for it, doubled under hearts.
   if (party.markedCard) {
     const bomb = input.completedTricks.find((t) => t.plays.some((p) => p.card === party.markedCard));
-    if (bomb) own[bomb.winner] = (own[bomb.winner] ?? 0) + MARKED_CARD_POINTS;
+    if (bomb) own[bomb.winner] = (own[bomb.winner] ?? 0) + markedCardPoints(trump, darkHearts);
   }
   // Results only move onto seats that played: sitting out takes nothing, whoever it is tied to.
   const played = (seat: number) => results[seat]!.participated;
@@ -529,6 +557,11 @@ export function partyDeltas(input: PartyScoreInput): number[] {
     }
   }
   return own;
+}
+
+/** What the marked card's trick costs under this trump: the round's multiplier applies. */
+export function markedCardPoints(trump: Suit | null, darkHearts = false): number {
+  return MARKED_CARD_POINTS * scoreMultiplier(trump, darkHearts);
 }
 
 /**
@@ -610,11 +643,19 @@ export function offeredCards(hand: readonly Card[], slots: readonly number[], co
 }
 
 /**
- * Communism: whom `seat` raids. The drawn target, or failing that the next seat still in
- * the round clockwise from it. Never the raider, and null when nobody else is playing.
+ * Communism: whom `seat` raids. The targets form one cycle, so a seat that sat out is
+ * skipped by following the cycle on to its own target: the seats still in then form a
+ * smaller cycle and each is still raided exactly once. Never the raider, and null when
+ * nobody else is playing. A round drawn before the cycle falls back to the next seat
+ * still in clockwise from its target.
  */
 export function raidVictim(p: Pick<PartyState, "raidTarget">, seat: number, playing: readonly number[], seatCount: number): number | null {
   if (seatCount < 2) return null;
+  let next = p.raidTarget[seat];
+  for (let i = 0; i < seatCount && next !== undefined && next !== seat; i++) {
+    if (playing.includes(next)) return next;
+    next = p.raidTarget[next];
+  }
   let target = p.raidTarget[seat] ?? (seat + 1) % seatCount;
   for (let i = 0; i < seatCount; i++) {
     if (target !== seat && playing.includes(target)) return target;

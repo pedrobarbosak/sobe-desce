@@ -25,6 +25,8 @@ export type GameConfig = {
   blankPenalty: number;
   /** Per-turn timer; on expiry the lowest legal card is auto-played. */
   turnSeconds: number;
+  /** Party only: the twists that move cards and upset the round come up far more often. */
+  chaos?: boolean;
 };
 
 /** Stored configs from before the party variant have no `variant`; they are classic. */
@@ -100,6 +102,7 @@ export function configFromPreset(preset: PresetId, overrides: Partial<GameConfig
     seats,
     blankPenalty: overrides.blankPenalty ?? DEFAULT_BLANK_PENALTY,
     turnSeconds: overrides.turnSeconds ?? DEFAULT_TURN_SECONDS,
+    chaos: overrides.chaos ?? false,
   };
 }
 

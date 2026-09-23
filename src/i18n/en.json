@@ -152,6 +152,8 @@
     "summaryTurn": "{{seconds}} s per turn",
     "variant": "Rules",
     "variantClassicHint": "The classic rules, nothing added.",
+    "chaos": "Chaos mode",
+    "chaosHint": "The twists that move cards around (passing, swapping hands, the carousel, the spare hand, communism, musical tricks) come up far more often, followed by the ones that break the rules.",
     "variantPartyHint": "Every round flips a public twist: low card wins, no trump, pass cards round, swap hands, a secret guardian, a wild rank, a market in the middle and more. Shorter, louder games."
   },
   "join": {
@@ -601,7 +603,8 @@
   },
   "variants": {
     "classic": "Classic",
-    "party": "Party"
+    "party": "Party",
+    "chaos": "Chaos"
   },
   "party": {
     "twist": "Twist",
@@ -675,7 +678,7 @@
       },
       "dummy": {
         "name": "Spare hand",
-        "desc": "Up to seven extra cards are revealed. Each active player may swap one card with one of them, or skip. The player with the most points goes first."
+        "desc": "Up to seven extra cards are revealed, plus every trump nobody in the round is holding. Each active player may swap one card with one of them, or skip. The player with the most points goes first."
       },
       "faceUp": {
         "name": "Revealed card",
@@ -707,7 +710,7 @@
       },
       "markedCard": {
         "name": "Marked card: {{card}}",
-        "desc": "One dealt card is announced. Whoever takes the trick that holds the {{card}} pays {{points}} points on top. It stays where it was dealt: it cannot be discarded, and its holder cannot sit out."
+        "desc": "One dealt card is announced. Whoever takes the trick that holds the {{card}} pays {{points}} points on top, doubled when hearts are trump (fourfold on hearts in the dark). It stays where it was dealt: it cannot be discarded, and its holder cannot sit out."
       },
       "fog": {
         "name": "Fog",
@@ -719,7 +722,7 @@
       },
       "communism": {
         "name": "Communism",
-        "desc": "What is yours is mine. After the discards, each player in turn is shown one to three random cards of a random player, takes one, and hands one of their own back face down."
+        "desc": "What is yours is mine. After the discards, each player in turn is shown one to three random cards of another player, takes one, and hands one of their own back face down. The targets go round in a random circle: nobody is raided twice."
       },
       "voteTrump": {
         "name": "Vote for trump",

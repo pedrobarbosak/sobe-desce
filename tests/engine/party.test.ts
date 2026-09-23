@@ -5,6 +5,7 @@ import {
   type RoundContext,
   type RoundState,
   type Twist,
+  CARD_TWISTS,
   CLASSIC_RULES,
   LAST_TRICK_WEIGHT,
   LIGHTNING_SECONDS,
@@ -12,6 +13,8 @@ import {
   TWISTS,
   applyAction,
   autoPlay,
+  buildDeck,
+  suitOf,
   awardPowerups,
   chooseAction,
   choosePowerup,
@@ -122,6 +125,19 @@ describe("party rounds", () => {
       const s = createRound({ deck: 40, seatCount: 4, dealerSeat: 0, maxDiscard: 5, blankPenalty: 5, seed: String(i), variant: "party", recentTwists: recent });
       expect(recent).not.toContain(s.party!.twist);
     }
+  });
+
+  it("chaos mode deals the card-moving twists far more often, and every twist can still come up", () => {
+    const draw = (chaos: boolean) =>
+      Array.from({ length: 2000 }, (_, i) => createRound({ deck: 40, seatCount: 4, dealerSeat: 0, maxDiscard: 5, blankPenalty: 5, seed: String(i), variant: "party", chaos }).party!.twist);
+    const share = (twists: Twist[]) => twists.filter((t) => CARD_TWISTS.includes(t)).length / twists.length;
+    const calm = draw(false);
+    const wild = draw(true);
+    expect(share(calm)).toBeLessThan(0.3);
+    expect(share(wild)).toBeGreaterThan(0.45);
+    for (const twist of TWISTS) expect(wild).toContain(twist);
+    // Off, the draw is the same one it always was: an old seed deals the same twist.
+    expect(calm).toEqual(Array.from({ length: 2000 }, (_, i) => make(i).party!.twist));
   });
 
   it("shelved twists keep their rules but are never drawn", () => {
@@ -343,8 +359,16 @@ describe("dummy", () => {
     for (const seat of [1, 2, 3]) s = step(s, { type: "discard", seat, cards: [] });
     s = step(s, { type: "sitOut", seat: 0 });
     expect(s.phase).toBe("dummy");
-    expect(s.party!.dummy).toHaveLength(7);
-    expect(s.drawPile).toHaveLength(40 - 20 - 7);
+    // Every spade not held by seats 1-3 is in the spare hand, topped up to seven from the stock.
+    const held = [1, 2, 3].flatMap((seat) => s.hands[seat]!);
+    const outside = buildDeck(40).filter((c) => suitOf(c) === "S" && !held.includes(c));
+    const size = Math.max(7, outside.length);
+    expect(s.party!.dummy).toHaveLength(size);
+    for (const c of outside) expect(s.party!.dummy).toContain(c);
+    // Each of those cards is now only in the spare hand, and nothing is dealt twice.
+    for (const c of outside) expect([...s.drawPile, ...s.hands[0]!]).not.toContain(c);
+    const everywhere = [...s.hands.flat(), ...s.drawPile, ...s.party!.dummy];
+    expect(new Set(everywhere).size).toBe(everywhere.length);
     expect(s.turnSeat).toBe(1);
     const mine = s.hands[1]![0]!;
     const theirs = s.party!.dummy[0]!;
@@ -355,14 +379,14 @@ describe("dummy", () => {
     expect(s.hands[1]).toContain(theirs);
     expect(s.hands[1]).not.toContain(mine);
     expect(s.party!.dummy).toContain(mine);
-    expect(s.party!.dummy).toHaveLength(7);
+    expect(s.party!.dummy).toHaveLength(size);
     expect(s.turnSeat).toBe(2);
     s = step(s, { type: "dummy", seat: 2 });
     expect(s.turnSeat).toBe(3);
     s = step(s, { type: "dummy", seat: 3 });
-    // Seat 0 sat out, so the tricks start after three goes.
+    // Seat 0 sat out, so the tricks start after three goes. Its folded spades went to the middle.
     expect(s.phase).toBe("tricks");
-    expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
+    expect(s.hands.slice(1).map((h) => h.length)).toEqual([5, 5, 5]);
   });
 
   it("the seat with the most points goes first", () => {
@@ -777,7 +801,7 @@ describe("team, nemesis, mirror, Robin Hood", () => {
 });
 
 describe("marked card, musical tricks, fog, blind lead", () => {
-  it("marked card: drawn from the cards that will be dealt, and its trick costs three more", () => {
+  it("marked card: drawn from the cards that will be dealt, and its trick costs five more, times the trump's multiplier", () => {
     const fresh = make(seedFor("markedCard"));
     const card = fresh.party!.markedCard!;
     // Twelve cards are already out; the next eight off the stock complete the hands.
@@ -786,8 +810,11 @@ describe("marked card, musical tricks, fog, blind lead", () => {
     expect(redact(fresh).party!.markedCard).toBe(card);
     const p = party({ twist: "markedCard", markedCard: "7S" });
     const bomb = { leader: 1, plays: [{ seat: 1, card: "7S" as const }, { seat: 2, card: "AS" as const }], winner: 2 };
-    // Own [-3, 5, -2, 5]: seat 2 took the marked card, so its -2 becomes +1.
-    expect(partyDeltas({ party: p, seats: allIn([3, 0, 2, 0]), completedTricks: [bomb], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([-3, 5, 1, 5]);
+    // Own [-3, 5, -2, 5]: seat 2 took the marked card, so its -2 becomes +3.
+    expect(partyDeltas({ party: p, seats: allIn([3, 0, 2, 0]), completedTricks: [bomb], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([-3, 5, 3, 5]);
+    // Hearts doubles the bomb along with everything else: -4 + 10, and fourfold in the dark: -8 + 20.
+    expect(partyDeltas({ party: p, seats: allIn([3, 0, 2, 0]), completedTricks: [bomb], trump: "H", blankPenalty: 5, darkHearts: false })).toEqual([-6, 10, 6, 10]);
+    expect(partyDeltas({ party: p, seats: allIn([3, 0, 2, 0]), completedTricks: [bomb], trump: "H", blankPenalty: 5, darkHearts: true })).toEqual([-12, 20, 12, 20]);
     // Never played: nothing happens.
     expect(partyDeltas({ party: p, seats: allIn([3, 0, 2, 0]), completedTricks: [], trump: "S", blankPenalty: 5, darkHearts: false })).toEqual([-3, 5, -2, 5]);
 
@@ -863,6 +890,11 @@ describe("communism", () => {
     const fresh = make(seedFor("communism"));
     const p = fresh.party!;
     p.raidTarget.forEach((target, seat) => expect(target).not.toBe(seat));
+    // One cycle through every seat: each is raided exactly once.
+    const walk = [0];
+    while (walk.length < 5) walk.push(p.raidTarget[walk[walk.length - 1]!]!);
+    expect(walk[4]).toBe(0);
+    expect(new Set(walk.slice(0, 4)).size).toBe(4);
     for (const slots of p.raidSlots) {
       expect(slots).toHaveLength(3);
       expect(new Set(slots).size).toBe(3);
@@ -902,19 +934,22 @@ describe("communism", () => {
     }
     expect(s.phase).toBe("tricks");
     expect(s.party!.raids).toHaveLength(4);
+    expect(new Set(s.party!.raids.map((r) => r.target)).size).toBe(4);
     expect(s.hands.map((h) => h.length)).toEqual([5, 5, 5, 5]);
   });
 
-  it("a target that sat out is skipped for the next seat still in, and never the raider", () => {
-    const p = party({ twist: "communism", raidTarget: [2, 0, 3, 0] });
-    // Seat 2 sat out: seat 0's raid lands on seat 3; seat 1 keeps its target.
-    expect(raidVictim(p, 0, [0, 1, 3], 4)).toBe(3);
-    expect(raidVictim(p, 1, [0, 1, 3], 4)).toBe(0);
-    // Seat 3 targets 0, who sat out; next clockwise is 1.
-    expect(raidVictim(p, 3, [1, 2, 3], 4)).toBe(1);
-    // The walk never lands on the raider itself.
-    expect(raidVictim(p, 2, [2, 3], 4)).toBe(3);
+  it("a target that sat out is skipped along the cycle, so nobody is raided twice", () => {
+    // The cycle 0 -> 2 -> 1 -> 3 -> 0.
+    const p = party({ twist: "communism", raidTarget: [2, 3, 1, 0] });
+    // Seat 2 sat out: seat 0 takes over its target, seat 1; seat 1 and seat 3 keep theirs.
+    expect([0, 1, 3].map((seat) => raidVictim(p, seat, [0, 1, 3], 4))).toEqual([1, 3, 0]);
+    // Seats 1 and 3 out: 0 and 2 raid each other.
+    expect([0, 2].map((seat) => raidVictim(p, seat, [0, 2], 4))).toEqual([2, 0]);
+    // Never the raider itself.
     expect(raidVictim(p, 2, [2], 4)).toBeNull();
+    // A round drawn before the cycle still falls back to the next seat still in clockwise.
+    const legacy = party({ twist: "communism", raidTarget: [1, 0, 3, 0] });
+    expect(raidVictim(legacy, 0, [0, 3], 4)).toBe(3);
     // Offers read the hand at the drawn slots, distinct, up to the count.
     expect(offeredCards(["AS", "KS", "QS", "JS", "7S"], [4, 0, 2], 2)).toEqual(["7S", "AS"]);
     expect(offeredCards(["AS", "KS", "QS"], [4, 1, 2], 3)).toEqual(["KS", "QS"]);

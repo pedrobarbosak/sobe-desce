@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useTranslation } from "react-i18next";
-import { LuChevronRight, LuDices } from "react-icons/lu";
+import { LuChevronRight, LuDices, LuTornado } from "react-icons/lu";
 import { api } from "../../convex/_generated/api";
 import {
   MAX_ROSTER,
@@ -126,6 +126,7 @@ function NewGame() {
   // Everything the table will be, in one line, whatever the fold hides.
   const summary = [
     t(`variants.${cfg.variant}`),
+    cfg.variant === "party" && cfg.chaos ? t("variants.chaos") : null,
     t(`modes.${cfg.mode}`),
     `${cfg.deck} ${t("new.cards")}`,
     t("new.summaryPlayers", { max: cfg.seats }),
@@ -173,6 +174,27 @@ function NewGame() {
             </button>
           </div>
         </Field>
+
+        {cfg.variant === "party" && (
+          // A flavour of the party table, not a knob: flipping it keeps the preset.
+          <button
+            type="button"
+            role="switch"
+            aria-checked={cfg.chaos === true}
+            onClick={() => setCfg((prev) => ({ ...prev, chaos: !prev.chaos }))}
+            className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${cfg.chaos ? "border-purple-400/70 bg-purple-500/15" : "border-white/15 hover:bg-white/5"}`}
+          >
+            <span>
+              <span className="text-sm font-semibold text-cream-50">
+                <LuTornado className="icon" /> {t("new.chaos")}
+              </span>
+              <span className="block text-xs text-cream-100/60">{t("new.chaosHint")}</span>
+            </span>
+            <span aria-hidden className={`relative h-6 w-11 shrink-0 rounded-full transition ${cfg.chaos ? "bg-purple-600" : "bg-ink-300"}`}>
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-paper-50 shadow transition-all ${cfg.chaos ? "left-[1.375rem]" : "left-0.5"}`} />
+            </span>
+          </button>
+        )}
 
         <div className="border-t border-white/10 pt-3">
           <button

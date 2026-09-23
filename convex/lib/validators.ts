@@ -26,6 +26,8 @@ export const gameConfig = v.object({
   seats: v.number(),
   blankPenalty: v.number(),
   turnSeconds: v.number(),
+  /** Party only. Absent on games created before chaos mode: off. */
+  chaos: v.optional(v.boolean()),
 });
 
 export const play = v.object({ seat: v.number(), card: v.string() });

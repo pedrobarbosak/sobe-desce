@@ -130,6 +130,8 @@ export type CreateRoundInput = {
   previousTwist?: Twist | null;
   /** Party only: the last few twists, none of which this round will repeat. */
   recentTwists?: readonly Twist[];
+  /** Party only: weight the draw towards the twists that move cards around. */
+  chaos?: boolean;
 };
 
 export function leftOf(seat: number, seatCount: number): number {
@@ -193,7 +195,7 @@ export function createRound(input: CreateRoundInput): RoundState {
     // Drawn after the shuffle so a classic and a party round from one seed deal alike.
     party:
       input.variant === "party"
-        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null, drawPile, input.recentTwists ?? [])
+        ? createPartyState(rng, input.seatCount, input.deck, input.inventory ?? [], input.previousTwist ?? null, drawPile, input.recentTwists ?? [], input.chaos ?? false)
         : null,
   };
   const rules = rulesFor(state);
@@ -251,6 +253,22 @@ function passAtRandom(state: RoundState, players: readonly number[]): void {
     return cards;
   });
   players.forEach((_, i) => state.hands[players[(i + offset) % players.length]!]!.push(...given[i]!));
+}
+
+/**
+ * Party "dummy": every trump that is not in the hands of those still in (left in the stock,
+ * discarded, or folded with a seat that sat out), then the top of the stock up to seven
+ * cards. A big table may have nearly emptied the stock, so it can come up short.
+ */
+function spareHand(state: RoundState, players: readonly number[]): Card[] {
+  const trump = state.trump;
+  const inPlay = new Set(players.flatMap((seat) => state.hands[seat]!));
+  const trumps = trump ? buildDeck(state.deck).filter((c) => suitOf(c) === trump && !inPlay.has(c)) : [];
+  // Nothing may sit in two places: take them out of the stock and the folded hands.
+  state.drawPile = state.drawPile.filter((c) => !trumps.includes(c));
+  state.hands = state.hands.map((h, seat) => (players.includes(seat) ? h : h.filter((c) => !trumps.includes(c))));
+  const fill = Math.max(0, DUMMY_SIZE - trumps.length);
+  return [...trumps, ...state.drawPile.splice(Math.max(0, state.drawPile.length - fill))];
 }
 
 /** Who takes first from what lies in the middle: the seat furthest from zero, then on down. */
@@ -357,10 +375,8 @@ function finishDiscardPhase(state: RoundState, events: RoundEvent[], ctx?: Round
     return;
   }
   if (rules.dummy) {
-    // The spare hand comes off what is left of the stock, which a big table may have
-    // nearly emptied: it is "up to seven" cards.
     const party = state.party!;
-    party.dummy = state.drawPile.splice(Math.max(0, state.drawPile.length - DUMMY_SIZE));
+    party.dummy = spareHand(state, players);
     party.dummyTurn = 0;
     // The seat with the most points picks first, as at the market.
     party.marketOrder = takeOrder(players, ctx);

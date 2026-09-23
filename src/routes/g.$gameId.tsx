@@ -1,7 +1,7 @@
 import { Link, Outlet, createFileRoute, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useTranslation } from "react-i18next";
-import { LuDices } from "react-icons/lu";
+import { LuDices, LuTornado } from "react-icons/lu";
 import { variantOf } from "@/engine";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -40,6 +40,7 @@ function GameLayout() {
             {t(`modes.${game.mode}`)}, {t(`presets.${game.config.preset}.name`)}, {game.config.deck} {t("new.cards")}
             {variantOf(game.config) === "party" && <span className="ml-2 rounded bg-purple-700/70 px-1.5 text-[10px] font-semibold text-white">
                 <LuDices className="icon" /> {t("variants.party")}
+                {game.config.chaos && <> · <LuTornado className="icon" /> {t("variants.chaos")}</>}
               </span>}
           </p>
         </div>

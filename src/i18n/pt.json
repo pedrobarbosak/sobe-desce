@@ -152,6 +152,8 @@
     "summaryTurn": "{{seconds}} s por jogada",
     "variant": "Regras",
     "variantClassicHint": "As regras clássicas, sem acrescentos.",
+    "chaos": "Modo caótico",
+    "chaosHint": "As reviravoltas que mexem nas cartas (passar, trocar mãos, rodízio, mão extra, comunismo, vazas musicais) saem muito mais vezes, e a seguir as que partem as regras.",
     "variantPartyHint": "Em cada ronda vira-se uma reviravolta à vista de todos: ganha a carta baixa, sem trunfo, passar cartas, trocar mãos, um padrinho secreto, uma carta selvagem, uma feira no meio e mais. Jogos mais curtos e mais barulhentos."
   },
   "join": {
@@ -601,7 +603,8 @@
   },
   "variants": {
     "classic": "Clássico",
-    "party": "Festa"
+    "party": "Festa",
+    "chaos": "Caótico"
   },
   "party": {
     "twist": "Reviravolta",
@@ -675,7 +678,7 @@
       },
       "dummy": {
         "name": "Mão extra",
-        "desc": "Ficam à vista até sete cartas extra. Cada jogador em jogo pode trocar uma carta por uma delas ou não trocar. Quem tiver mais pontos escolhe primeiro."
+        "desc": "Ficam à vista até sete cartas extra, mais todos os trunfos que ninguém em jogo tem. Cada jogador em jogo pode trocar uma carta por uma delas ou não trocar. Quem tiver mais pontos escolhe primeiro."
       },
       "faceUp": {
         "name": "Carta à vista",
@@ -707,7 +710,7 @@
       },
       "markedCard": {
         "name": "Carta marcada: {{card}}",
-        "desc": "Anuncia-se uma das cartas dadas. Quem ganhar a vaza onde cair o {{card}} soma {{points}} pontos por cima. A carta fica onde calhou: não pode ser trocada, e quem a tem não pode ficar de fora."
+        "desc": "Anuncia-se uma das cartas dadas. Quem ganhar a vaza onde cair o {{card}} soma {{points}} pontos por cima, a dobrar quando copas é trunfo (a quádruplo em copas no escuro). A carta fica onde calhou: não pode ser trocada, e quem a tem não pode ficar de fora."
       },
       "fog": {
         "name": "Nevoeiro",
@@ -719,7 +722,7 @@
       },
       "communism": {
         "name": "Comunismo",
-        "desc": "O que é teu é meu. Depois das trocas, cada jogador à vez vê uma a três cartas ao calhas de um jogador ao calhas, leva uma, e devolve uma das suas virada para baixo."
+        "desc": "O que é teu é meu. Depois das trocas, cada jogador à vez vê uma a três cartas ao calhas de outro jogador, leva uma, e devolve uma das suas virada para baixo. Os alvos fazem uma roda ao calhas: ninguém é roubado duas vezes."
       },
       "voteTrump": {
         "name": "Trunfo por votação",

@@ -97,9 +97,11 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
   const index = session.roundsPlayed;
   const dealerSeat = index === 0 ? session.dealerSeat : (session.dealerSeat + 1) % session.seatCount;
   const seed = randomSeed();
-  // Party: the last three twists stay out of the draw, so the weather keeps changing.
+  // Party: the last three twists stay out of the draw, so the weather keeps changing. In
+  // chaos only the last one does: the wild twists are few, and they are meant to come back.
+  const chaos = game.config.chaos === true;
   const recentTwists: Twist[] = [];
-  for (let back = 1; back <= 3 && index - back >= 0; back++) {
+  for (let back = 1; back <= (chaos ? 1 : 3) && index - back >= 0; back++) {
     const earlier = await ctx.db
       .query("rounds")
       .withIndex("by_session_index", (q) => q.eq("sessionId", sessionId).eq("index", index - back))
@@ -119,6 +121,7 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
     variant: variantOf(game.config),
     inventory: players.map((p) => (p?.powerups ?? []) as Powerup[]),
     recentTwists,
+    chaos,
   });
   // A seat too low to call blind is not kept waiting in the dark for an offer it cannot
   // take, and a round with no trump phase has nothing to call.
