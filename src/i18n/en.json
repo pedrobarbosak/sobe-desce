@@ -153,7 +153,7 @@
     "variant": "Rules",
     "variantClassicHint": "The classic rules, nothing added.",
     "chaos": "Chaos mode",
-    "chaosHint": "The twists that move cards around (passing, swapping hands, the carousel, the spare hand, communism, musical tricks) come up far more often, followed by the ones that break the rules.",
+    "chaosHint": "More swapping, more mayhem.",
     "variantPartyHint": "Every round flips a public twist: low card wins, no trump, pass cards round, swap hands, a secret guardian, a wild rank, a market in the middle and more. Shorter, louder games."
   },
   "join": {
