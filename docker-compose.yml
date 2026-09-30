@@ -32,6 +32,13 @@ services:
       - DISABLE_BEACON=${DISABLE_BEACON:-true}
       - DISABLE_METRICS_ENDPOINT=${DISABLE_METRICS_ENDPOINT:-true}
       - RUST_LOG=${RUST_LOG:-info}
+      # Every old revision of a document stays in the SQLite log for this long (the
+      # backend defaults to 14 days), and startup has to walk that log. A bot move writes
+      # several scheduler rows, so a busy fortnight grew the file past 2 GB and startup
+      # past 6 GB of RAM. Three days of history is plenty for a game server.
+      - DOCUMENT_RETENTION_DELAY=${DOCUMENT_RETENTION_DELAY:-259200}
+      # Finished scheduled jobs (turn timers, bot moves) kept for a day, not a week.
+      - SCHEDULED_JOB_RETENTION=${SCHEDULED_JOB_RETENTION:-86400}
     healthcheck:
       test: curl -f http://localhost:3210/version
       interval: 5s

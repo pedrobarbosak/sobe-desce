@@ -38,11 +38,14 @@ CONVEX=node_modules/.bin/convex
 
 echo "==> backend"
 dc up -d backend
+# Each probe is capped: a backend that accepts the connection and never answers (out of
+# memory and swapping, say) would otherwise hold curl, and this script, forever.
 for i in $(seq 1 60); do
-  curl -fsS "$CONVEX_SELF_HOSTED_URL/version" >/dev/null 2>&1 && break
+  curl -fsS -m 3 "$CONVEX_SELF_HOSTED_URL/version" >/dev/null 2>&1 && break
   if [ "$i" = 60 ]; then
     echo "backend did not answer on $CONVEX_SELF_HOSTED_URL" >&2
-    dc logs --tail=30 backend >&2
+    timeout 10 docker compose --env-file "$ENV_FILE" logs --tail=30 backend >&2 || true
+    free -m >&2 || true
     exit 1
   fi
   sleep 1
