@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { type Card, type TrickInProgress, configFromPreset, legalPlays } from "../../src/engine";
-import { as, seedUsers, setup } from "./setup";
+import { as, keepTabOpen, seedUsers, setup } from "./setup";
 
 const NAMES = ["ana", "bruno", "carla", "duarte"];
 
@@ -204,12 +204,13 @@ describe("timers and bots", () => {
 
   it("a lone human against three bots gets played to the end by the server", async () => {
     const t = setup();
-    await seedUsers(t, ["ana"]);
+    const [anaId] = await seedUsers(t, ["ana"]);
     // Small, deterministic-length game: no blank-round bonus, so every round removes 5 points.
     const { gameId } = await as(t, "ana").mutation(api.games.create, {
       config: configFromPreset("custom", { startingPoints: 6, blankPenalty: 0, forcedPlayThreshold: 6, turnSeconds: 10 }),
     });
     for (let i = 0; i < 3; i++) await as(t, "ana").mutation(api.games.addBot, { gameId });
+    await keepTabOpen(t, gameId, anaId!);
     await as(t, "ana").mutation(api.sessions.start, { gameId });
     // Timers auto-play the human, bots play themselves, rounds chain until someone hits 0.
     await t.finishAllScheduledFunctions(vi.runAllTimers, 5_000);
@@ -222,5 +223,100 @@ describe("timers and bots", () => {
     const sessions = await as(t, "ana").query(api.history.sessions, { gameId });
     expect(sessions[0]!.status).toBe("finished");
     expect(sessions[0]!.roundsPlayed).toBeGreaterThan(0);
+  });
+});
+
+describe("tables nobody is playing", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** Ana and three bots, dealt in. */
+  async function againstBots(t: ReturnType<typeof setup>) {
+    const [anaId] = await seedUsers(t, ["ana"]);
+    const { gameId } = await as(t, "ana").mutation(api.games.create, { config: configFromPreset("normal", { turnSeconds: 30 }) });
+    for (let i = 0; i < 3; i++) await as(t, "ana").mutation(api.games.addBot, { gameId });
+    await as(t, "ana").mutation(api.sessions.start, { gameId });
+    const table = (await as(t, "ana").query(api.game.table.get, { gameId }))!;
+    return { gameId, anaId: anaId!, sessionId: table.session!._id, roundId: table.round!._id as Id<"rounds"> };
+  }
+  const roundOf = (t: ReturnType<typeof setup>, roundId: Id<"rounds">) => t.run((ctx) => ctx.db.get(roundId)).then((r) => r!);
+  const jobOf = (t: ReturnType<typeof setup>, id: Id<"_scheduled_functions">) => t.run((ctx) => ctx.db.system.get(id)).then((j) => j!);
+
+  it("a bot's turn schedules the bot's move and no clock", async () => {
+    const t = setup();
+    const { gameId, anaId, roundId } = await againstBots(t);
+    await keepTabOpen(t, gameId, anaId);
+    const table = (await as(t, "ana").query(api.game.table.get, { gameId }))!;
+    // Hand the turn on until it sits with a bot.
+    let round = await roundOf(t, roundId);
+    for (let guard = 0; table.seats[round.turnSeat!]!.name === "ana" && guard < 5; guard++) {
+      await t.mutation(internal.game.timer.onTimeout, { roundId, nonce: round.turnNonce });
+      round = await roundOf(t, roundId);
+    }
+    expect(table.seats[round.turnSeat!]!.isBot).toBe(true);
+    expect(round.turnDeadline).toBeUndefined();
+    expect((await jobOf(t, round.timerId!)).name).toMatch(/bots/);
+    // Ana's own clocks may still be pending (the test calls onTimeout directly, rather than
+    // letting them fire); none is armed for the bot's turn.
+    const clocksForThisTurn = await t.run((ctx) =>
+      ctx.db.system
+        .query("_scheduled_functions")
+        .collect()
+        .then((jobs) =>
+          jobs.filter((j) => j.state.kind === "pending" && j.name.includes("timer") && (j.args[0] as { nonce: number }).nonce === round.turnNonce),
+        ),
+    );
+    expect(clocksForThisTurn).toHaveLength(0);
+  });
+
+  it("the bots stop when the last person drops off, and carry on when they are back", async () => {
+    const t = setup();
+    const { gameId, sessionId, roundId } = await againstBots(t);
+    vi.setSystemTime(Date.now() + 200_000);
+    await t.mutation(internal.presence.sweep, { sessionId });
+    let seats = (await as(t, "ana").query(api.game.table.get, { gameId }))!.seats;
+    expect(seats.find((s) => s.name === "ana")!.botReason).toBe("disconnected");
+
+    // One more move and the table is all bots: it waits instead of playing on.
+    await t.mutation(internal.game.bots.act, { roundId, nonce: (await roundOf(t, roundId)).turnNonce });
+    let round = await roundOf(t, roundId);
+    expect(round.phase).not.toBe("scored");
+    expect(round.timerId).toBeUndefined();
+    expect(round.turnDeadline).toBeUndefined();
+    expect((await as(t, "ana").query(api.games.get, { gameId }))!.game.status).toBe("active");
+
+    // Her tab reports in: the seat is hers again and the table moves.
+    await as(t, "ana").mutation(api.presence.heartbeat, { gameId });
+    seats = (await as(t, "ana").query(api.game.table.get, { gameId }))!.seats;
+    expect(seats.find((s) => s.name === "ana")!.botControlled).toBe(false);
+    round = await roundOf(t, roundId);
+    expect(round.timerId).toBeDefined();
+  });
+
+  it("a table everyone gave up on ends instead of playing itself out", async () => {
+    const t = setup();
+    const { gameId, roundId } = await againstBots(t);
+    await as(t, "ana").mutation(api.games.abandonSeat, { gameId });
+    await t.mutation(internal.game.bots.act, { roundId, nonce: (await roundOf(t, roundId)).turnNonce });
+    const view = (await as(t, "ana").query(api.games.get, { gameId }))!;
+    expect(view.game.status).toBe("finished");
+    expect(view.game.winnerPlayerId).toBeUndefined();
+    expect((await roundOf(t, roundId)).phase).toBe("scored");
+  });
+
+  it("the hourly sweep ends sittings left alone for half a day, and old lobbies", async () => {
+    const t = setup();
+    const { gameId: playing } = await createFourPlayerGame(t);
+    await as(t, "ana").mutation(api.sessions.start, { gameId: playing });
+    const { gameId: lobby } = await as(t, "ana").mutation(api.games.create, { config: configFromPreset("normal", {}) });
+
+    vi.setSystemTime(Date.now() + 60 * 60_000);
+    await t.mutation(internal.maintenance.sweepStale, {});
+    expect((await as(t, "ana").query(api.games.get, { gameId: playing }))!.game.status).toBe("active");
+
+    vi.setSystemTime(Date.now() + 8 * 24 * 60 * 60_000);
+    await t.mutation(internal.maintenance.sweepStale, {});
+    expect((await as(t, "ana").query(api.games.get, { gameId: playing }))!.game.status).toBe("finished");
+    expect(await t.run((ctx) => ctx.db.get(lobby))).toBeNull();
   });
 });

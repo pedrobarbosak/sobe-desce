@@ -47,7 +47,7 @@ export async function handSeatToBot(
  *    sit this round out, their cards go back under the stock, and the round carries on;
  *  - already in the round: the server plays their remaining cards out for this one round;
  *  - already out of the round: nothing to play, they just wait for the deal.
- * Too few seats left and the night is over.
+ * Too few seats left, or nobody left in person, and the night is over.
  */
 export async function leaveSitting(ctx: MutationCtx, game: Doc<"games">, player: Doc<"gamePlayers">): Promise<void> {
   if (game.status !== "active" || !game.currentSessionId) return;
@@ -57,7 +57,9 @@ export async function leaveSitting(ctx: MutationCtx, game: Doc<"games">, player:
   if (seat < 0 || isLeaving(session, player._id)) return;
   if (player.checkedIn) await ctx.db.patch(player._id, { checkedIn: false });
   const leaving = [...(session.leaving ?? []), player._id];
-  if (session.seats.length - leaving.length < MIN_SEATS) {
+  // Bots and names without an account keep a seat, but they are not people: with nobody
+  // left in person the evening is over, however many seats are still filled.
+  if (session.seats.length - leaving.length < MIN_SEATS || (await humanSeatCount(ctx, { ...session, leaving })) === 0) {
     await closeSession(ctx, session);
     return;
   }

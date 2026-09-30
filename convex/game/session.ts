@@ -41,17 +41,39 @@ export function isLeaving(session: Doc<"sessions">, playerId: Doc<"gamePlayers">
   return session.leaving?.includes(playerId) ?? false;
 }
 
-/** Seats still answering to a person, rather than to a stand-in bot. */
-export async function humanSeatCount(ctx: MutationCtx, session: Doc<"sessions">): Promise<number> {
-  let n = 0;
+/**
+ * End a sitting nobody is playing any more. A one-off game has only the one sitting, so the
+ * game ends with it, without a winner; a league just closes tonight's table.
+ */
+export async function endSitting(ctx: MutationCtx, session: Doc<"sessions">): Promise<void> {
+  if (session.status !== "active") return;
+  const game = await ctx.db.get(session.gameId);
+  await closeSession(ctx, session);
+  if (game?.mode === "session" && game.status === "active") {
+    await ctx.db.patch(game._id, { status: "finished", finishedAt: Date.now() });
+  }
+}
+
+/**
+ * Who is at the table in person (`present`), and how many seats a bot holds only until a
+ * dropped tab reports in again (`returning`). Seats given up on purpose never come back.
+ */
+export async function peopleAt(ctx: MutationCtx, session: Doc<"sessions">): Promise<{ present: number; returning: number }> {
+  let present = 0;
+  let returning = 0;
   for (const playerId of session.seats) {
     if (isLeaving(session, playerId)) continue;
     const player = await ctx.db.get(playerId);
-    if (!player || player.isBot || player.botControlled === true) continue;
-    if (player.status !== "active" || player.userId === undefined) continue;
-    n++;
+    if (!player || player.isBot || player.status !== "active" || player.userId === undefined) continue;
+    if (player.botControlled !== true) present++;
+    else if (player.botReason === "disconnected") returning++;
   }
-  return n;
+  return { present, returning };
+}
+
+/** Seats still answering to a person, rather than to a stand-in bot. */
+export async function humanSeatCount(ctx: MutationCtx, session: Doc<"sessions">): Promise<number> {
+  return (await peopleAt(ctx, session)).present;
 }
 
 /**

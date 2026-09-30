@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { type MutationCtx, type QueryCtx, internalMutation, mutation, query } from "./_generated/server";
-import { setTurn } from "./game/advance";
+import { isPaused, setTurn } from "./game/advance";
 import { handSeatToBot, leaveSitting } from "./game/seat";
 import { isLeaving } from "./game/session";
 import { requireUser } from "./lib/auth";
@@ -16,6 +16,8 @@ export const PRESENCE_TTL_MS = 40_000;
 export const SEAT_TAKEOVER_MS = 150_000;
 /** Half a minute between looks is plenty for a takeover that waits two and a half. */
 export const SWEEP_INTERVAL_MS = 30_000;
+/** While the bots are waiting for someone to come back: see sweep. */
+export const PAUSED_SWEEP_INTERVAL_MS = 5 * 60_000;
 
 /** Whether a tab of theirs has checked in on this game recently. */
 export async function isOnline(ctx: QueryCtx | MutationCtx, gameId: Id<"games">, userId: Id<"users">): Promise<boolean> {
@@ -86,7 +88,9 @@ async function reclaimSeat(ctx: MutationCtx, gameId: Id<"games">, userId: Id<"us
   const seat = session.seats.indexOf(me._id);
   if (seat < 0) return;
   const round = await ctx.db.get(session.currentRoundId);
-  if (round && round.phase !== "scored" && round.turnSeat === seat) await setTurn(ctx, round._id, { session, game });
+  if (!round || round.phase === "scored") return;
+  // Their turn restarts on their own clock; a table the bots had stopped at wakes up.
+  if (round.turnSeat === seat || isPaused(round)) await setTurn(ctx, round._id, { session, game });
 }
 
 /**
@@ -117,6 +121,10 @@ export const sweep = internalMutation({
       if (game.mode === "campaign") await leaveSitting(ctx, game, player);
       else await handSeatToBot(ctx, game, player, "disconnected");
     }
-    await ctx.scheduler.runAfter(SWEEP_INTERVAL_MS, internal.presence.sweep, { sessionId });
+    // A table waiting for someone to come back has nobody seated to watch, so it only needs
+    // to keep the loop alive until they do (the cron in maintenance.ts ends it if they don't).
+    const round = session.currentRoundId ? await ctx.db.get(session.currentRoundId) : null;
+    const waiting = round !== null && isPaused(round);
+    await ctx.scheduler.runAfter(waiting ? PAUSED_SWEEP_INTERVAL_MS : SWEEP_INTERVAL_MS, internal.presence.sweep, { sessionId });
   },
 });

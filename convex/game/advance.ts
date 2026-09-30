@@ -15,7 +15,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, internalMutation } from "../_generated/server";
 import { DARK_WINDOW_MS } from "./dark";
-import { applyLeaving, isLeaving } from "./session";
+import { applyLeaving, endSitting, isLeaving, peopleAt } from "./session";
 import { type LoadedRound, partyDoc, rulesOfDoc, twistIdOf } from "./state";
 import type { RoundState } from "../../src/engine";
 
@@ -56,14 +56,26 @@ export type SetTurnOptions = {
   game?: Doc<"games">;
 };
 
-/** Bump the nonce, arm the turn timer, and poke a bot if it is one. */
+/**
+ * The turn is on a seat and nothing is scheduled to move it: every person at the table is
+ * gone and the bots are waiting for one to come back. See setTurn.
+ */
+export function isPaused(round: Doc<"rounds">): boolean {
+  return round.phase !== "scored" && round.turnSeat !== null && round.timerId === undefined;
+}
+
+/**
+ * Bump the nonce and schedule whatever moves the turn on: the clock for a person, or the
+ * bot's move for a seat the server plays. The scheduled job is kept on the round either way,
+ * so the next move can cancel it.
+ */
 export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">, opts: SetTurnOptions = {}): Promise<void> {
   const round = await ctx.db.get(roundId);
   if (!round) return;
   const session = opts.session ?? (await ctx.db.get(round.sessionId));
   const game = opts.game ?? (await ctx.db.get(round.gameId));
   if (!session || !game) return;
-  // The timer armed for the turn that just ended would only wake up to find a stale nonce.
+  // The job armed for the turn that just ended would only wake up to find a stale nonce.
   // Cancelled here it never runs at all: one scheduled function fewer for every move made.
   // Only while it is still pending: one already running is left to that nonce check.
   if (round.timerId && !opts.fromTimer) {
@@ -75,16 +87,32 @@ export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">, opts: Set
     await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: undefined, timerId: undefined });
     return;
   }
-  // A party twist may shorten the clock for the round.
-  const seconds = rulesOfDoc(round.party)?.turnSeconds ?? game.config.turnSeconds;
-  const ms = seconds * 1000;
-  const timerId = await ctx.scheduler.runAfter(ms, internal.game.timer.onTimeout, { roundId, nonce });
-  await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: Date.now() + ms, timerId });
   const playerId = session.seats[round.turnSeat];
   const player = playerId ? await ctx.db.get(playerId) : null;
-  if (isServerDriven(player) || (playerId !== undefined && isLeaving(session, playerId))) {
-    await ctx.scheduler.runAfter(BOT_DELAY_MS, internal.game.bots.act, { roundId, nonce });
+  if (!isServerDriven(player) && !(playerId !== undefined && isLeaving(session, playerId))) {
+    // A party twist may shorten the clock for the round.
+    const seconds = rulesOfDoc(round.party)?.turnSeconds ?? game.config.turnSeconds;
+    const ms = seconds * 1000;
+    const timerId = await ctx.scheduler.runAfter(ms, internal.game.timer.onTimeout, { roundId, nonce });
+    await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: Date.now() + ms, timerId });
+    return;
   }
+  // Bots with nobody watching would deal and play round after round on their own, writing
+  // every card to the database, for as long as the game lasts. Tables like that once filled
+  // the database. While someone may still come back to a dropped seat the table waits for
+  // them (their heartbeat picks it up again, see presence.reclaimSeat); when nobody can,
+  // it is over.
+  const people = await peopleAt(ctx, session);
+  if (people.present === 0) {
+    await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: undefined, timerId: undefined });
+    if (people.returning === 0) await endSitting(ctx, session);
+    return;
+  }
+  // No turn clock for a bot: its move is the only thing that has to happen, and arming a
+  // timer only to cancel it a second later cost two scheduler writes per bot move. The
+  // move falls back to the least committal legal one if the bot cannot pick (bots.act).
+  const timerId = await ctx.scheduler.runAfter(BOT_DELAY_MS, internal.game.bots.act, { roundId, nonce });
+  await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: undefined, timerId });
 }
 
 /** Deal a new round for the session (rotating the dealer after the first). */

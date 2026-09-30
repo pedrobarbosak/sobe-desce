@@ -100,7 +100,9 @@ export default defineSchema({
     note: v.optional(v.string()),
   })
     .index("by_game", ["gameId"])
-    .index("by_game_status", ["gameId", "status"]),
+    .index("by_game_status", ["gameId", "status"])
+    /** Live sittings across every game, for the stale-table sweep in maintenance.ts. */
+    .index("by_status", ["status"]),
 
   /** Public round state. Contains no secrets. */
   rounds: defineTable({

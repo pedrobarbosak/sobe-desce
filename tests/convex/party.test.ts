@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { type Card, HIDDEN_CARD, type Suit, TWISTS, type TrickInProgress, configFromPreset, legalPlays, partyRules } from "../../src/engine";
-import { as, seedUsers, setup } from "./setup";
+import { as, keepTabOpen, seedUsers, setup } from "./setup";
 
 const NAMES = ["ana", "bruno", "carla", "duarte"];
 
@@ -91,11 +91,12 @@ describe("party tables", () => {
 
   it("a lone human against three bots gets a party game played to the end", async () => {
     const t = setup();
-    await seedUsers(t, ["ana"]);
+    const [anaId] = await seedUsers(t, ["ana"]);
     const { gameId } = await as(t, "ana").mutation(api.games.create, {
       config: configFromPreset("party", { startingPoints: 8, blankPenalty: 2, forcedPlayThreshold: 8, turnSeconds: 10 }),
     });
     for (let i = 0; i < 3; i++) await as(t, "ana").mutation(api.games.addBot, { gameId });
+    await keepTabOpen(t, gameId, anaId!);
     await as(t, "ana").mutation(api.sessions.start, { gameId });
     // Upside-down and guardian rounds can push scores up for a while: give it room.
     await t.finishAllScheduledFunctions(vi.runAllTimers, 30_000);

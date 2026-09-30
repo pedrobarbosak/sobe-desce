@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { convexTest } from "convex-test";
+import type { Id } from "../../convex/_generated/dataModel";
 import schema from "../../convex/schema";
 
 export const modules = import.meta.glob("../../convex/**/*.ts");
@@ -19,7 +20,16 @@ export async function seedUsers(t: ReturnType<typeof setup>, names: string[]) {
   return ids;
 }
 
-export const as = (t: ReturnType<typeof setup>, name: string) => t.withIdentity({ subject: `auth_${name}` });
+/**
+ * A tab that never stops reporting in, for tests that fast-forward through a whole game: a
+ * real one beats every 15 seconds, which a jump of the fake clock would skip, and the sweep
+ * would take the seat. Without anyone present the bots stop and wait, by design.
+ */
+export async function keepTabOpen(t: ReturnType<typeof setup>, gameId: Id<"games">, userId: Id<"users">) {
+  await t.run((ctx) => ctx.db.insert("presence", { gameId, userId, lastSeenAt: Number.MAX_SAFE_INTEGER }));
+}
+
+export const as =(t: ReturnType<typeof setup>, name: string) => t.withIdentity({ subject: `auth_${name}` });
 
 /**
  * Throwing a table or a sitting away sweeps its rounds in scheduled passes rather than

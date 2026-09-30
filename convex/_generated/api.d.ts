@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as game_actions from "../game/actions.js";
 import type * as game_advance from "../game/advance.js";
 import type * as game_bots from "../game/bots.js";
@@ -26,6 +27,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_code from "../lib/code.js";
 import type * as lib_email from "../lib/email.js";
 import type * as lib_validators from "../lib/validators.js";
+import type * as maintenance from "../maintenance.js";
 import type * as presence from "../presence.js";
 import type * as sessions from "../sessions.js";
 import type * as users from "../users.js";
@@ -38,6 +40,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  crons: typeof crons;
   "game/actions": typeof game_actions;
   "game/advance": typeof game_advance;
   "game/bots": typeof game_bots;
@@ -55,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   "lib/code": typeof lib_code;
   "lib/email": typeof lib_email;
   "lib/validators": typeof lib_validators;
+  maintenance: typeof maintenance;
   presence: typeof presence;
   sessions: typeof sessions;
   users: typeof users;

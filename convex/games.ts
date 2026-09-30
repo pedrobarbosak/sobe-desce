@@ -406,7 +406,7 @@ export const kickToBot = mutation({
  * them, far past what one transaction may write -- so they are swept afterwards. Deleting
  * the game first is what makes that safe: nothing can reach them in between.
  */
-async function deleteGameCascade(ctx: MutationCtx, gameId: Id<"games">): Promise<void> {
+export async function deleteGameCascade(ctx: MutationCtx, gameId: Id<"games">): Promise<void> {
   for (const player of await rosterOf(ctx, gameId)) await ctx.db.delete(player._id);
   for (const row of await ctx.db.query("presence").withIndex("by_game", (q) => q.eq("gameId", gameId)).collect()) {
     await ctx.db.delete(row._id);
