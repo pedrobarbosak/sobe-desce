@@ -28,6 +28,8 @@ generate() {
 echo "Generating secrets:"
 generate INSTANCE_SECRET "$(openssl rand -hex 32)"
 generate BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+# Hex, so it goes into the connection URL without escaping.
+generate POSTGRES_PASSWORD "$(openssl rand -hex 24)"
 
 cat <<'EOF'
 

@@ -1,10 +1,12 @@
 # Running Sobe e Desce on a VPS
 
-Three containers: the Convex backend, nginx serving the built site, and a Cloudflare tunnel
-that puts both on the internet. Nothing binds to a public interface; the tunnel is the only
-way in, and it terminates TLS at Cloudflare's edge.
+Four containers: the Convex backend, the Postgres database it stores everything in, nginx
+serving the built site, and a Cloudflare tunnel that puts the site and the backend on the
+internet. Nothing binds to a public interface; the tunnel is the only way in, and it
+terminates TLS at Cloudflare's edge.
 
-A 2 vCPU / 4 GB / 40 GB box is comfortable. The backend is the only hungry process.
+A 2 vCPU / 4 GB / 40 GB box is comfortable. The backend is capped at `BACKEND_MEM_LIMIT`
+(3 GB by default) and normally sits far below it.
 
 **The deployment lives on the server, not on a workstation.** A development machine runs
 `convex dev` and Vite on localhost and has no tunnel. Sharing hostnames between the two
@@ -29,8 +31,9 @@ $EDITOR .env.deploy             # hostnames, and the Discord credentials if you 
 ./scripts/deploy.sh             # starts everything, mints the admin key, pushes, builds
 ```
 
-`INSTANCE_SECRET` and `BETTER_AUTH_SECRET` are generated once and must never change.
-Changing the first orphans the database; changing the second signs everyone out.
+`INSTANCE_SECRET`, `BETTER_AUTH_SECRET` and `POSTGRES_PASSWORD` are generated once and must
+never change. Changing the first orphans the database; changing the second signs everyone
+out; the third is baked into the Postgres volume the first time it starts.
 
 **`.env.deploy` belongs to one machine.** Never copy it to another. The admin key is minted
 against that host's container, `TUNNEL_USER` is that host's uid, and `INSTANCE_SECRET` must
@@ -142,14 +145,69 @@ ssh -L 6791:127.0.0.1:6791 user@vps
 
 ## Backups
 
-The database and stored files live in one Docker volume.
-
 ```bash
-./scripts/backup.sh
+./scripts/backup.sh                          # backups/sobe-desce-<time>.zip
+./scripts/restore.sh backups/<file>.zip      # replaces every table with the export
 ```
 
-It stops the backend for a few seconds so the SQLite file is copied whole, and restarts it
-even if the copy fails. Move the tarball off the box; a backup on the same disk is not one.
+A backup is a `convex export` of every table and the stored files, taken through the running
+backend with no downtime. It keeps the newest `BACKUP_KEEP` (14) and deletes older ones.
+Deployment settings are not in it; `deploy.sh` sets those. Move copies off the box; a backup
+on the same disk is not one.
+
+Nightly, from `crontab -e` (cron's `PATH` is bare, and the CLI needs `node`):
+
+```
+15 4 * * * cd /root/sobe-desce && PATH=/usr/local/bin:/usr/bin:/bin ./scripts/backup.sh >> backups/backup.log 2>&1
+```
+
+## Keeping the database small
+
+What happened once, so it does not again: in three weeks the backend's database reached
+2.4 GB, and the backend then needed more than 6 GB of RAM just to start, so the box froze
+and the deploy hung. Three things combined:
+
+- **SQLite.** The backend's built-in SQLite store reads whole ranges of history into memory
+  (get-convex/convex-backend#495, unfixed at the time), so its RAM grows with the database.
+  Postgres pages those reads; that is why it is in the compose file.
+- **History.** Convex keeps every old revision of every document for
+  `DOCUMENT_RETENTION_DELAY` (14 days by default; 3 here) and finished scheduled jobs for
+  `SCHEDULED_JOB_RETENTION` (7 days by default; 1 here). Pick the first once and leave it:
+  lowering it and later raising it again can wedge retention (convex-backend#358).
+- **Tables nobody was at.** About nine moves in ten were bots playing tables every person
+  had left. Now a table with no one left in person stops (and waits, if a dropped tab can
+  still come back), bots no longer get a turn clock, and an hourly cron
+  (`convex/maintenance.ts`) ends sittings with no move in 12 hours and deletes one-off lobbies
+  nobody dealt within a week.
+
+Worth a glance now and then: `docker stats --no-stream` for the backend's memory, and the
+database size:
+
+```bash
+docker compose --env-file .env.deploy exec postgres psql -U convex -d sobe_desce -c "select pg_size_pretty(pg_database_size('sobe_desce'))"
+```
+
+## Upgrading the backend
+
+`CONVEX_REV` pins the backend and dashboard build (a commit tag from
+`ghcr.io/get-convex/convex-backend`); the default lives in `docker-compose.yml`. Take a
+backup, set the new tag in `.env.deploy` (or move the default), deploy, and watch the backend
+log for `MigrationComplete`. The upstream notes are in `self-hosted/advanced/upgrading.md` of
+get-convex/convex-backend.
+
+## Moving an existing deployment from SQLite to Postgres
+
+Deployments set up before Postgres was added keep their data in SQLite inside the `data`
+volume. With the old backend still running:
+
+```bash
+git pull && ./scripts/migrate-to-postgres.sh
+```
+
+It exports everything from the SQLite backend, brings the stack up on an empty Postgres,
+and imports the export with the tunnel down. The SQLite file is left where it was; once the
+site is fine for a while it can go. A plain `deploy.sh` refuses to run without
+`POSTGRES_PASSWORD`, so the move cannot happen by accident onto an empty database.
 
 ## Logs
 

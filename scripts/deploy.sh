@@ -12,6 +12,13 @@ load_env
 # empty value would sail past the "skip if empty" path further down.
 : "${BETTER_AUTH_SECRET:?run ./scripts/bootstrap.sh to generate it}"
 
+# Older copies of .env.deploy.example set this; it would override the build pinned in
+# docker-compose.yml and let a restart upgrade the backend unannounced.
+if [ "${CONVEX_REV:-}" = latest ]; then
+  echo "warning: CONVEX_REV=latest in $ENV_FILE overrides the pinned backend build; blank it" >&2
+fi
+: "${POSTGRES_PASSWORD:?run ./scripts/bootstrap.sh to generate it (or ./scripts/migrate-to-postgres.sh when moving an existing deployment)}"
+
 export CONVEX_SELF_HOSTED_URL="${CONVEX_ADMIN_URL:-http://127.0.0.1:${BACKEND_PORT:-3210}}"
 unset CONVEX_DEPLOYMENT CONVEX_DEPLOY_KEY
 

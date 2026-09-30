@@ -1,35 +1,22 @@
 #!/usr/bin/env bash
-# Snapshot the whole deployment: the database and the stored files live in one volume.
-# Writes a timestamped tarball into ./backups. Keep these off the box.
+# Export the whole deployment, every table and the stored files, through the running
+# backend: no downtime, and the same format whatever the backend stores its data in.
+# Writes a timestamped zip into ./backups and keeps the newest BACKUP_KEEP (default 14).
+# Keep copies off the box. Restore (replaces every table) with:
+#   ./scripts/restore.sh backups/<file>.zip
+# Quiet enough to run from cron; docs/DEPLOY.md has the line.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck source=scripts/lib.sh
 . ./scripts/lib.sh
 load_env
+convex_cli_env
 
 mkdir -p backups
-STAMP=$(date +%Y%m%d-%H%M%S)
-NAME="sobe-desce-$STAMP.tar.gz"
-
-VOLUME=$(dc config --format json | python3 -c 'import sys,json;print(json.load(sys.stdin)["volumes"]["data"]["name"])')
-[ -n "$VOLUME" ] || { echo "could not resolve the data volume name" >&2; exit 1; }
-
-# Stopping the backend means the SQLite file is copied whole rather than mid-write. The
-# trap is the point of it: without one, a failed tar leaves the site down.
-restart() { dc start backend >/dev/null 2>&1 || true; }
-trap restart EXIT
-
-echo "stopping the backend for a consistent copy"
-dc stop backend
-
-docker run --rm \
-  -v "$VOLUME":/data:ro \
-  -v "$PWD/backups":/out \
-  --user "$(id -u):$(id -g)" \
-  alpine tar czf "/out/$NAME" -C /data .
-
-trap - EXIT
-restart
-
-echo "wrote backups/$NAME"
+NAME="sobe-desce-$(date +%Y%m%d-%H%M%S).zip"
+"$CONVEX" export --include-file-storage --path "backups/$NAME" </dev/null
 ls -lh "backups/$NAME"
+
+keep=${BACKUP_KEEP:-14}
+# Newest first; everything past the first $keep goes.
+ls -1t backups/sobe-desce-*.zip | tail -n +$((keep + 1)) | xargs -r rm -f --

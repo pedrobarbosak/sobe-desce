@@ -24,6 +24,17 @@ load_env() {
 # `${VAR:?}` in docker-compose.yml fails at parse time.
 dc() { docker compose --env-file "$ENV_FILE" "$@"; }
 
+# Point the Convex CLI at this box's backend, with its admin key, and set $CONVEX to it.
+# For scripts that talk to a backend deploy.sh has already set up.
+convex_cli_env() {
+  : "${CONVEX_SELF_HOSTED_ADMIN_KEY:?no admin key yet; run ./scripts/deploy.sh once, it mints one}"
+  export CONVEX_SELF_HOSTED_URL="${CONVEX_ADMIN_URL:-http://127.0.0.1:${BACKEND_PORT:-3210}}"
+  export CONVEX_SELF_HOSTED_ADMIN_KEY
+  unset CONVEX_DEPLOYMENT CONVEX_DEPLOY_KEY
+  CONVEX=node_modules/.bin/convex
+  [ -x "$CONVEX" ] || { echo "no Convex CLI in node_modules; run ./scripts/deploy.sh (or npm ci) first" >&2; exit 1; }
+}
+
 # The file is read by two parsers with different rules: bash, when a script sources it,
 # and Compose's dotenv, via `--env-file`. Single quotes are literal to both, which covers
 # admin keys (pipe), base64 secrets (slash, plus) and hostnames. A value containing a

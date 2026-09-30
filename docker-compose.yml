@@ -1,5 +1,5 @@
-# Self-hosted Sobe e Desce: Convex backend, the static frontend, and the Cloudflare
-# tunnel that puts both on the internet.
+# Self-hosted Sobe e Desce: Convex backend on Postgres, the static frontend, and the
+# Cloudflare tunnel that puts both on the internet.
 #
 # Every port binds to 127.0.0.1 on purpose. Nothing here is reachable from the network
 # except through the tunnel, which terminates TLS at Cloudflare's edge.
@@ -10,18 +10,54 @@ x-logging: &logging
     max-file: "3"
 
 services:
+  # The backend's own SQLite store reads whole ranges of its history into memory at once
+  # (get-convex/convex-backend#495), so its RAM grows with the size of the database until
+  # the box falls over. Postgres pages those reads. Not published on any port: only the
+  # backend talks to it, over the compose network.
+  postgres:
+    image: postgres:17-alpine
+    container_name: sobe-desce-postgres
+    logging: *logging
+    restart: unless-stopped
+    stop_grace_period: 30s
+    shm_size: 128mb
+    environment:
+      - POSTGRES_USER=convex
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?run scripts/bootstrap.sh}
+      # Read by the init script, which names the database after it.
+      - INSTANCE_NAME=${INSTANCE_NAME:-sobe-desce}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, on an empty data directory only.
+      - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/convex.sh:ro
+    healthcheck:
+      test: pg_isready -U convex -d postgres
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   backend:
-    image: ghcr.io/get-convex/convex-backend:${CONVEX_REV:-latest}
+    # Pinned, and the dashboard below must match it: a restart should never upgrade a
+    # stateful backend behind your back. docs/DEPLOY.md has how to move it on.
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_REV:-5c7cb5bc7db457290f1769f95f1d1340912f7fd7}
     container_name: sobe-desce-convex
     logging: *logging
     restart: unless-stopped
     stop_grace_period: 10s
     stop_signal: SIGINT
+    # A ceiling, so a runaway backend is killed and restarted on its own instead of pushing
+    # the whole machine into swap. Swap is capped at the same figure, i.e. none.
+    mem_limit: ${BACKEND_MEM_LIMIT:-3g}
+    memswap_limit: ${BACKEND_MEM_LIMIT:-3g}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-3210}:3210"
       - "127.0.0.1:${SITE_PORT:-3211}:3211"
+    # Files and scratch space; the documents themselves are in Postgres.
     volumes:
       - data:/convex/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       # These must be the URLs a browser uses, not the internal ones. If they disagree
       # the client connects and then fails auth in a way that is painful to debug.
@@ -32,10 +68,15 @@ services:
       - DISABLE_BEACON=${DISABLE_BEACON:-true}
       - DISABLE_METRICS_ENDPOINT=${DISABLE_METRICS_ENDPOINT:-true}
       - RUST_LOG=${RUST_LOG:-info}
-      # Every old revision of a document stays in the SQLite log for this long (the
-      # backend defaults to 14 days), and startup has to walk that log. A bot move writes
-      # several scheduler rows, so a busy fortnight grew the file past 2 GB and startup
-      # past 6 GB of RAM. Three days of history is plenty for a game server.
+      # No database name: the backend appends its own, INSTANCE_NAME with - turned into _.
+      # The password is hex, so it needs no escaping in a URL.
+      - POSTGRES_URL=postgresql://convex:${POSTGRES_PASSWORD:?run scripts/bootstrap.sh}@postgres:5432
+      # Plain TCP on the private compose network.
+      - DO_NOT_REQUIRE_SSL=1
+      # Every old revision of a document is kept this long (the backend's default is 14
+      # days). A busy fortnight of bot games once took the database past 2 GB. Pick a value
+      # and keep it: lowering it and later raising it can wedge retention
+      # (get-convex/convex-backend#358).
       - DOCUMENT_RETENTION_DELAY=${DOCUMENT_RETENTION_DELAY:-259200}
       # Finished scheduled jobs (turn timers, bot moves) kept for a day, not a week.
       - SCHEDULED_JOB_RETENTION=${SCHEDULED_JOB_RETENTION:-86400}
@@ -64,7 +105,7 @@ services:
   # Kept off the tunnel deliberately: it is an unauthenticated admin console. Reach it
   # over SSH with `ssh -L 6791:127.0.0.1:6791 user@vps`.
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_REV:-latest}
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_REV:-5c7cb5bc7db457290f1769f95f1d1340912f7fd7}
     container_name: sobe-desce-dashboard
     logging: *logging
     restart: unless-stopped
@@ -106,3 +147,4 @@ services:
 
 volumes:
   data:
+  pgdata:
