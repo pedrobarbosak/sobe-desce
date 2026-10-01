@@ -155,10 +155,11 @@ backend with no downtime. It keeps the newest `BACKUP_KEEP` (14) and deletes old
 Deployment settings are not in it; `deploy.sh` sets those. Move copies off the box; a backup
 on the same disk is not one.
 
-Nightly, from `crontab -e` (cron's `PATH` is bare, and the CLI needs `node`):
+Nightly, from `crontab -e`. The scripts load Node from nvm themselves when it is not on
+`PATH`, which it never is under cron:
 
 ```
-15 4 * * * cd /root/sobe-desce && PATH=/usr/local/bin:/usr/bin:/bin ./scripts/backup.sh >> backups/backup.log 2>&1
+15 4 * * * cd /root/sobe-desce && ./scripts/backup.sh >> backups/backup.log 2>&1
 ```
 
 ## Keeping the database small

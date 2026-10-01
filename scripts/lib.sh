@@ -3,6 +3,22 @@
 
 ENV_FILE=.env.deploy
 
+# Node installed through nvm is only on PATH in an interactive shell, so a plain
+# `./scripts/deploy.sh` or a cron job would not find it. nvm.sh is not written for
+# `set -eu`, which every caller has on, so those are lifted around it and put back.
+load_node() {
+  command -v node >/dev/null 2>&1 && return
+  local nvm="${NVM_DIR:-$HOME/.nvm}/nvm.sh" flags=$-
+  [ -s "$nvm" ] || return 0
+  set +eu
+  # shellcheck disable=SC1090
+  . "$nvm"
+  [[ $flags == *e* ]] && set -e
+  [[ $flags == *u* ]] && set -u
+  return 0
+}
+load_node
+
 require_env_file() {
   [ -f "$ENV_FILE" ] || {
     echo "no $ENV_FILE in $(pwd); run ./scripts/bootstrap.sh first" >&2
