@@ -721,12 +721,24 @@
         "desc": "A primeira carta de cada vaza joga-se virada para baixo e só se revela quando todos tiverem jogado. Quem assiste pode jogar qualquer carta; o trunfo, e depois o naipe de saída, continuam a decidir."
       },
       "communism": {
-        "name": "Comunismo",
+        "name": "Expropriação",
         "desc": "O que é teu é meu. Depois das trocas, cada jogador à vez vê uma a três cartas ao calhas de outro jogador, leva uma, e devolve uma das suas virada para baixo. Os alvos fazem uma roda ao calhas: ninguém é roubado duas vezes."
       },
       "voteTrump": {
         "name": "Trunfo por votação",
         "desc": "Ninguém escolhe o trunfo: cada um vota à vez, em segredo, e ganha o naipe mais votado. Em caso de empate, vale o primeiro voto. Ninguém fica obrigado a jogar a ronda."
+      },
+      "commune": {
+        "name": "Comunismo",
+        "desc": "Rara. Joga-se a ronda como sempre; no fim, os pontos de toda a mesa, de quem jogou ou não, somam-se e dividem-se: todos ficam com a média, arredondada."
+      },
+      "socialism": {
+        "name": "Socialismo",
+        "desc": "Rara. Joga-se a ronda como sempre; no fim, os pontos de cada um andam metade do caminho até à média da mesa, arredondados. O líder devolve alguns, o último recupera."
+      },
+      "capitalism": {
+        "name": "Capitalismo",
+        "desc": "Rara. Joga-se a ronda como sempre; no fim, os pontos de cada um afastam-se da média da mesa mais metade da distância, arredondados. O líder dispara, o último afunda, e alguém pode chegar ao 0."
       }
     },
     "golden": "×2 ouro",

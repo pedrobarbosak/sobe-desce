@@ -29,6 +29,8 @@ import {
   viewFor,
   offeredCards,
   raidVictim,
+  levelScores,
+  twistWeight,
 } from "@/engine";
 
 const ctx: RoundContext = { scores: [20, 20, 20, 20], sitOutStreak: [0, 0, 0, 0], forcedPlayThreshold: 5 };
@@ -797,6 +799,44 @@ describe("team, nemesis, mirror, Robin Hood", () => {
     // Seat 0 (20) and seat 1 (5): written on the round so the table can say so.
     expect(s.party!.robinSwap).toEqual([0, 1]);
     expect(robinHoodPair(allIn([0, 0, 0, 0]).map((r, seat) => ({ seat, participated: r.decision === "in" })), undefined)).toBeNull();
+  });
+});
+
+describe("communism, socialism, capitalism", () => {
+  const base = { completedTricks: [], trump: "S" as const, blankPenalty: 5, darkHearts: false };
+  // Own [-3, 5, -2, 5] on [20, 5, 12, 9]: the round leaves the table on [17, 10, 10, 14], average 12.75.
+
+  it("communism: everyone ends on the table's average, rounded", () => {
+    const deltas = partyDeltas({ ...base, party: party({ twist: "commune" }), seats: allIn([3, 0, 2, 0]), scores: [20, 5, 12, 9] });
+    expect(deltas).toEqual([-7, 8, 1, 4]);
+    expect(deltas.map((d, seat) => d + [20, 5, 12, 9][seat]!)).toEqual([13, 13, 13, 13]);
+  });
+
+  it("socialism: every score moves halfway towards the average", () => {
+    // [17, 10, 10, 14] -> [14.875, 11.375, 11.375, 13.375], rounded.
+    expect(partyDeltas({ ...base, party: party({ twist: "socialism" }), seats: allIn([3, 0, 2, 0]), scores: [20, 5, 12, 9] })).toEqual([-5, 6, -1, 4]);
+  });
+
+  it("capitalism: every score moves half as far again away from the average, and may reach zero", () => {
+    // [17, 10, 10, 14] -> [19.125, 8.625, 8.625, 14.625], rounded.
+    expect(partyDeltas({ ...base, party: party({ twist: "capitalism" }), seats: allIn([3, 0, 2, 0]), scores: [20, 5, 12, 9] })).toEqual([-1, 4, -3, 6]);
+    // Far below the average: the deltas take it past zero, and the overshoot rule makes it the winner.
+    expect(levelScores([0, 0, 0, 0], [2, 20, 20, 20], -0.5)).toEqual([-7, 2, 2, 2]);
+  });
+
+  it("counts the seats that sat out too, and does nothing without the table's scores", () => {
+    const seats = [...allIn([3, 0, 2]), { decision: "out" as const, tricksWon: 0 }];
+    // [17, 10, 10, 9], average 11.5, rounded up to 12.
+    expect(partyDeltas({ ...base, party: party({ twist: "commune" }), seats, scores: [20, 5, 12, 9] })).toEqual([-8, 7, 0, 3]);
+    expect(partyDeltas({ ...base, party: party({ twist: "commune" }), seats })).toEqual([-3, 5, -2, 0]);
+  });
+
+  it("is rare, in chaos or not, and plays the round as classic", () => {
+    for (const twist of ["commune", "socialism", "capitalism"] as const) {
+      expect(twistWeight(twist, false)).toBeLessThan(twistWeight("golden", false));
+      expect(twistWeight(twist, true)).toBeLessThan(twistWeight("golden", true));
+      expect(rulesFor(make(seedFor(twist)))).toEqual(CLASSIC_RULES);
+    }
   });
 });
 

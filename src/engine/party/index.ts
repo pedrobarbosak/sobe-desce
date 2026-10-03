@@ -71,8 +71,14 @@ export type Twist =
   | "blindLead"
   /** Nobody names the trump: everyone votes for it, in turn but secretly. */
   | "voteTrump"
-  /** What is yours is mine: in turn, see a few of a random player's cards, take one, hand one back. */
+  /** Shown as "Expropriation": in turn, see a few of a random player's cards, take one, hand one back. */
   | "communism"
+  /** Shown as "Communism", rare: once the round is in, everyone ends on the table's average score. */
+  | "commune"
+  /** Rare: once the round is in, every score moves halfway towards the table's average. */
+  | "socialism"
+  /** Rare: once the round is in, every score moves half as far again away from the average. */
+  | "capitalism"
   /** Shelved: every hand face up. The visibility knob stays for other twists. */
   | "openHands"
   /** Shelved: nobody may sit out. "asDealt" still uses the knob. */
@@ -106,6 +112,9 @@ export const TWISTS: readonly Twist[] = [
   "blindLead",
   "voteTrump",
   "communism",
+  "commune",
+  "socialism",
+  "capitalism",
 ];
 
 /** Chaos mode: the twists that move cards between hands, the table or the tricks. */
@@ -114,8 +123,17 @@ export const CARD_TWISTS: readonly Twist[] = ["pass", "swap", "carousel", "dummy
 export const WILD_TWISTS: readonly Twist[] = ["freeForAll", "mirror", "robinHood", "nemesis", "blindLead", "wildRank", "markedCard", "desce"];
 const CHAOS_WEIGHT = { card: 6, wild: 3, calm: 1 };
 
+/**
+ * The economy twists: how far each score moves towards the table's average once the round
+ * is in. 1 is all the way; a negative pull pushes the scores apart instead.
+ */
+export const ECONOMY_PULL: Partial<Record<Twist, number>> = { commune: 1, socialism: 0.5, capitalism: -0.5 };
+/** The economy twists rewrite the standings, so they come up rarely, in chaos or not. */
+const ECONOMY_WEIGHT = 0.25;
+
 /** How often a twist comes up relative to the others: all alike, unless the table is in chaos. */
 export function twistWeight(twist: Twist, chaos: boolean): number {
+  if (ECONOMY_PULL[twist] !== undefined) return ECONOMY_WEIGHT;
   if (!chaos) return 1;
   if (CARD_TWISTS.includes(twist)) return CHAOS_WEIGHT.card;
   if (WILD_TWISTS.includes(twist)) return CHAOS_WEIGHT.wild;
@@ -458,8 +476,12 @@ export function partyRules(p: Pick<PartyState, "twist" | "pass" | "wildRank" | "
     case "communism":
       r.communism = true;
       break;
+    // The economy twists only touch the scoring.
     case "golden":
     case "lastTrick":
+    case "commune":
+    case "socialism":
+    case "capitalism":
       break;
   }
   return r;
@@ -492,7 +514,7 @@ export type PartyScoreInput = {
   trump: Suit | null;
   blankPenalty: number;
   darkHearts: boolean;
-  /** Scores before the round, by seat. Robin Hood needs them; nothing else does. */
+  /** Scores before the round, by seat. Robin Hood and the economy twists need them. */
   scores?: readonly number[];
 };
 
@@ -500,7 +522,7 @@ export type PartyScoreInput = {
  * Party scoring wraps classic scoring: tricks are re-weighted first, the classic deltas are
  * computed on those, the round's twist and any powerups adjust the result, and finally the
  * twists that move results between seats (guardian, team, nemesis, mirror, Robin Hood)
- * decide who actually takes which number.
+ * decide who actually takes which number. The economy twists go last, over the whole table.
  */
 export function partyDeltas(input: PartyScoreInput): number[] {
   const { party, seats, trump, blankPenalty, darkHearts } = input;
@@ -556,7 +578,20 @@ export function partyDeltas(input: PartyScoreInput): number[] {
       return out;
     }
   }
+  const pull = ECONOMY_PULL[party.twist];
+  if (pull !== undefined && input.scores) return levelScores(own, input.scores, pull);
   return own;
+}
+
+/**
+ * The economy twists: every seat at the table, in or out, ends the round `pull` of the way
+ * from where the round left it to the table's average, rounded to whole points. Returned
+ * as deltas on `scores`, so the usual overshoot rule still decides whether anyone won.
+ */
+export function levelScores(deltas: readonly number[], scores: readonly number[], pull: number): number[] {
+  const after = deltas.map((d, seat) => (scores[seat] ?? 0) + d);
+  const mean = after.reduce((sum, score) => sum + score, 0) / after.length;
+  return after.map((score, seat) => Math.round(score + (mean - score) * pull) - (scores[seat] ?? 0));
 }
 
 /** What the marked card's trick costs under this trump: the round's multiplier applies. */

@@ -303,7 +303,7 @@ function nextInSeat(state: RoundState, from: number): number {
   throw new Error("No seats in the round");
 }
 
-/** `scores` are the table's before the round; only Robin Hood reads them, and only a move can supply them. */
+/** `scores` are the table's before the round; Robin Hood and the economy twists read them, and only a move can supply them. */
 function scoreRound(state: RoundState, events: RoundEvent[], scores?: readonly number[]): void {
   if (state.party) {
     state.deltas = partyDeltas({

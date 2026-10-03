@@ -721,12 +721,24 @@
         "desc": "The first card of every trick is played face down and revealed once everyone has followed. Followers may play anything; trump, then the led suit, still decides."
       },
       "communism": {
-        "name": "Communism",
+        "name": "Expropriation",
         "desc": "What is yours is mine. After the discards, each player in turn is shown one to three random cards of another player, takes one, and hands one of their own back face down. The targets go round in a random circle: nobody is raided twice."
       },
       "voteTrump": {
         "name": "Vote for trump",
         "desc": "Nobody names the trump: everyone votes in turn, secretly, and the suit with the most votes wins. Ties go to the earliest vote. Nobody is committed to the round by it."
+      },
+      "commune": {
+        "name": "Communism",
+        "desc": "Rare. Play the round as usual; then every score at the table, played or not, is added up and shared out: everyone ends on the average, rounded."
+      },
+      "socialism": {
+        "name": "Socialism",
+        "desc": "Rare. Play the round as usual; then every score at the table moves halfway towards the average, rounded. The leader gives some back, the last player catches up."
+      },
+      "capitalism": {
+        "name": "Capitalism",
+        "desc": "Rare. Play the round as usual; then every score at the table moves half as far again away from the average, rounded. The leader pulls ahead, the last player falls further behind, and someone may reach 0."
       }
     },
     "golden": "×2 golden",

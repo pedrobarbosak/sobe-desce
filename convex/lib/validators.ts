@@ -102,6 +102,9 @@ export const twist = v.union(
   v.literal("blindLead"),
   v.literal("voteTrump"),
   v.literal("communism"),
+  v.literal("commune"),
+  v.literal("socialism"),
+  v.literal("capitalism"),
 );
 export const passDirection = v.union(v.literal("left"), v.literal("right"), v.literal("across"));
 export const powerup = v.union(v.literal("peek"), v.literal("curse"), v.literal("shield"));
