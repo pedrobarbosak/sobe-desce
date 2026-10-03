@@ -145,6 +145,16 @@ export function playOrder(dealerSeat: number, seatCount: number): number[] {
   return out;
 }
 
+/**
+ * Who deals the next round: one seat to the left, so the choice of trump goes round. A
+ * round where nobody named the trump (no trump, or a vote) keeps the dealer, since the seat
+ * on the dealer's left never got its choice and should be asked next time.
+ */
+export function nextDealer(dealerSeat: number, seatCount: number, previous: RoundRules | null): number {
+  if (previous?.noTrump || previous?.voteTrump) return dealerSeat % seatCount;
+  return (dealerSeat + 1) % seatCount;
+}
+
 /** The rules this round plays by. Classic unless a party twist says otherwise. */
 export function rulesFor(state: Pick<RoundState, "party">): RoundRules {
   return state.party ? partyRules(state.party) : CLASSIC_RULES;

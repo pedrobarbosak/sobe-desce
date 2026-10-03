@@ -30,6 +30,7 @@ import {
   offeredCards,
   raidVictim,
   levelScores,
+  nextDealer,
   twistWeight,
 } from "@/engine";
 
@@ -799,6 +800,15 @@ describe("team, nemesis, mirror, Robin Hood", () => {
     // Seat 0 (20) and seat 1 (5): written on the round so the table can say so.
     expect(s.party!.robinSwap).toEqual([0, 1]);
     expect(robinHoodPair(allIn([0, 0, 0, 0]).map((r, seat) => ({ seat, participated: r.decision === "in" })), undefined)).toBeNull();
+  });
+});
+
+describe("who deals next", () => {
+  it("moves the deal left, unless nobody named the trump: then the same seat is asked again", () => {
+    expect(nextDealer(3, 4, null)).toBe(0);
+    expect(nextDealer(1, 4, CLASSIC_RULES)).toBe(2);
+    const keeps = TWISTS.filter((twist) => nextDealer(1, 4, partyRules({ twist, pass: null, wildRank: null, markedCard: null })) === 1);
+    expect(keeps.sort()).toEqual(["noTrump", "voteTrump"]);
   });
 });
 

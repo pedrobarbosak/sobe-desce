@@ -7,6 +7,7 @@ import {
   awardPowerups,
   canCallDarkHearts,
   createRound,
+  nextDealer,
   playOrder,
   rngFromSeed,
   variantOf,
@@ -115,7 +116,7 @@ export async function setTurn(ctx: MutationCtx, roundId: Id<"rounds">, opts: Set
   await ctx.db.patch(roundId, { turnNonce: nonce, turnDeadline: undefined, timerId });
 }
 
-/** Deal a new round for the session (rotating the dealer after the first). */
+/** Deal a new round for the session (moving the dealer on after the first, see nextDealer). */
 export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): Promise<Id<"rounds">> {
   const before = await ctx.db.get(sessionId);
   if (!before || before.status !== "active") throw new Error("Session is not active");
@@ -123,17 +124,20 @@ export async function startRound(ctx: MutationCtx, sessionId: Id<"sessions">): P
   if (!game) throw new Error("Game missing");
   const session = await applyLeaving(ctx, before, game);
   const index = session.roundsPlayed;
-  const dealerSeat = index === 0 ? session.dealerSeat : (session.dealerSeat + 1) % session.seatCount;
+  const roundAt = (i: number) =>
+    ctx.db
+      .query("rounds")
+      .withIndex("by_session_index", (q) => q.eq("sessionId", sessionId).eq("index", i))
+      .unique();
+  const previous = index === 0 ? null : await roundAt(index - 1);
+  const dealerSeat = index === 0 ? session.dealerSeat : nextDealer(session.dealerSeat, session.seatCount, rulesOfDoc(previous?.party));
   const seed = randomSeed();
   // Party: the last three twists stay out of the draw, so the weather keeps changing. In
   // chaos only the last one does: the wild twists are few, and they are meant to come back.
   const chaos = game.config.chaos === true;
   const recentTwists: Twist[] = [];
   for (let back = 1; back <= (chaos ? 1 : 3) && index - back >= 0; back++) {
-    const earlier = await ctx.db
-      .query("rounds")
-      .withIndex("by_session_index", (q) => q.eq("sessionId", sessionId).eq("index", index - back))
-      .unique();
+    const earlier = back === 1 ? previous : await roundAt(index - back);
     if (earlier?.party) recentTwists.push(twistIdOf(earlier.party));
   }
   // Never let the blind window swallow the turn on a table with a short clock.

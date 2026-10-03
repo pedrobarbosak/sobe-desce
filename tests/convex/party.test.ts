@@ -116,6 +116,13 @@ describe("party tables", () => {
     const twists = rounds.sort((a, b) => a.index - b.index).map((r) => r.party!.twist);
     expect(twists.length).toBe(sessions[0]!.roundsPlayed);
     for (let i = 1; i < twists.length; i++) expect(twists[i]).not.toBe(twists[i - 1]);
+    // The deal moves left after every round, except one where nobody named the trump.
+    const ordered = rounds.sort((a, b) => a.index - b.index);
+    for (let i = 1; i < ordered.length; i++) {
+      const prev = ordered[i - 1]!;
+      const named = prev.party!.twist !== "noTrump" && prev.party!.twist !== "voteTrump";
+      expect(ordered[i]!.dealerSeat).toBe(named ? (prev.dealerSeat + 1) % 4 : prev.dealerSeat);
+    }
   });
 });
 
