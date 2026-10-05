@@ -181,6 +181,9 @@ and the deploy hung. Three things combined:
   (`convex/maintenance.ts`) ends sittings with no move in 12 hours and deletes one-off lobbies
   nobody dealt within a week.
 
+The general version, with the upstream issues and what to do about each, is in
+[CONVEX-SELF-HOSTING.md](CONVEX-SELF-HOSTING.md).
+
 Worth a glance now and then: `docker stats --no-stream` for the backend's memory, and the
 database size:
 
